@@ -1,0 +1,83 @@
+# ============================================================
+# ToyVerse Cloud — Docker Compose
+#
+# 默认：仅启动应用（使用 SQLite，零外部依赖）
+#        docker compose up -d
+#
+# 生产：应用 + PostgreSQL
+#        docker compose --profile postgres up -d
+#        （同时需把 .env 的 DATABASE_URL 指向 postgres 服务）
+# ============================================================
+
+name: toyverse-cloud
+
+services:
+  # ----------------------------------------------------------
+  # 应用服务（FastAPI + 内置前端静态托管）
+  # ----------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.backend
+    image: toyverse-cloud:0.1.0
+    container_name: toyverse-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      DEBUG: "false"
+      HOST: 0.0.0.0
+      PORT: "8000"
+      # SQLite 数据文件落在挂载卷中，保证 down/up 后数据仍在
+      DATABASE_URL: ${DATABASE_URL:-sqlite+aiosqlite:////data/toyverse.db}
+      STORAGE_LOCAL_ROOT: /data/storage
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    volumes:
+      - app_data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=5).status == 200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
+    networks:
+      - toyverse
+
+  # ----------------------------------------------------------
+  # PostgreSQL（可选，通过 --profile postgres 启用）
+  # ----------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: toyverse-postgres
+    profiles: ["postgres"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-toyverse_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-toyverse}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?PostgreSQL 密码未设置，请在 .env 中配置 POSTGRES_PASSWORD}
+      # 强制使用强密码，无默认值
+      PGDATA: /var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - toyverse
+
+volumes:
+  app_data:
+    name: toyverse-app-data
+  postgres_data:
+    name: toyverse-postgres-data
+
+networks:
+  toyverse:
+    name: toyverse
+    driver: bridge

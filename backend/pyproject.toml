@@ -1,0 +1,113 @@
+[project]
+name = "toyverse-cloud"
+version = "0.1.0"
+description = "多租户 AI 智能玩具 SaaS 平台 —— 覆盖客户开通、产品配置、下单、设备生成、工厂烧录、终端激活与 AI 运营的全生命周期管理"
+readme = "../README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+
+# 依赖统一由 requirements.txt / requirements-dev.txt 管理，
+# 此文件仅承载工具链配置（ruff / mypy / pytest），避免双份依赖声明。
+
+# ============================================================
+# Ruff —— 代码检查与格式化
+# ============================================================
+[tool.ruff]
+target-version = "py312"
+line-length = 110
+src = ["app", "tests"]
+extend-exclude = [".venv", "alembic/versions"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+    "N",    # pep8-naming
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff-specific
+]
+ignore = [
+    "E501",   # 行长度由 formatter 处理
+    "B008",   # FastAPI 依赖注入惯用 Depends() 作为默认值
+    "N818",   # 异常类命名不强制 Error 后缀
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]        # 测试中允许 assert
+"alembic/**" = ["E501", "N999"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+combine-as-imports = true
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+# ============================================================
+# mypy —— 静态类型检查
+# ============================================================
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
+exclude = ["alembic/versions"]
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+
+# ============================================================
+# pytest
+# ============================================================
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+]
+markers = [
+    "unit: 单元测试（无 IO）",
+    "integration: 集成测试（含数据库与 API）",
+    "e2e: 端到端全闭环测试",
+    "tenant_isolation: 租户隔离验证",
+]
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning:passlib.*",
+]
+
+# ============================================================
+# coverage
+# ============================================================
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/main.py", "*/alembic/*", "*/tests/*", "*/__init__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@abstractmethod",
+    'if __name__ == "__main__":',
+]
+show_missing = true

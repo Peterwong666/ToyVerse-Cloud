@@ -1,0 +1,104 @@
+# ============================================================
+# ToyVerse Cloud — .gitignore
+# ============================================================
+
+# ---------- 密钥与本地配置（绝不提交） ----------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+.mcp-auth/
+
+# ---------- ★ 学习手册：不上传 GitHub（用户硬性要求） ----------
+learning/
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# 虚拟环境
+.venv/
+venv/
+ENV/
+env/
+.python-version
+
+# 测试与类型检查缓存
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.hypothesis/
+.tox/
+.nox/
+
+# ---------- 数据库与运行时数据 ----------
+data/
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# ---------- Node（前端无构建，仅防误装） ----------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-debug.log*
+.pnpm-store/
+
+# ---------- 遗留构建产物（参考站 JAR 等，仅本地参考，不入库） ----------
+*.jar
+*.war
+*.bak
+*.bak.*
+BOOT-INF/
+
+# ---------- 日志与临时文件 ----------
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+*.swp
+*~
+
+# ---------- 编辑器与操作系统 ----------
+.vscode/
+.idea/
+*.iml
+*.sublime-*
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- 构建/部署产物 ----------
+deploy/dist/
+frontend/dist/
+*.tar.gz
