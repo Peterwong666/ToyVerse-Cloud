@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import os
 import secrets
 from functools import lru_cache
 from pathlib import Path
@@ -16,19 +17,75 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # ---------------------------------------------------------------------------
 # 路径解析
+#
+# ★ 为什么这里不能只靠「`__file__` 上溯几级」推算
+# ------------------------------------------------
+# 本地布局是 `<repo>/backend/app/core/config.py`（上溯三级 = 仓库根），
+# 而**容器里的布局是 `/app/app/core/config.py`——没有 `backend/` 这一层**
+# （镜像把 `backend/app` 直接拷成 `/app/app`）。同样上溯三级会数到 `/`，
+# 于是 `FRONTEND_ROOT` 变成 `/frontend`：静态资源挂载被静默跳过，
+# **整个 UI 全部 404，而 API 一切正常**（实测踩到：启动日志里只有一条
+# 「前端目录不存在」的 WARNING，直到跑冒烟才发现）。
+#
+# 因此改为「环境变量 → 本地布局的推算 → 向上找标记文件」三级兜底：
+# 显式配置优先，其次兼容既有本地布局，最后靠标记文件（`frontend/index.html`
+# 或 `backend/app`）把两种布局都认出来。
 # ---------------------------------------------------------------------------
 
-#: `backend/app/core/config.py` → 上溯三级即仓库根目录
-REPO_ROOT: Path = Path(__file__).resolve().parents[3]
 
-#: 后端目录
+def _guess_repo_root(start: Path) -> Path:
+    """从 ``start`` 向上找仓库根。
+
+    判据：既含 ``backend/app``（源码布局）或含 ``frontend/index.html``（资产布局）。
+    两级都找不到时回退到「按本地布局上溯三级」，保证行为不比原来更差。
+    """
+    for candidate in (start, *start.parents):
+        if (candidate / "backend" / "app").is_dir():
+            return candidate
+    for candidate in (start, *start.parents):
+        if (candidate / "frontend" / "index.html").is_file():
+            return candidate
+    return start.parents[2] if len(start.parents) > 2 else start
+
+
+#: 后端目录（`backend/` 或容器里的 `/app`）
 BACKEND_ROOT: Path = Path(__file__).resolve().parents[2]
 
-#: 数据目录（SQLite 文件与本地对象存储都落在这里）
-DATA_ROOT: Path = REPO_ROOT / "data"
+#: 仓库根目录（本地为仓库根；容器里为 `/app`，即应用工作目录）
+REPO_ROOT: Path = _guess_repo_root(Path(__file__).resolve())
 
-#: 前端静态资源目录
-FRONTEND_ROOT: Path = REPO_ROOT / "frontend"
+#: 数据目录（SQLite 文件与本地对象存储都落在这里）。
+#:
+#: ★ 必须可配置：容器里 `/app` 归 root 所有、进程以非 root 运行，
+#: 默认的 `<repo>/data`（= `/app/data`）**建不出来**（PermissionError）。
+#: 而「用非 root 跑」是安全底线，不能为了省事改成 root。
+#: 因此容器部署把 `DATA_DIR` 指向可写卷（compose 里设为 `/data`，
+#: 与 `DATABASE_URL` / `STORAGE_LOCAL_ROOT` 保持同一处）。
+DATA_ROOT: Path = Path(os.environ.get("DATA_DIR", "").strip() or (REPO_ROOT / "data"))
+
+#: 存储根目录（``STORAGE_LOCAL_ROOT`` 的相对路径以 DATA_ROOT 为基准）
+DATA_ROOT_EXPLICIT = bool(os.environ.get("DATA_DIR", "").strip())
+
+#: 前端静态资源目录。
+#:
+#: 环境变量 ``FRONTEND_DIR`` 可覆盖（容器与自定义部署建议显式指定），
+#: 未设置时在候选目录里取第一个真实存在的：
+#: ``<repo>/frontend``（本地）与 ``/app/frontend``（镜像布局）。
+def _resolve_frontend_root() -> Path:
+    """定位前端静态资源目录（环境变量 → 候选目录 → 兜底默认值）。"""
+    override = os.environ.get("FRONTEND_DIR", "").strip()
+    if override:
+        return Path(override).expanduser()
+
+    candidates = (REPO_ROOT / "frontend", BACKEND_ROOT.parent / "frontend")
+    for candidate in candidates:
+        if (candidate / "index.html").is_file():
+            return candidate
+    # 都不存在时返回首选路径：挂载逻辑会打一条明确的 WARNING，便于定位
+    return candidates[0]
+
+
+FRONTEND_ROOT: Path = _resolve_frontend_root()
 
 
 def _env_files() -> tuple[Path, ...]:
@@ -118,7 +175,20 @@ class Settings(BaseSettings):
     FACTORY_ADMIN_NICKNAME: str = "工厂管理员"
 
     # ---------------- 演示数据 ----------------
+    #: 是否写入演示数据（租户 / 模板 / 客户产品 / 订单 / 设备 / AI 配置 …）
     SEED_DEMO_DATA: bool = True
+    #: 是否**在应用启动时**写入演示数据。
+    #:
+    #: ★ 多 worker 部署必须设为 false。应用的 lifespan 会**每个 worker 各执行一次**，
+    #: 于是 `--workers 4` 会有 4 个进程同时往同一个 SQLite 里灌同一批种子：
+    #: 通常只有一个能成功，其余报错（实测：容器启动日志里 1 次成功 + 3 次
+    #: 「写入演示数据失败」）。虽然看起来「数据最后还是有了」，但那是**偶然**——
+    #: 赢得竞争的 worker 可能只写完一半。
+    #:
+    #: 正确做法：容器入口脚本在 fork 之前执行一次
+    #: `python -m app.db.seed`（见 `deploy/Dockerfile.backend` 的 CMD），
+    #: 并把本开关设为 false。单进程开发（`make dev`）保持 true 即可。
+    SEED_AT_STARTUP: bool = True
     DEMO_QR_SALT: str = "toyverse-demo-salt"
 
     # ---------------- 二维码 ----------------
@@ -429,18 +499,32 @@ def ensure_runtime_dirs() -> None:
     包括本地对象存储根目录，以及 SQLite 数据库文件所在目录。
     供应用启动与 Alembic 迁移共同调用——两者都需要这些目录已存在。
     """
-    DATA_ROOT.mkdir(parents=True, exist_ok=True)
+    try:
+        DATA_ROOT.mkdir(parents=True, exist_ok=True)
 
-    if settings.STORAGE_BACKEND == "local":
-        settings.storage_root.mkdir(parents=True, exist_ok=True)
+        if settings.STORAGE_BACKEND == "local":
+            settings.storage_root.mkdir(parents=True, exist_ok=True)
 
-    if settings.is_sqlite:
-        url = settings.resolved_database_url
-        prefix = "sqlite+aiosqlite:///"
-        if url.startswith(prefix):
-            db_file = Path(url[len(prefix) :])
-            if db_file.parent:
-                db_file.parent.mkdir(parents=True, exist_ok=True)
+        if settings.is_sqlite:
+            url = settings.resolved_database_url
+            prefix = "sqlite+aiosqlite:///"
+            if url.startswith(prefix):
+                db_file = Path(url[len(prefix) :])
+                if db_file.parent:
+                    db_file.parent.mkdir(parents=True, exist_ok=True)
+    except PermissionError as exc:
+        # 把「原始 traceback」升级成「可执行的报错」：
+        # 这类失败 100% 发生在容器/自定义部署里，而根因永远是「目录不可写」，
+        # 报错里直接给出该改哪个变量比让人去读堆栈有用得多。
+        raise InsecureConfigurationError(
+            "数据目录不可写，服务拒绝启动：\n"
+            f"  - 尝试创建的目录：{exc.filename}\n"
+            f"  - 当前 DATA_ROOT：{DATA_ROOT}\n"
+            "修复方式：把环境变量 DATA_DIR 指向进程可写的目录"
+            "（容器部署通常挂载一个卷，例如 DATA_DIR=/data），"
+            "或调整该目录的属主与权限。\n"
+            "注意：不要为了绕过它而用 root 运行服务——非 root 运行是安全底线。"
+        ) from exc
 
 
 settings = get_settings()

@@ -1,0 +1,164 @@
+# ============================================================
+# ToyVerse Cloud — 持续集成
+#
+# 与本地 `make check` 的一致性
+# ---------------------------
+# 每一步都对应一个本地 Makefile 目标，命令**逐字一致**（只是把 `backend/.venv/bin/python`
+# 换成 CI 的 `python`）。本地能过、CI 也一定能过——避免「CI 红了但本地复现不出来」。
+#
+# 为什么分成多个 job 而不是一个大 job
+# ----------------------------------
+# 一个是**反馈速度**：lint 20 秒、mypy 40 秒、测试 3 分钟——拆开后 lint 挂了
+# 不必等测试跑完就能看到。另一个是 GitHub 的 6 小时 job 上限与并发额度。
+#
+# 为什么没有单独的「docker」job：镜像构建包含 pip 安装全部依赖，
+# 在 CI 上是分钟级开销；本项目的 Dockerfile 只在依赖清单变化时才需要重验，
+# 因此放到「发布/部署」流程里更合适（见 deploy/.env.example 的部署自检）。
+# 这里只做**代码与契约**的检查，保证每次提交的质量下限。
+# ============================================================
+
+name: CI
+
+on:
+  push:
+    branches: [master, "nightly/**"]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+# 同一分支的重复触发只保留最新一次（推送密集时不必排队跑旧提交）
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  # ----------------------------------------------------------
+  # 1) 代码规范与静态类型
+  # ----------------------------------------------------------
+  lint:
+    name: 代码规范（ruff + mypy strict）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+
+      - name: 安装依赖
+        run: pip install -r backend/requirements-dev.txt
+
+      # 命令与 Makefile 的 lint / typecheck 目标一致
+      - name: ruff（含 tests 与 scripts）
+        run: cd backend && python -m ruff check app tests ../scripts
+
+      - name: mypy strict
+        run: cd backend && python -m mypy app
+
+  # ----------------------------------------------------------
+  # 2) 测试（单元 + 集成 + 端到端）
+  # ----------------------------------------------------------
+  test:
+    name: 测试（pytest）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+
+      - name: 安装依赖
+        run: pip install -r backend/requirements-dev.txt
+
+      # ❌ 刻意**不**创建 `.env`：
+      #   测试必须能在「什么都不配」的干净环境跑通（克隆即跑的前提）。
+      #   测试夹具自带环境变量与临时数据库（见 backend/tests/conftest.py）。
+      - name: 运行全部测试
+        run: cd backend && python -m pytest -q
+
+      - name: 端到端全闭环
+        run: cd backend && python -m pytest tests/e2e -q
+
+  # ----------------------------------------------------------
+  # 3) 契约一致性（OpenAPI 快照）
+  # ----------------------------------------------------------
+  contract:
+    name: 契约一致性（OpenAPI 快照）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+
+      - name: 安装依赖
+        run: pip install -r backend/requirements-dev.txt
+
+      # 快照过期 = 有人改了端点却忘了 `make openapi`。
+      # 这类差异必须有人**显式确认**（前端按契约对接，悄悄变了就是破坏性变更）。
+      - name: 校验快照与实现一致
+        run: python scripts/export_openapi.py --check
+        env:
+          # 导出契约需要能构造 app；给一组强口令避免启动期安全校验干扰
+          PLATFORM_ADMIN_PASSWORD: "Ci-Only-Str0ng#Pass1"
+          MERCHANT_ADMIN_PASSWORD: "Ci-Only-Str0ng#Pass2"
+          FACTORY_ADMIN_PASSWORD: "Ci-Only-Str0ng#Pass3"
+          JWT_SECRET_KEY: "ci-only-secret-key-at-least-32-bytes-long-000000"
+
+  # ----------------------------------------------------------
+  # 4) 前端导入契约（零构建 ES Module）
+  # ----------------------------------------------------------
+  frontend:
+    name: 前端导入契约（ES Module）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # 本项目前端零构建、无 npm 依赖，「构建」这一步就是**静态校验**：
+      # 每个 import 的路径存在、且具名导出确实被导出。
+      # 少了它，一个写错的 import 只有到浏览器里才报错（且是运行时白屏）。
+      - name: 校验 ES Module 导入
+        run: python scripts/verify_frontend_imports.py
+
+  # ----------------------------------------------------------
+  # 5) 敏感信息扫描（弱口令 / 硬编码密钥 / 敏感文件入库）
+  # ----------------------------------------------------------
+  secrets:
+    name: 敏感信息扫描
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 扫描器以 `git ls-files` 为准，需要完整历史之外的索引即可
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # 对应 P10 的安全验收：确认无任何硬编码弱口令（特别是历史弱口令
+      # `admin@2024`），且 `.env` / `data/` / `learning/` 没有被 git 跟踪。
+      - name: 扫描弱口令与敏感信息
+        run: python scripts/scan_secrets.py

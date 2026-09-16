@@ -110,8 +110,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("API 文档：http://%s:%s/docs", settings.HOST, settings.PORT)
     logger.info("=" * 68)
 
-    # 演示数据（幂等，可安全重复执行）
-    if settings.SEED_DEMO_DATA:
+    # 演示数据（幂等，可安全重复执行——但**不能**多进程并发执行）
+    #
+    # ⚠️ lifespan 会**每个 worker 各跑一次**。多 worker 场景下这里必须关掉
+    # （`SEED_AT_STARTUP=false`），改由容器入口脚本 fork 之前执行一次；
+    # 否则 N 个进程会同时往同一个 SQLite 灌种子，只有偶然赢的那个能写完整批。
+    if settings.SEED_DEMO_DATA and settings.SEED_AT_STARTUP:
         from app.db.seed import seed_demo_data
 
         try:

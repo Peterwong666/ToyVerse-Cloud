@@ -392,26 +392,64 @@
 
 ## P10 部署与质量保障 ★
 
-- [ ] `deploy/Dockerfile.backend`（多阶段构建，非 root 运行）
-- [ ] `deploy/nginx.conf`（SPA 路由回退 + API 反代 + 静态资源缓存策略）
-- [ ] `deploy/docker-compose.yml`（应用 + PostgreSQL；SQLite 模式亦可跑）
-- [ ] `deploy/.env.example`
-- [ ] `scripts/seed_demo.py` — 幂等演示数据（租户 / 云服务商 / 模板 / 客户产品 / 订单 / 设备 / AI 配置）
-- [ ] `scripts/export_openapi.py` — 导出契约快照到 `tests/contract/openapi_snapshot.json`
-- [ ] `scripts/smoke_test.sh` — 全端点冒烟
-- [ ] `scripts/gen_qrcodes.py` — 生成演示二维码清单
-- [ ] `scripts/reset_db.sh`、`scripts/dev.sh`
-- [x] 🔑 `tests/e2e/test_full_loop.py` — 全闭环：客户开通 → 模板 → 授权 → 客户产品 → 下单 → 审核 → 生成设备 → 工厂烧录 → 抽检 → 出货 → 分配 → 终端扫码激活 → AI 对话
-  > **已在本次夜间任务中提前交付**（原属 P10，但对它是 P0–P8 九个阶段的最终验证，独立于 P9，故提前写）。
-  > 一条测试串完主干，逐环断言；含脱敏红线（工厂端响应不得出现客户名/联系方式/金额）、
-  > `SHIPPED → ALLOCATED` 分配边、激活绑定、SSE 对话分块与会话消息落库、
-  > 以及设备时间线七种事件（GENERATED / IN_STOCK / PRODUCING / PRODUCED / SHIPPED / ALLOCATED / BOUND）。
-  > **一次通过**，`make test-e2e` 纳入回归。
-- [ ] GitHub Actions CI（lint + typecheck + test + openapi 快照比对）
-- [ ] 🔑 安全验收：**确认无任何硬编码弱口令**（特别是不含 `admin@2024`）；`.env` 强密码必填
-- [ ] 验证：`docker compose up -d` 后 `make smoke` 全绿；`down && up` 数据保留
+- [x] `deploy/Dockerfile.backend`（多阶段构建，非 root 运行）
+- [x] `deploy/nginx.conf`（SPA 路由回退 + API 反代 + 静态资源缓存策略）
+- [x] `docker-compose.yml`（应用 + Nginx 前置 + PostgreSQL 三个 profile；SQLite 默认可跑）
+  > **路径与 todolist 的差异（有意）**：编排文件放在**仓库根**而不是 `deploy/`。
+  > Compose 的三个相对路径（`build.context`、`env_file: .env`、`${VAR}` 插值读的
+  > `.env`）**都以 compose 文件所在目录为基准**——放根目录时三者自然成立，
+  > 放 `deploy/` 就要写 `..`/`../.env`。构建资产仍在 `deploy/`（Dockerfile / nginx.conf）。
+- [x] `deploy/.env.example` —— **生产部署清单**（不是开发模板的副本）：必须修改的项、
+  「不安全就拒绝启动」的三类硬校验、容器编排专属变量（`APP_DATABASE_URL` / `DATA_DIR` /
+  `FRONTEND_DIR` / `WORKERS`）、部署后自检与回滚步骤
+- [x] `scripts/seed_demo.py`、`scripts/export_openapi.py`（P0/P1 已交付，本阶段复核可用）
+- [x] 🔑 `scripts/smoke_test.sh` — **全端点冒烟**：按真实角色登录后逐端点请求（57 项断言），
+  只读为主（例外是两个幂等写），带**最低断言数守卫**（0 断言时判定脚本异常而非「通过」）
+- [x] `scripts/gen_qrcodes.py` — 演示二维码清单（PNG + CSV/JSON manifest，载荷经 `qrcode_service` 单一实现）
+- [x] `scripts/reset_db.sh`（先备份到 `data/backups/<时间戳>/`，需二次确认，`--yes` 供自动化）、`scripts/dev.sh`
+- [x] 🔑 `scripts/scan_secrets.py` — 敏感信息扫描：弱口令 / 硬编码密钥 / **出参模型里的明文密钥字段** /
+  敏感文件入库（`.env`、`data/`、`learning/`）
+- [x] `backend/.dockerignore`（缺失时构建上下文含 229MB 的 `.venv`，且 `.env` 有进镜像的潜在风险）
+- [x] GitHub Actions CI（`.github/workflows/ci.yml`）：lint / mypy / test / e2e / 契约快照 /
+  前端导入契约 / 敏感信息扫描，五个 job 并行
+- [x] 🔑 安全验收（**实测通过**）：扫描 236 个被跟踪文件，**0 命中**；`.env` 未被 git 跟踪；
+  弱口令扫描器另有「规则确能命中」的自测（用一个临时文件直调规则函数）
+- [x] 验证（**全部实测通过**）：`docker compose up -d --build` → 容器 healthy；
+  `make smoke` **57/57 通过**（直连与经 Nginx 各一次）；`down && up` 后数据**完全一致**
 
-**验收**：一键起服务成功；全端点冒烟通过；数据持久化正常；弱口令扫描通过。
+**验收**：一键起服务成功；全端点冒烟通过；数据持久化正常；弱口令扫描通过。**四项全部实测达成。**
+
+**本阶段由「真跑一遍 Docker」发现并修复的 12 个真问题**（全部属于「文档写了但实际跑不通」：
+
+| # | 问题 | 为什么集成测试发现不了 |
+|---|---|---|
+| 1 | `make up` 是坏的：Makefile `cd deploy && docker compose up`，而 compose 在仓库根 | 只跑 `make test` 不会执行 Makefile 的 docker 目标 |
+| 2 | nginx 的 WebSocket location 写成 `/api/v1/ws/`，真实路径是 `/ws/miniapp/chat` → 握手落到 SPA 回退、返回 HTML | 本地不经 nginx，WS 直连 8000 端口一切正常 |
+| 3 | nginx 对**未指纹化**的 JS/CSS 声明 `immutable` 强缓存 1 年 → 发版后用户卡在旧代码且无法失效 | 本地开发不走缓存 |
+| 4 | compose 的 `DATABASE_URL: ${DATABASE_URL:-…}` 读到了开发机 `.env` 的**相对路径** → SQLite 落到镜像层而非卷，`down && up` 丢数据 | 容器不重建时看不出差别 |
+| 5 | 缺 `.dockerignore` → 构建上下文 229MB，且 `.env` 有被 `COPY . .` 带进镜像的潜在风险 | 构建慢/泄漏都只在构建时暴露 |
+| 6 | `POSTGRES_PASSWORD: ${…:?}` 在**未启用该 profile** 时也参与插值 → 没配 PostgreSQL 口令的 `.env` 让整个 compose 不可用 | 同上 |
+| 7 | `--workers 4` 下**每个 worker 各播种一次** → 4 进程并发写同一 SQLite（实测 1 成功 3 失败），且赢得竞争的 worker 可能只写一半 | 本地 `make dev` 是单进程 |
+| 8 | `FRONTEND_ROOT` 按「`__file__` 上溯三级」推算 → 容器布局没有 `backend/` 层，数到了 `/` → **整个 UI 404 而 API 正常**，日志只有一条 WARNING | 本地布局恰好是三级 |
+| 9 | `DATA_ROOT` 不可配置 + 进程非 root → 容器启动即 `PermissionError: /app/data` 崩溃循环 | 本地开发目录可写 |
+| 10 | nginx 缺 `/login`（它是**应用路由**不是磁盘文件）→ 经 nginx 访问登录页 404 | 直连时由 FastAPI 提供 |
+| 11 | `smoke_test.sh` 的 `json_get` 用 heredoc 读程序、又想从 stdin 读响应体 → 取值恒为空，**登录永远失败**（而同一口令用 curl 直连成功） | 脚本自身没跑过 |
+| 12 | 同一脚本在**误删计数函数**后仍打印「0 通过 / 全部通过」——**会静默通过的检查比没有检查更危险** | 只有真跑并核对断言数才会发现 |
+
+**已知局限**：
+1. **CI 未在真实 GitHub 上跑过**（本机无 remote，无法推送到 Actions）。`ci.yml` 的命令与本地
+   `make check` 逐字一致，但「YAML 语法 + 表达式」只做了本地静态审查，**首次推送后需要实跑确认**。
+2. **未在 CI 里构建镜像**：镜像构建含 pip 全量安装（分钟级），本阶段把它留在部署流程而非每次 CI
+   （理由写在 `ci.yml` 的注释里）。
+3. **`docker compose --profile postgres` 只验证了配置可解析**，未真跑 PostgreSQL 实例；
+   `app.py` 到 asyncpg 的连接串与实际迁移未在 PG 上执行过（SQLite 全链路已实测）。
+4. **Nginx 只验证了 HTTP 与 WebSocket 转发**，未验证 TLS（配置里预留了 80→443 的注释段）、
+   未验证多实例负载均衡（`upstream` 只有一个 server）。
+5. **`scripts/reset_db.sh` 的备份策略是「同盘备份」**：宿主机磁盘故障时备份与数据一起丢，
+   生产应改用异机/对象存储备份。
+6. 容器内以 4 个 uvicorn worker 运行，而 **SQLite 的写并发能力有限**：演示与轻负载没问题，
+   真实多租户并发写应切 PostgreSQL（compose 已提供 profile）。
+7. **冒烟脚本只覆盖读路径**（+2 个幂等写）：写路径的验证依赖 `make test`（隔离测试库）。
 
 ---
 

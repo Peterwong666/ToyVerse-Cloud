@@ -66,5 +66,13 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=5).status == 200 else 1)"
 
-# 启动前先执行数据库迁移，再拉起服务
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host ${HOST} --port ${PORT} --workers 4"]
+# 启动顺序：迁移 → 播种（**一次**）→ 多 worker 起服务
+#
+# 为什么播种放在这里而不是交给应用启动：
+# uvicorn 的 `--workers N` 会 fork 出 N 个进程，**每个进程都会执行 lifespan**，
+# 于是「应用内播种」会变成 N 个进程同时往同一个 SQLite 灌同一批种子
+# （实测：1 个成功、其余报「写入演示数据失败」）。数据最后看起来是有了，
+# 但赢得竞争的那个可能只写完一半——这是**偶发**而不是确定性行为。
+# 入口脚本在 fork 之前执行一次，才是确定性的做法；应用侧对应地把
+# `SEED_AT_STARTUP` 关掉（见 compose 的 environment）。
+CMD ["sh", "-c", "alembic upgrade head && python -m app.db.seed && uvicorn app.main:app --host ${HOST} --port ${PORT} --workers ${WORKERS:-4}"]

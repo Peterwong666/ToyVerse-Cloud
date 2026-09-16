@@ -1,12 +1,22 @@
 # ============================================================
 # ToyVerse Cloud — Docker Compose
 #
-# 默认：仅启动应用（使用 SQLite，零外部依赖）
-#        docker compose up -d
+#   docker compose up -d                        应用（SQLite，零外部依赖）
+#   docker compose --profile nginx up -d        应用 + Nginx 前置（TLS/缓存/多实例）
+#   docker compose --profile postgres up -d     应用 + PostgreSQL
+#   docker compose --profile nginx --profile postgres up -d   三者叠加
 #
-# 生产：应用 + PostgreSQL
-#        docker compose --profile postgres up -d
-#        （同时需把 .env 的 DATABASE_URL 指向 postgres 服务）
+# 为什么 compose 文件放在**仓库根**而不是 deploy/
+# ------------------------------------------------
+# 三个相对路径都以「compose 文件所在目录」为基准：
+#   * `build.context`（需要 `./backend` 与 `./frontend`）
+#   * `env_file: .env`（部署者按 README 在根目录 `make env` 生成）
+#   * Compose 自身的 `.env` 插值（`${VAR:-default}` 也读这个文件）
+# 放在根目录时三者都自然成立；放进 `deploy/` 就要写成 `..`/`../.env`，
+# 那是一类「换个目录执行就失效」的易错配置。Makefile 的 up/down 也据此
+# 从根目录执行（见 Makefile 的说明）。
+# 应用镜像仍在 `deploy/Dockerfile.backend`，Nginx 配置仍在 `deploy/nginx.conf`
+# ——「编排入口在根、构建资产在 deploy/」是刻意分工。
 # ============================================================
 
 name: toyverse-cloud
@@ -22,16 +32,45 @@ services:
     image: toyverse-cloud:0.1.0
     container_name: toyverse-app
     restart: unless-stopped
+    # .env 允许缺失：缺失时由**应用自身**的启动期安全校验给出可执行的报错
+    # （逐项列出哪个口令为空/过弱），比 compose 的一句「env file not found」
+    # 更有指导性。首次部署请先 `make env` 再由部署者填写强口令。
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
-      APP_ENV: ${APP_ENV:-production}
+      # 默认 development：与 `.env.example` 一致，保证「克隆即跑」。
+      # 上生产要显式设 APP_ENV=production（届时启动期会强制：强口令、
+      # 禁用 SEED_DEMO_DATA、禁用 mock 短信/支付通道）——清单见 deploy/.env.example。
+      APP_ENV: ${APP_ENV:-development}
       DEBUG: "false"
       HOST: 0.0.0.0
       PORT: "8000"
-      # SQLite 数据文件落在挂载卷中，保证 down/up 后数据仍在
-      DATABASE_URL: ${DATABASE_URL:-sqlite+aiosqlite:////data/toyverse.db}
+      # ★ 容器内的数据库地址用**独立的变量名** `APP_DATABASE_URL`，
+      # 刻意不复用 `.env` 里的 `DATABASE_URL`：
+      # 开发机上的 `DATABASE_URL` 通常是**相对路径**
+      # （`sqlite+aiosqlite:///./data/toyverse.db`），一旦被 `${DATABASE_URL}`
+      # 插值带进容器，SQLite 文件就会落到镜像层 `/app/data/` 而不是挂载卷
+      # `/data/`——容器重建即丢数据，而「down && up 数据保留」正是本阶段的验收项。
+      # 这个坑在本地看起来一切正常（因为容器里也能写），只有重建容器时才暴露。
+      #
+      # 切 PostgreSQL：把 APP_DATABASE_URL 设为
+      #   postgresql+asyncpg://toyverse:<密码>@postgres:5432/toyverse_dev
+      # 并同时启用 --profile postgres（见 deploy/.env.example）。
+      DATABASE_URL: ${APP_DATABASE_URL:-sqlite+aiosqlite:////data/toyverse.db}
       STORAGE_LOCAL_ROOT: /data/storage
+      # 显式指定前端目录：镜像布局是 /app/app/...（没有 backend/ 这一层），
+      # 靠「__file__ 上溯几级」推算会数到 /，导致 UI 静默 404（已踩过）。
+      # 代码里已做三级兜底，这里再显式声明一次——部署配置不该依赖推算。
+      FRONTEND_DIR: /app/frontend
+      # 可写数据目录：容器里 /app 归 root、进程以非 root 运行，
+      # 默认的 <repo>/data（= /app/data）建不出来。指向挂载卷。
+      DATA_DIR: /data
+      # 播种已由镜像入口脚本在 fork 前执行一次（见 deploy/Dockerfile.backend），
+      # 因此这里必须关掉「每 worker 各播一次」的启动期播种。
+      SEED_AT_STARTUP: "false"
+      # uvicorn worker 数（按 CPU 核数与 SQLite 写并发权衡；SQLite 下不建议调大）
+      WORKERS: ${WORKERS:-4}
     ports:
       - "${APP_PORT:-8000}:8000"
     volumes:
@@ -56,8 +95,16 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-toyverse_dev}
       POSTGRES_USER: ${POSTGRES_USER:-toyverse}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?PostgreSQL 密码未设置，请在 .env 中配置 POSTGRES_PASSWORD}
-      # 强制使用强密码，无默认值
+      # ★ 这里刻意用**空默认值**而不是 `${POSTGRES_PASSWORD:?…}`：
+      # Compose 的变量插值是**整个文件**进行的，与 profile 是否启用无关——
+      # 用 `:?` 强制要求会让「只想跑默认（SQLite）模式」的用户也直接起不来，
+      # 报错还指向一个他根本没打算用的服务。这是实测踩到的坑。
+      #
+      # 改用空默认后，**失败方向仍然是安全的**：启用 postgres profile 却忘了
+      # 配置口令时，postgres:16 官方镜像自己会拒绝初始化并打印
+      # 「Database is uninitialized and superuser password is not specified」
+      # —— 失败发生在数据库侧、信息明确，且绝不会用一个空口令静默启动。
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       PGDATA: /var/lib/postgresql/data
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
@@ -68,6 +115,37 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    networks:
+      - toyverse
+
+  # ----------------------------------------------------------
+  # Nginx 前置（可选，通过 --profile nginx 启用）
+  #
+  # 什么时候需要它：TLS 终止、静态资源缓存、多实例负载均衡、
+  # 或者把 UI 与 API 收敛到同一个 80/443 入口。
+  # 不需要时（默认）由应用内置的静态托管直接提供 UI。
+  # ----------------------------------------------------------
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: toyverse-nginx
+    profiles: ["nginx"]
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "${NGINX_PORT:-8080}:80"
+    volumes:
+      # 只读挂载：Nginx 直接托管前端静态资源（零构建产物就是这些文件），
+      # 因此镜像不必重新打包一份前端
+      - ./frontend:/app/frontend:ro
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
     networks:
       - toyverse
 

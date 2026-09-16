@@ -1383,3 +1383,14 @@ def seed_summary() -> dict[str, Any]:
         ],
         "seededAt": utcnow().isoformat(),
     }
+
+
+if __name__ == "__main__":
+    # 供容器入口脚本调用：`python -m app.db.seed`
+    #
+    # 为什么需要它：镜像里只复制了 `backend/app`（不含 `scripts/`），而播种
+    # 必须在**多 worker fork 之前**执行一次——`scripts/seed_demo.py` 进不了镜像，
+    # 于是把可执行入口放在模块自身，避免为了播种把整个 scripts 目录也拷进去。
+    import asyncio as _asyncio
+
+    _asyncio.run(seed_demo_data())

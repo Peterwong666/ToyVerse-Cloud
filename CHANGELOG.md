@@ -121,7 +121,68 @@
 - **演示数据**：4G 客户产品 `CP-T001-4G`、t-001 的 3 个流量套餐、2 台「**已分配待激活**」演示设备（4G / Wi-Fi 各一台），以及把两个演示产品**显式配成离线模拟引擎**的 AI 配置——没有它，两条激活链路都会按 ADR-07 正确返回 503，演示不出流程本身（未配置的产品依然 503，安全失败行为仍可观测）
 - **测试**：新增 `tests/integration/test_activation.py`（20 条），测试总数 737 → **757**
 
+**P9 AI 配置与运营看板**
+
+- **数据层**：Alembic `0015_ops_metrics_ota`（`metrics_daily` / `metrics_hourly` / `metrics_region` / `content_hot_ranking` / `content_items` / `ota_packages` / `ota_records`）+ `devices.region`（地域分布的数据源）+ `dialogue_messages.content_item_id`（内容热度榜的数据源）
+  - 四张指标表都把 `client_product_id` 做进**唯一键**：遗留缺陷 P-08「运营数据全局共享」的根因就是聚合时丢了产品维度，让「漏掉它」在表结构上不成立
+  - `content_hot_ranking` 存**标题快照**：内容下架或改名后，历史排行仍显示当时的名字，复盘不会看到空标题
+- **对象存储抽象** `app/core/storage.py`：`LocalStorage`（本地磁盘，目录结构即 key 层级）+ `S3Storage`（**显式安全失败**，不假装可用）；`_safe_key` 是**唯一的路径拼接入口**（拒绝绝对路径、`..`、空段），杜绝原型的路径穿越漏洞（附录 B 同源问题）
+- **商户端 AI 配置**（26 个端点）：供应商 / 提示词与采样参数 / 角色 / 音色 / **内容安全三开关**，**分区独立保存**；`temperature` 库里存 ×100 整数、出入参换算 0–2 小数
+  - `/role` 对 Wi-Fi 产品 409：**Wi-Fi 方案的对话角色由厂商侧智能体配置，平台不覆盖**（`roleSupported` / `roleUnsupportedReason` 一并下发，前端直接禁用该分区）
+  - 供应商清单**只回「是否已配置」布尔，绝不含密钥或片段**——延续 P3 的密钥保护口径
+- **知识库**：CRUD + 文件上传/删除/解析（走存储抽象），删除前校验是否被 `ai_configs` 引用（`CASCADE_CONFLICT` + 列出引用产品）
+  - 解析**诚实实现**：文本类按段落切块并统计块数；pdf/docx 返回 `FAILED` + 「文本抽取尚未实现」——**关键：`PENDING` 与 `PARSED` 是两个独立事实**，上传成功不等于能被检索命中
+  - 知识库**真的影响对话**：`dialogue_service` 把 `PARSED` 文件的文本块作为 `context["knowledge"]` 注入供应商（离线引擎据此改写回复）
+- **运营指标**（7 个端点）：概览**实时聚合**（`source: live`）／趋势、24 小时、地域、内容榜**读快照**（`source: snapshot`）——两条路径在响应里显式标注，避免「这个数是怎么来的」无人能答
+  - ★ **P-07 的修复**：所有维度数据来自真实 `GROUP BY`，**没有任何系数摊派**；核心守卫是「快照之和 == 实时聚合」这条测试断言
+  - ★ **P-08 的修复**：所有端点强制 `productId` 且校验归属（传他人产品 → 404）；两个产品共用一个租户时指标互不串台
+  - 留存（D1/D3/D7/D30 / 流失设备 / 回访率 / 平均间隔）：**分母为 0 时比率为 `null` 而不是 0**——不把「未知」伪装成「零」
+  - 内容榜的归属来自 `ChatChunk.content_title`（**供应商声明**用了哪条素材），不做「回复文本里出现《标题》」式文本嗅探（会被用户自己说出的书名与角色前缀污染）
+- **OTA**（8 个端点，**仅平台端**）：固件包登记/上传/删除 + 逐台推送记录（`PENDING → PUSHING → SUCCESS|FAILED`）
+  - ★ 推送能力判定读 `cloud_providers.ota_support`——**数据驱动**而非写死厂商：Wi-Fi 方案（JoyInside / 火山）→ 409 `OTA_NOT_SUPPORTED`，`details` 带 `{otaSupport, cloudVendor, cloudProviderName}`，前端据此给出「这不是设备选择错误，换成其它设备也不会成功」的提示
+  - 推送成功才更新设备 `firmware_version`；已是最新版本计 `skipped`（幂等）；**被拒绝时不留任何推送记录**（「拒绝」必须是真的没发生）
+  - **无文件的固件包逐台 FAILED 并说明原因**——ADR-07「绝不伪造成功」在 OTA 上的落点
+- **前端**：商户端 5 页（我的产品 / 产品详情 / AI 配置 / 知识库 / 运营看板）+ 平台端 OTA 页 + 客户端产品详情追加「运营」Tab；`chart.js` 复用 P2 已交付的柱/折线/环形/热力/迷你趋势/堆叠条
+  - AI 配置页底部有「**当前生效说明**」：把三个安全开关翻译成设备实际行为（例如「命中敏感词时整段替换为安全文案，原文不会下发出设备」）
+- **演示数据**：内容库 6 条（标题与离线引擎素材同名，否则内容榜聚合不出来）、终端用户 3 个、**确定性对话历史 13 会话 / 72 消息**（两个产品规模刻意不同——这正是 P-07/P-08 验收的前提）、固件包 1 个、11 台设备带地域
+- **测试**：+46 条 —— `test_metrics_isolation.py`（9）、`test_ota.py`（14）、租户隔离矩阵扩到 26 条 P9 商户路由（首次覆盖「查询参数形态的越权」）
+
+**P10 部署与质量保障**
+
+- **编排与镜像**：`docker-compose.yml`（仓库根）三个 profile —— 默认（app + SQLite）、`nginx`（前置反向代理）、`postgres`（可选数据库）；`env_file` 用 `required: false`，缺 `.env` 也能起；`deploy/Dockerfile.backend` 多阶段构建、非 root 运行，CMD 改为 `alembic upgrade head && python -m app.db.seed && uvicorn … --workers ${WORKERS:-4}`（迁移与播种在 fork 之前完成一次）
+  - 编排文件放**仓库根**而非 `deploy/`：compose 的三个相对路径（`build.context`、`env_file`、`${VAR}` 插值读的 `.env`）都以 compose 文件所在目录为基准，放根目录时三者自然成立
+- **新增容器专属配置项**（解决「开发机的 `.env` 直接搬进容器就坏」）：`APP_DATABASE_URL`（与开发用的 `DATABASE_URL` 分开，默认绝对路径 `sqlite+aiosqlite:////data/toyverse.db` 且挂在卷上）、`DATA_DIR`、`FRONTEND_DIR`、`WORKERS`、`SEED_AT_STARTUP=false`
+- **`app/core/config.py` 适配容器布局**：`_guess_repo_root()` 代替「`__file__` 上溯固定级数」；`_resolve_frontend_root()` 支持 `FRONTEND_DIR` 显式覆盖；`DATA_ROOT` 可由 `DATA_DIR` 指定；`ensure_runtime_dirs()` 把 `PermissionError` 转成**可操作的** `InsecureConfigurationError`（而不是崩溃循环）
+- **`deploy/nginx.conf`**：修正 WebSocket location（真实路径是 `/ws/miniapp/chat`，**不在 API 前缀下**）、对**未指纹化**的 JS/CSS 改用 `no-cache, must-revalidate`（图片/字体仍给 30 天）、补 `location = /login`（它是应用路由不是磁盘文件）、逐端 SPA 回退（`/platform/` `/merchant/` `/factory/` `/miniapp/` 各自回退到自己的 `index.html`）
+- **`scripts/smoke_test.sh`**：全端点冒烟（**57 项断言**），按真实角色登录后逐端点请求、以只读为主（例外是两个幂等写），带**最低断言数守卫**（断言数为 0 时判定脚本异常，而不是打印「全部通过」）
+- **`scripts/scan_secrets.py`**：敏感信息扫描四类规则 —— 弱口令 / 硬编码密钥 / **出参模型里的明文密钥字段** / 敏感文件入库（`.env`、`data/`、`learning/`）；扫描 236 个被跟踪文件 **0 命中**，并带一个「规则确能命中」的自测
+- **`scripts/gen_qrcodes.py`**（演示二维码清单：PNG + CSV/JSON manifest，载荷经 `qrcode_service` 单一实现）、**`scripts/reset_db.sh`**（先备份到 `data/backups/<时间戳>/`、需二次确认、`--yes` 供自动化）、**`scripts/dev.sh`**
+- **`.dockerignore`**：构建上下文从 229MB 降下来，并杜绝 `.env` 被 `COPY . .` 带进镜像
+- **`.github/workflows/ci.yml`**：五个并行 job —— lint / mypy + test / 契约快照 / 前端导入契约 / 敏感信息扫描；镜像构建**刻意不放在 CI**（pip 全量安装是分钟级，理由写在注释里）
+- **`tests/e2e/test_full_loop.py`**（本阶段提前交付，里程碑 M2 的自动化验收）：一条测试串完主干 —— 客户开通 → 云服务商 → 产品模板 → 授权 → 客户产品 → 商户下单 → 平台审核 → 生成设备（Wi-Fi 本地 SN）→ 入库 → 派单工厂 → 烧录上报 → 抽检 → 出货 → 分配（`SHIPPED → ALLOCATED`）→ 终端用户登录 → 扫码解析 → 激活并绑定 → SSE 流式对话 → 会话与消息落库 → 设备四维终态与七种时间线事件
+  - 逐步断言而非只断结果：任一环断裂都能从断言消息定位到具体环节；含脱敏红线（工厂端响应不得出现客户名 / 联系方式 / 金额字段）
+  - 之所以提前做：它验证的是 P0–P8 九个阶段的成果，与 P9 无关，且是「M2 业务闭环」这个里程碑唯一的客观凭据
+- **`Makefile`**：修正 `up`（原指向不存在的路径），新增 `up-nginx` / `up-full` / `smoke` / `reset-db` / `qrcodes` / `fe-check` 等目标
+
 ### 修复
+
+**P10 部署与质量保障**
+
+以下问题**全部是「写好了但真跑起来不通」的类型**——没有一个是靠读代码或跑集成测试能发现的。可部署性只能靠真的部署一次来证明。
+
+- **`make up` 从 P0 起就是坏的**：Makefile 写 `cd deploy && docker compose up`，而 compose 文件在仓库根。只跑 `make test` 不会执行 Makefile 的 docker 目标，因此一直没暴露。改为在仓库根执行并拆出 `up-nginx` / `up-full`
+- **nginx 的 WebSocket 路由错**：location 写成 `/api/v1/ws/`，真实路径是 `/ws/miniapp/chat`（小程序 WS **不在 API 前缀下**）→ 握手落到 SPA 回退、拿回一段 HTML。本地不经 nginx 时一切正常。改为 `location /ws/`，并用真实 WS 握手验证：成功建立后以 `4401`（非法令牌）关闭，而不是返回 HTML
+- **nginx 对未指纹化的 JS/CSS 声明 `immutable` 强缓存 1 年**：本项目前端文件名不带内容哈希，发版后用户会卡在旧代码且**无法失效**。改为 `no-cache, must-revalidate`；图片/字体仍给 30 天
+- **`DATABASE_URL` 把开发机相对路径泄漏进容器**：`${DATABASE_URL:-…}` 从宿主机 `.env` 插值出相对路径，SQLite 因此落在**镜像层**而非卷上，`down && up` 丢数据（不重建容器时看不出差别）。引入容器专属 `APP_DATABASE_URL`，默认绝对路径 + 挂卷
+- **缺 `.dockerignore`**：构建上下文含 229MB 的 `.venv`，且 `.env` 有被 `COPY . .` 带进镜像的风险（构建慢与泄漏都只在构建时暴露）
+- **`POSTGRES_PASSWORD: ${…:?}` 让整个 compose 不可用**：compose 的变量插值发生在 profile 判定**之前**，因此没配 PostgreSQL 口令的 `.env` 会让整套编排直接报错。改为 `${POSTGRES_PASSWORD:-}` 并加注释说明失败仍是安全的（postgres 镜像本身拒绝空口令）
+- **`--workers 4` 下每个 worker 各播种一次**：4 个进程并发写同一 SQLite（实测 1 成功 3 失败），且赢得竞争的 worker 可能只写一半。改为 `SEED_AT_STARTUP=false` + 在 CMD 里 fork **之前**播种一次
+- **`FRONTEND_ROOT` 在容器里推算到 `/`**：原按 `__file__` 上溯三级，而容器布局没有 `backend/` 层 → **整个 UI 404 而 API 完全正常**，日志只有一条 WARNING（本地布局恰好是三级，所以一直没暴露）。新增 `_guess_repo_root()` / `_resolve_frontend_root()` 与 `FRONTEND_DIR` 显式覆盖
+- **`DATA_ROOT` 不可配置 + 进程非 root**：容器启动即 `PermissionError: /app/data` 崩溃循环（本地开发目录可写，看不出问题）。新增 `DATA_DIR`，并把 `PermissionError` 转成**可操作的** `InsecureConfigurationError`
+- **nginx 缺 `/login`**：它是**应用路由**而不是磁盘文件 → 经 nginx 访问登录页 404（直连时由 FastAPI 提供）。加显式反代；因配置是 bind-mount，改后需 `docker compose restart nginx`
+- **`smoke_test.sh` 的 `json_get` 永远取不到值**：用 heredoc 把程序喂给 `python3`，同时响应体也在 stdin → 程序与数据争同一个 stdin，取值恒为空，于是**登录永远判失败**（而同一口令用 curl 直连是成功的——这个对照正是定位的突破口）。改用 `python3 -c` 传程序，把 stdin 留给数据
+- **`smoke_test.sh` 在误删计数函数后仍打印「0 通过 / 全部通过」**：**会静默通过的检查比没有检查更危险**。恢复 `ok` / `bad` / `skip` 三个计数器并加 `MIN_EXPECTED_CHECKS=25` 守卫
+- **`scan_secrets.py` 首版 133 条误报**（规则太宽，而非真有泄露）：手机号 `13812345678` 命中「8 位连续数字」弱口令规则、HTML 的 `placeholder=` 被当成密钥赋值、黑名单表里的枚举字面量、`*SCREAMING*` 常量、URL 路径常量，以及请求 DTO 里**本来就要收明文**的 `access_key`。收窄弱口令表并只匹配**赋值形态**、给测试目录加 `ALLOWED_PATH_PREFIXES`、新增 `_looks_like_a_real_secret()`、把「明文密钥字段」规则限定到**响应类**；收敛后 0 命中，并补自测证明规则**确实会命中**——**「规则不响」与「规则坏了」必须能区分开**
 
 **P9 AI 配置与运营看板**
 
@@ -177,45 +238,13 @@
 
 - 新增 `docs/13-火山引擎硬件对话智能体配置说明.md`（控制台实测 + 官方文档取证，含取证边界声明）
 - 新增 `docs/14-ESP32-S3刷机与联调步骤清单.md`（真机联调当天的可执行清单：四条接入路径决策树、首次对话判据、失败速查 F-01~F-10）：≥60% 内容来自**控制台实测**（账号、免费额度、已有产品与智能体）与官方文档正文；明确标注取证边界（《获取开发凭证》《调用方法》两页正文不可读，签名算法待校对）
-
-**P9 AI 配置与运营看板**
-
-- **数据层**：Alembic `0015_ops_metrics_ota`（`metrics_daily` / `metrics_hourly` / `metrics_region` / `content_hot_ranking` / `content_items` / `ota_packages` / `ota_records`）+ `devices.region`（地域分布的数据源）+ `dialogue_messages.content_item_id`（内容热度榜的数据源）
-  - 四张指标表都把 `client_product_id` 做进**唯一键**：遗留缺陷 P-08「运营数据全局共享」的根因就是聚合时丢了产品维度，让「漏掉它」在表结构上不成立
-  - `content_hot_ranking` 存**标题快照**：内容下架或改名后，历史排行仍显示当时的名字，复盘不会看到空标题
-- **对象存储抽象** `app/core/storage.py`：`LocalStorage`（本地磁盘，目录结构即 key 层级）+ `S3Storage`（**显式安全失败**，不假装可用）；`_safe_key` 是**唯一的路径拼接入口**（拒绝绝对路径、`..`、空段），杜绝原型的路径穿越漏洞（附录 B 同源问题）
-- **商户端 AI 配置**（26 个端点）：供应商 / 提示词与采样参数 / 角色 / 音色 / **内容安全三开关**，**分区独立保存**；`temperature` 库里存 ×100 整数、出入参换算 0–2 小数
-  - `/role` 对 Wi-Fi 产品 409：**Wi-Fi 方案的对话角色由厂商侧智能体配置，平台不覆盖**（`roleSupported` / `roleUnsupportedReason` 一并下发，前端直接禁用该分区）
-  - 供应商清单**只回「是否已配置」布尔，绝不含密钥或片段**——延续 P3 的密钥保护口径
-- **知识库**：CRUD + 文件上传/删除/解析（走存储抽象），删除前校验是否被 `ai_configs` 引用（`CASCADE_CONFLICT` + 列出引用产品）
-  - 解析**诚实实现**：文本类按段落切块并统计块数；pdf/docx 返回 `FAILED` + 「文本抽取尚未实现」——**关键：`PENDING` 与 `PARSED` 是两个独立事实**，上传成功不等于能被检索命中
-  - 知识库**真的影响对话**：`dialogue_service` 把 `PARSED` 文件的文本块作为 `context["knowledge"]` 注入供应商（离线引擎据此改写回复）
-- **运营指标**（7 个端点）：概览**实时聚合**（`source: live`）／趋势、24 小时、地域、内容榜**读快照**（`source: snapshot`）——两条路径在响应里显式标注，避免「这个数是怎么来的」无人能答
-  - ★ **P-07 的修复**：所有维度数据来自真实 `GROUP BY`，**没有任何系数摊派**；核心守卫是「快照之和 == 实时聚合」这条测试断言
-  - ★ **P-08 的修复**：所有端点强制 `productId` 且校验归属（传他人产品 → 404）；两个产品共用一个租户时指标互不串台
-  - 留存（D1/D3/D7/D30 / 流失设备 / 回访率 / 平均间隔）：**分母为 0 时比率为 `null` 而不是 0**——不把「未知」伪装成「零」
-  - 内容榜的归属来自 `ChatChunk.content_title`（**供应商声明**用了哪条素材），不做「回复文本里出现《标题》」式文本嗅探（会被用户自己说出的书名与角色前缀污染）
-- **OTA**（8 个端点，**仅平台端**）：固件包登记/上传/删除 + 逐台推送记录（`PENDING → PUSHING → SUCCESS|FAILED`）
-  - ★ 推送能力判定读 `cloud_providers.ota_support`——**数据驱动**而非写死厂商：Wi-Fi 方案（JoyInside / 火山）→ 409 `OTA_NOT_SUPPORTED`，`details` 带 `{otaSupport, cloudVendor, cloudProviderName}`，前端据此给出「这不是设备选择错误，换成其它设备也不会成功」的提示
-  - 推送成功才更新设备 `firmware_version`；已是最新版本计 `skipped`（幂等）；**被拒绝时不留任何推送记录**（「拒绝」必须是真的没发生）
-  - **无文件的固件包逐台 FAILED 并说明原因**——ADR-07「绝不伪造成功」在 OTA 上的落点
-- **前端**：商户端 5 页（我的产品 / 产品详情 / AI 配置 / 知识库 / 运营看板）+ 平台端 OTA 页 + 客户端产品详情追加「运营」Tab；`chart.js` 复用 P2 已交付的柱/折线/环形/热力/迷你趋势/堆叠条
-  - AI 配置页底部有「**当前生效说明**」：把三个安全开关翻译成设备实际行为（例如「命中敏感词时整段替换为安全文案，原文不会下发出设备」）
-- **演示数据**：内容库 6 条（标题与离线引擎素材同名，否则内容榜聚合不出来）、终端用户 3 个、**确定性对话历史 13 会话 / 72 消息**（两个产品规模刻意不同——这正是 P-07/P-08 验收的前提）、固件包 1 个、11 台设备带地域
-- **测试**：+46 条 —— `test_metrics_isolation.py`（9）、`test_ota.py`（14）、租户隔离矩阵扩到 26 条 P9 商户路由（首次覆盖「查询参数形态的越权」）
-
-**P10 部署与质量保障（部分提前交付）**
-
-- `tests/e2e/test_full_loop.py`：**端到端全闭环测试**（里程碑 M2 的自动化验收）。一条测试串完主干——客户开通 → 云服务商 → 产品模板 → 授权 → 客户产品 → 商户下单 → 平台审核 → 生成设备（Wi-Fi 本地 SN）→ 入库 → 派单工厂 → 烧录上报 → 抽检 → 出货 → 分配（`SHIPPED → ALLOCATED`）→ 终端用户登录 → 扫码解析 → 激活并绑定 → SSE 流式对话 → 会话与消息落库 → 设备四维终态与七种时间线事件
-  - 逐步断言而非只断结果：任一环断裂都能从断言消息定位到具体环节
-  - 含脱敏红线（工厂端响应不得出现客户名 / 联系方式 / 金额字段）
-  - **首跑即通过**，已纳入 `make test-e2e` 与 `make test`
-- 之所以提前做：它验证的是 P0–P8 九个阶段的成果，与 P9 无关，且是「M2 业务闭环」这个里程碑唯一的客观凭据
+- 新增 `deploy/.env.example`：**生产部署清单**（不是开发模板的副本）——必须修改的项、「不安全就拒绝启动」的三类硬校验、容器编排专属变量（`APP_DATABASE_URL` / `DATA_DIR` / `FRONTEND_DIR` / `WORKERS`）、部署后自检与回滚步骤
+- 新增 `.dockerignore` 与 `.github/workflows/ci.yml` 内的注释说明（为何镜像构建不放在 CI 里、各 job 的取舍）
 
 ### 计划中
 
-- P10 部署与质量保障：Docker / nginx / compose、`scripts/smoke_test.sh`、CI、弱口令扫描（**全闭环 e2e 已提前交付**）
 - P11 文档集与学习手册
+- **P10 待办（部署侧的诚实局限，7 条）**：① **CI 从未在真实 GitHub 上跑过**（本机无 remote）——`ci.yml` 的命令与 `make check` 逐字一致，但 YAML 语法与表达式只做了本地静态审查，首次推送后必须实跑确认；② **CI 不构建镜像**（pip 全量安装是分钟级，理由写在 `ci.yml` 注释里）；③ **`--profile postgres` 只验证了配置可解析**，未真跑 PG 实例，到 asyncpg 的连接串与实际迁移未在 PG 上执行过；④ **Nginx 只验证了 HTTP 与 WebSocket 转发**，TLS（配置里预留 80→443 注释段）与多实例负载均衡（`upstream` 只有一个 server）未验证；⑤ **`scripts/reset_db.sh` 是同盘备份**，宿主机磁盘故障时备份与数据一起丢；⑥ **SQLite 写并发能力有限**，容器内 4 个 uvicorn worker 跑演示没问题，真实多租户并发写应切 PostgreSQL；⑦ **冒烟脚本只覆盖读路径 +2 个幂等写**，写路径验证依赖 `make test`（隔离测试库）
 - **P9 待办**：运营快照的**时区口径**（现按 UTC 归档，与商户本地日期可能差一天；`tenants.timezone` 已存在但未参与聚合）；内容库的写能力与内容审核流程；知识库向量化检索（现为关键词级，无 embedding 服务）；知识库注入对话的上限（5 文件 / 20 块）；指标表行主键改用 `ids.py` 登记的前缀
 - **P6 未交付项**：工厂端「批次查询」页（菜单项显示「建设中」；`factory:batch:read` 权限与 `/platform/batches` 端点已存在，缺 `/factory/batches` 端点与只读页）
 - **待收紧项**：`factory_orders.order_id` 无唯一索引，「一单一张工单」目前是**服务层**约束，并发下理论上可派两次
@@ -223,12 +252,13 @@
 
 ### 说明
 
-**迁移编号调整**：P1 落地时实际占用了 `0001`–`0004`（与原始计划的 0001/0002 不同），因此目录域顺延为 `0005`/`0006`，P7 使用 `0007`；P4 起顺延为 `0008`–`0010`（订单 / 设备 / 批次），P5 为 `0011`，P6 为 `0012`（工厂账号归属）+ `0013`（设备工单归属），**P8 为 `0014`（终端用户与充值，原属 P9），P9 为 `0015`（运营指标 / 内容库 / OTA）**。
+**迁移编号调整**：P1 落地时实际占用了 `0001`–`0004`（与原始计划的 0001/0002 不同），因此目录域顺延为 `0005`/`0006`，P7 使用 `0007`；P4 起顺延为 `0008`–`0010`（订单 / 设备 / 批次），P5 为 `0011`，P6 为 `0012`（工厂账号归属）+ `0013`（设备工单归属），**P8 为 `0014`（终端用户与充值，原属 P9），P9 为 `0015`（运营指标 / 内容库 / OTA）**；**P10 无迁移**（纯部署与质量保障）。
 
-**测试规模**：后端 118 → **804** 条（P3 82；P7 49；P4 146；P5 53；P6 281；P8 20 + 全闭环 e2e 1；**P9 46**：租户隔离 26 + 指标 9 + OTA 14）。
+**测试规模**：后端 118 → **804** 条（P3 82；P7 49；P4 146；P5 53；P6 281；P8 20 + 全闭环 e2e 1；**P9 46**：租户隔离 26 + 指标 9 + OTA 14）。**P10 未新增单元测试**，新增的是部署期验证：全端点冒烟 57 项、持久化一致性检查、敏感信息扫描 236 文件 0 命中、经 Nginx 的 WebSocket 握手。
 
-**验收强度（本项目的固定做法）**：每个阶段除自动化测试外，都要在**真实服务**上跑一遍端到端接口验收，并用 `browser-skill` 驱动真实 Chromium 点一遍关键路径。累计：P6 接口验收 71/71 + 浏览器 12 项；P8 接口验收 50/50 + 浏览器 11 项。
-**这条做法在 P8 上再次证明了自己**：代理交付的 275 条 P6 测试与 P8 的 20 条测试都是全绿的，而 P8 那个「激活成功却没绑上、对话被 4403 拒绝」的真缺陷，是**浏览器点出来的**——自动化测试覆盖的是「我以为的路径」，人点的是「真实的路径」。
+**验收强度（本项目的固定做法）**：每个阶段除自动化测试外，都要在**真实服务**上跑一遍端到端接口验收，并用 `browser-skill` 驱动真实 Chromium 点一遍关键路径。累计：P8 接口验收 50/50 + 浏览器 11 项；P9 浏览器 6 项；**P10 冒烟 57/57（直连与经 Nginx 各一次）+ 容器 healthy + 起停数据一致**。
+
+**这条做法在 P10 上第三次证明了自己**：P8 的真缺陷是浏览器点出来的（自动化测试覆盖的是「我以为的路径」），而 P10 这 12 个问题**没有一个是读代码或跑集成测试能发现的**——`make up` 从 P0 起就是坏的、nginx 的 WS 路由写错、未指纹化的 JS 被声明强缓存一年、容器的 `FRONTEND_ROOT` 推算到了 `/` 导致整个 UI 404 而 API 正常……**可部署性只能靠真的部署一次来证明**。同一逻辑还有一条推论：`smoke_test.sh` 曾在**误删计数函数后仍打印「全部通过」**——**会静默通过的检查比没有检查更危险**，因此给脚本加了最低断言数守卫。
 
 ---
 

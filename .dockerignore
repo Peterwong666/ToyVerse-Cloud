@@ -1,0 +1,60 @@
+# ============================================================
+# Docker 构建上下文排除清单
+#
+# 两个作用，缺一不可：
+#   1. **速度**：`backend/.venv` 有 200MB+、`.git` 若干 MB，全量发给 daemon
+#      会让每次构建多花数十秒；构建镜像时根本用不到它们（依赖在镜像内重装）。
+#   2. **安全**：`.env` 里有真实口令，`data/` 有本地数据库与上传文件，
+#      `learning/` 是用户明确要求不上传的目录。当前 Dockerfile 是逐目录 COPY、
+#      不会碰到它们，但**清单必须存在**——否则将来有人把 COPY 改成
+#      `COPY . .` 的那一刻，口令就被烤进了镜像层，而这是无法「改回来」的
+#      （镜像层可被拉取、可被扫描）。
+#
+# 与 .gitignore 的关系：两者服务于不同机制，需要各自维护。
+# 本文件刻意**更保守**（多排除一些也无妨），因为多传文件只是慢，漏传才是事故。
+# ============================================================
+
+# ---- 敏感与本地状态 ----
+.env
+.env.*
+!.env.example
+data/
+learning/
+*.db
+*.sqlite3
+
+# ---- 版本控制与编辑器 ----
+.git
+.gitignore
+.gitattributes
+.vscode
+.idea
+*.swp
+
+# ---- Python 虚拟环境与缓存 ----
+backend/.venv
+.venv
+venv
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# ---- 测试与契约快照（运行时不需要） ----
+backend/tests/
+tests/
+scripts/verify_qrcode.py
+
+# ---- 文档与追踪文件（镜像里不需要） ----
+*.md
+docs/
+
+# ---- 构建产物与日志 ----
+nightly-*.log
+*.log
+dist/
+build/

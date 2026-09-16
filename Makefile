@@ -191,28 +191,46 @@ fe-check: ## 校验前端 ES Module 导入契约（路径与具名导出）
 # Docker 部署
 # ------------------------------------------------------------
 
+# 说明：compose 文件在**仓库根**（`docker-compose.yml`），因此这些命令
+# 都在根目录执行。三个相对路径（build.context / env_file / Compose 自身的
+# .env 插值）都以 compose 文件所在目录为基准，放在根目录三者才自然成立；
+# 构建资产（Dockerfile / nginx.conf）仍在 `deploy/`。
+
 .PHONY: up
-up: ## 启动完整 Docker 环境（应用 + PostgreSQL）
-	@cd deploy && docker compose up -d --build
+up: ## 启动 Docker 环境（应用，SQLite 零外部依赖）
+	@docker compose up -d --build
 	@echo "$(C_GREEN)✔ 已启动$(C_RESET)"
-	@echo "→ 应用： http://localhost:8000"
-	@echo "→ 平台端： http://localhost:8000/platform/"
+	@echo "→ 应用与四端入口： http://localhost:$${APP_PORT:-8000}/platform/"
+	@echo "→ 健康检查：       make smoke"
+
+.PHONY: up-nginx
+up-nginx: ## 启动 Docker 环境 + Nginx 前置（TLS/缓存/多实例场景）
+	@docker compose --profile nginx up -d --build
+	@echo "$(C_GREEN)✔ 已启动（含 Nginx）$(C_RESET)"
+	@echo "→ 经 Nginx 访问： http://localhost:$${NGINX_PORT:-8080}/platform/"
+	@echo "→ 直连应用：     http://localhost:$${APP_PORT:-8000}/platform/"
+
+.PHONY: up-full
+up-full: ## 启动完整 Docker 环境（应用 + Nginx + PostgreSQL）
+	@docker compose --profile nginx --profile postgres up -d --build
+	@echo "$(C_GREEN)✔ 已启动（Nginx + PostgreSQL）$(C_RESET)"
+	@echo "注意：需同时把 .env 的 DATABASE_URL 指向 postgres 服务（见 deploy/.env.example）"
 
 .PHONY: down
 down: ## 停止 Docker 环境（保留数据卷）
-	@cd deploy && docker compose down
+	@docker compose down
 
 .PHONY: down-clean
 down-clean: ## ⚠️ 停止 Docker 环境并删除数据卷
-	@cd deploy && docker compose down -v
+	@docker compose down -v
 
 .PHONY: logs
 logs: ## 查看 Docker 日志
-	@cd deploy && docker compose logs -f --tail=100
+	@docker compose logs -f --tail=100
 
 .PHONY: ps
 ps: ## 查看 Docker 服务状态
-	@cd deploy && docker compose ps
+	@docker compose ps
 
 # ------------------------------------------------------------
 # 清理
