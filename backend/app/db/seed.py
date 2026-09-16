@@ -501,6 +501,9 @@ async def _seed_catalog(session: AsyncSession) -> None:
 # 订单与设备（P4 演示数据）
 # ---------------------------------------------------------------------------
 
+#: 平台自有库存设备数量（P5「分配」链路的输入，见 ``_seed_orders_devices`` ③）
+PLATFORM_STOCK_COUNT = 4
+
 
 async def _seed_orders_devices(session: AsyncSession) -> None:
     """写入 P4 演示订单与设备（幂等）。
@@ -514,6 +517,9 @@ async def _seed_orders_devices(session: AsyncSession) -> None:
       用随机 SN 的话每次启动都会新增一批设备，「幂等」就名存实亡了。
     * 设备状态刻意做成混合态（已入库 / 已冻结 / 已分配），否则四维状态
       在界面上看不出差别，演示价值会打折扣。
+    * 第三块补一批 **平台自有库存**（``tenant_id`` 为空、``IN_STOCK``），
+      作为 P5 分配链路的输入——订单生成的设备已经挂在租户名下，
+      没有这批数据就演示不了「平台把库存划给租户」。
     * 事件的 ``actor_account`` 记为 ``seed``，与真实操作用户可区分。
     """
     product = (
@@ -629,6 +635,61 @@ async def _seed_orders_devices(session: AsyncSession) -> None:
                 remark="演示订单：待平台审核（用于演示审核与驳回流程）",
             )
         )
+
+    # ---- ③ 平台库存设备（P5：分配链路的输入） ----
+    #
+    # 为什么需要单独造一批「平台库存」设备？
+    # 订单生成的设备在建时就带了 `tenant_id`（属于下单的那个租户），
+    # 而分配单的语义是「把**平台自有**库存划给租户」，只接受
+    # `tenant_id` 为空且 `asset_status=IN_STOCK` 的设备
+    # （见 `ALLOCATABLE_ASSET_STATUSES` 与 `ALLOCATABLE` 的校验）。
+    # 没有这批数据时，分配页的「选择设备」永远是空的——
+    # 功能可用但演示不可达，等于没有交付。
+    #
+    # 刻意不设 `client_product_id`：平台库存设备尚未决定卖给哪个产品，
+    # 产品是在分配时由分配单指定的（这正是分配单要带 clientProductId 的原因）。
+    existing_device_ids = set(
+        (await session.execute(select(Device.id).where(Device.id.like("d-stock-%")))).scalars().all()
+    )
+    if len(existing_device_ids) < PLATFORM_STOCK_COUNT:
+        for index in range(1, PLATFORM_STOCK_COUNT + 1):
+            device_id = f"d-stock-{index:02d}"
+            if device_id in existing_device_ids:
+                continue
+            device = Device(
+                id=device_id,
+                tenant_id=None,  # 空 = 平台自有库存，尚未分配给任何租户
+                order_id=None,
+                client_product_id=None,  # 由分配单在执行时指定
+                sn=f"SN-20260101-STOCK{index:02d}",
+                mac=f"AA:BB:CC:11:00:{index:02X}",
+                network_type=str(NetworkType.WIFI),
+                asset_status=str(AssetStatus.IN_STOCK),
+                activation_status=str(ActivationStatus.NOT_ACTIVATED),
+                online_status=str(OnlineStatus.NEVER_ONLINE),
+                bind_status=str(BindStatus.UNBOUND),
+                generated_at=utcnow(),
+                remark="演示数据：平台自有库存，用于演示「分配」链路",
+            )
+            session.add(device)
+            await session.flush()
+            for event_type, from_status, to_status in (
+                ("GENERATED", str(AssetStatus.PENDING_GEN), str(AssetStatus.GENERATED)),
+                ("IN_STOCK", str(AssetStatus.GENERATED), str(AssetStatus.IN_STOCK)),
+            ):
+                session.add(
+                    DeviceEvent(
+                        id=new_id("device_event"),
+                        device_id=device.id,
+                        tenant_id=None,
+                        event_type=event_type,
+                        dimension="asset",
+                        from_status=from_status,
+                        to_status=to_status,
+                        actor_account="seed",
+                        summary="演示数据：平台库存设备入库",
+                    )
+                )
 
     await session.flush()
     logger.info("订单与设备演示数据初始化完成")

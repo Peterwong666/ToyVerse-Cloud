@@ -6,6 +6,8 @@ import { bootEnd } from '/shared/app/boot.js';
 import { PERM } from '/shared/core/auth.js';
 import { renderDashboard } from './dashboard.js';
 import { renderMerchantOrders } from './orders.js';
+import { renderMerchantDevices } from './devices.js';
+import { renderBindings } from './bindings.js';
 
 bootEnd({
   end: 'merchant',
@@ -25,6 +27,21 @@ bootEnd({
       title: '我的订单',
       perm: PERM.merchant.orderRead,
       handler: renderMerchantOrders,
+    },
+    /* ---- P5：设备与绑定 ---- */
+    {
+      pattern: '/devices',
+      name: 'devices',
+      title: '我的设备',
+      perm: PERM.merchant.deviceRead,
+      handler: renderMerchantDevices,
+    },
+    {
+      pattern: '/bindings',
+      name: 'bindings',
+      title: '绑定管理',
+      perm: PERM.merchant.deviceRead,
+      handler: renderBindings,
     },
   ],
 });

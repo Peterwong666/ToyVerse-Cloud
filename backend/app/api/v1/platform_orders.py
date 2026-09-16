@@ -36,17 +36,21 @@ from app.models.enums import (
 from app.schemas.batch import BatchLineResponse, BatchResponse
 from app.schemas.common import ListResult, PageResult
 from app.schemas.device import (
+    DeviceCredentialIssueRequest,
+    DeviceCredentialIssueResult,
     DeviceDetailResponse,
     DeviceEventResponse,
     DeviceFreezeRequest,
+    DeviceHeartbeatResponse,
     DeviceResponse,
     DeviceRetireRequest,
+    DeviceSimulateHeartbeatRequest,
     DeviceStatsResponse,
     DeviceThawRequest,
     QrCodeItemResponse,
 )
 from app.schemas.order import GenerateResult, OrderAuditRequest, OrderDetailResponse, OrderResponse
-from app.services import batch_service, device_service, order_service
+from app.services import batch_service, device_service, heartbeat_service, order_service
 
 router = APIRouter(prefix="/platform", tags=["平台端 · 订单与设备"])
 
@@ -226,7 +230,12 @@ async def device_stats(session: DbSession, auth: PlatformAuth) -> DeviceStatsRes
     summary="设备列表",
     description=(
         "分页查询设备。支持按租户 / 客户产品 / 四维状态筛选，"
-        "`keyword` 匹配 SN / IMEI / MAC；`sortBy` 支持 `created_at` / `sn` / `generated_at`。"
+        "`keyword` 匹配 SN / IMEI / MAC；`sortBy` 支持 `created_at` / `sn` / `generated_at`。\n\n"
+        "`unallocated=true` 只看**尚未分配给任何租户的平台库存**（`tenantId IS NULL`），"
+        "是「分配设备」页挑选目标设备的取值来源。\n\n"
+        "`onlineStatus` 按**派生在线判据**（最后一次心跳是否落在 "
+        "`ONLINE_WINDOW_SECONDS` 窗口内）筛选：落库仍是 `ONLINE` 但已超窗的设备"
+        "会出现在 `OFFLINE` 里，与展示字段 `online` 口径一致。"
     ),
     dependencies=[require_perm(PlatformPerm.DEVICE_READ)],
 )
@@ -241,6 +250,9 @@ async def list_devices(
     activation_status: Annotated[ActivationStatus | None, Query(alias="activationStatus")] = None,
     online_status: Annotated[OnlineStatus | None, Query(alias="onlineStatus")] = None,
     bind_status: Annotated[BindStatus | None, Query(alias="bindStatus")] = None,
+    unallocated: Annotated[
+        bool, Query(description="仅看尚未分配给任何租户的平台库存")
+    ] = False,
     keyword: Annotated[str | None, Query(description="SN / IMEI / MAC")] = None,
 ) -> dict[str, Any]:
     """设备列表。"""
@@ -256,6 +268,7 @@ async def list_devices(
         activation_status=str(activation_status) if activation_status else None,
         online_status=str(online_status) if online_status else None,
         bind_status=str(bind_status) if bind_status else None,
+        unallocated=unallocated,
         keyword=keyword,
         sort_by=page.sort_by,
         order=page.order,
@@ -374,6 +387,81 @@ async def retire_device(
     device = await device_service.get_device(session, auth, device_id)
     await device_service.retire_device(session, auth, device, reason=payload.reason, request=request)
     return device_service.to_response(device)
+
+
+@router.post(
+    "/devices/{device_id}/simulate-heartbeat",
+    response_model=DeviceHeartbeatResponse,
+    summary="模拟设备心跳 / 掉线",
+    description=(
+        "演示与验收用：模拟设备心跳上报，或把设备置为离线。\n\n"
+        "- `online=true`（默认）→ 写入心跳时间并把在线状态推到 `ONLINE`\n"
+        "- `online=false` → 模拟「最后一次心跳已超出在线窗口」：把心跳时间挪到窗口外"
+        "（`ONLINE_WINDOW_SECONDS`，默认 180 秒）**并**把在线状态置为 `OFFLINE`，"
+        "写一条 `OFFLINE` 事件\n\n"
+        "为什么需要模拟掉线？若只能靠真实等待来验证「超窗即离线」，"
+        "验收就必须干等三分钟，无法自动化。响应里的 `simulated=true` "
+        "明确标注这不是真实设备上报，避免演示数据被误当成设备事实。\n\n"
+        "审计：`SIMULATE_HEARTBEAT`（真实心跳不写审计，模拟是人工动作，必须留痕）。"
+    ),
+    responses={409: {"description": "设备已冻结或已报废"}},
+    dependencies=[require_perm(PlatformPerm.DEVICE_WRITE)],
+)
+async def simulate_device_heartbeat(
+    request: Request,
+    session: DbSession,
+    auth: PlatformAuth,
+    device_id: str,
+    payload: DeviceSimulateHeartbeatRequest = Body(...),
+) -> DeviceHeartbeatResponse:
+    """模拟设备心跳 / 掉线。"""
+    device = await device_service.get_device(session, auth, device_id)
+    return await heartbeat_service.simulate_heartbeat(
+        session,
+        auth,
+        device,
+        online=payload.online,
+        firmware_version=payload.firmware_version,
+        request=request,
+    )
+
+
+@router.post(
+    "/devices/{device_id}/credentials",
+    response_model=DeviceCredentialIssueResult,
+    status_code=201,
+    summary="签发设备密钥",
+    description=(
+        "为设备签发（或轮换）设备凭证。**明文 `secret` 仅此一次返回**："
+        "库内只存 `sha256` 摘要与「前 4 位 + ****」的掩码提示 `secretHint`。\n\n"
+        "同 `(deviceId, credentialType)` 已有凭证时**覆盖**该行（唯一约束保证一台设备"
+        "一个设备密钥）：旧密钥随即失效——这正是设备丢失时该有的行为。"
+        "重新签发会同时解除吊销状态。\n\n"
+        "用途：设备侧 `POST /device/heartbeat` 用该密钥鉴权（设备不持有 JWT）。"
+    ),
+    responses={
+        400: {"description": "不支持的凭证类型"},
+        404: {"description": "设备不存在"},
+    },
+    dependencies=[require_perm(PlatformPerm.DEVICE_WRITE)],
+)
+async def issue_device_credential(
+    request: Request,
+    session: DbSession,
+    auth: PlatformAuth,
+    device_id: str,
+    payload: DeviceCredentialIssueRequest = Body(...),
+) -> DeviceCredentialIssueResult:
+    """签发设备密钥（明文仅此一次返回）。"""
+    device = await device_service.get_device(session, auth, device_id)
+    return await device_service.issue_credential(
+        session,
+        auth,
+        device,
+        credential_type=payload.credential_type,
+        expires_in_days=payload.expires_in_days,
+        request=request,
+    )
 
 
 # ===========================================================================

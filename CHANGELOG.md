@@ -57,8 +57,35 @@
 - Alembic `0007_ai_dialogue`（8 张表）；`app/api/v1/ai.py` 六个端点（`/ai/chat` 为流式）
 - **已知局限**：厂商签名算法与部分 Body 字段名仍为占位（官方《调用方法》页不可读），已在代码中显式标注，待联调替换；`ADR-07` 安全失败行为已由测试钉住
 
+**P5 设备 / 分配 / 绑定**
+
+- **数据层**：Alembic `0011_allocations_bindings`，新增 3 张表（`allocation_orders` / `allocation_items` / `device_bindings`），与 ORM 零漂移、升降可逆
+  - 5 分钟 confirm-token **不额外建表**：以 `device_bindings.status=PENDING` + `confirm_token_hash` 落在绑定行上，`bind` 成功时把摘要置空即「销毁」；`UNIQUE(device_id)` 把**单绑约束下沉到数据库层**（并发下也不依赖服务层的「先查后写」）
+  - 新增 `BindingRecordStatus`（PENDING/BOUND/UNBOUND）与设备维度的 `BindingStatus`（BOUND/UNBOUND）**分开**：合成一个枚举会造出「设备已绑定、但记录还在等待确认」这种类型上无法自洽的状态
+- **分配链路** `allocation_service`：创建（校验租户 ACTIVE、客户产品归属）/ 列表 / 详情 / 明细 / 幂等执行
+  - 逐行校验并**部分失败不回滚**（成功的行必须保留，否则重跑会重复分配）；`FAILED → EXECUTING` 允许重跑（只补未成功的行），`COMPLETED` 再次调用是**幂等回放**；单数与明细行逐条给出失败原因
+- **绑定链路** `binding_service`：`precheck` → `bind` 两步
+  - `precheck`：解析格式 → 按 SN 查设备 → **SHA-256 命中**（用设备记录重算规范载荷比对摘要，因此无签名的集贤 `JX` 格式同样无法被篡改）→ 租户匹配 → 冻结拦截 → 单绑约束 → 可绑状态（只接受 `ALLOCATED`）→ 产品授权校验
+  - `bind`：幂等键（**重放必须先于令牌校验**，否则第二次会因令牌已销毁而报过期，就不是「重放返回同一条」了）→ 冻结 → 单绑 → 令牌存在/未过期/摘要匹配 → 销毁令牌并写设备四维与事件与审计
+  - 解绑：原因必填，恢复 `BOUND → ALLOCATED`，保留 `bindCount` 供识别反复解绑重绑
+- **心跳与在线判定** `heartbeat_service`：`POST /device/heartbeat` **不使用 JWT**，以 `sn` + 设备密钥（SHA-256 摘要）鉴权；`online_status` 与 180 秒窗口口径统一到 `last_heartbeat_at` 单一事实来源
+  - 新增 `POST /platform/devices/{id}/credentials` 签发 `DEVICE_SECRET`：明文仅回一次、库内只存摘要、续签覆盖同类型旧密钥（设备丢失时正是靠这个作废旧钥）——否则「任何人拿到 SN 就能把设备刷成在线」，而 SN 印在机身与包装上
+  - 响应新增派生布尔 `online`；列表筛选与 `byOnlineStatus` 统计同样按窗口口径，避免「掉线了但枚举还写着 ONLINE」
+  - `POST /platform/devices/{id}/simulate-heartbeat` 返回 `simulated: true`，`online=false` 可模拟窗口超时（否则验收要干等三分钟）
+- **API**：新增 14 个端点 —— 平台端分配 5（列表/创建/详情/明细/执行）+ 设备 2（模拟心跳、签发密钥）+ 商户端 6（设备列表/详情/事件、绑定记录列表、precheck、bind、unbind）+ 设备侧 1（心跳）；`GET /platform/devices` 新增 `unallocated` 筛选（平台库存）；OpenAPI 快照 51 → **65 个路径**
+- **前端**：平台端新增设备详情页（3 tab：概览 / 绑定 / 事件时间线）与分配管理页（新建弹窗含按租户联动的产品选择与设备多选、执行结果逐条展示失败原因）；商户端新增「我的设备」（两步扫码绑定弹窗，含预检回显与确认码倒计时）与「绑定管理」；设备库存页改造（新增「在线」列与「模拟心跳」）
+- **演示数据**：种子新增 4 台**平台自有库存**设备（`tenant_id` 为空 + `IN_STOCK`）——订单生成的设备建时就带 `tenant_id`、批次导入的停在 `GENERATED`，没有这批数据时分配页的「选择设备」永远是空的
+- **P-04 复核**：todo 中「修复 P-04（登录校验租户状态）」**已在 P1 修复**，本阶段复核确认（登录与刷新两条路径都校验 `tenant.status`，`test_auth.py` 已覆盖），未重复实现
+
 ### 修复
 
+- **所有页头按钮显示成字面文本 `<span>刷新</span>`**（P2 遗留）：`shared/ui/components.js` 的 `button()` 嵌套 `html` 模板时漏了 `raw()`，整段被二次转义；P4 的设备页同样中招，此前验收未发现。已补 `raw()` + `esc(label)`
+- **分配单弹窗选完租户后「可选设备」永远为空**：租户 `change` 处理把设备列表清空却没重新加载，而「先选租户」是必然动作 —— **分配功能实际完全不可用**。可选设备是「平台库存中已入库且未分配给任何租户」的那批，与目标租户无关，因此只清勾选、不清列表
+- **设备详情时间线的事件明细显示字面 `<div>…</div>`**：调用方按「body 是 HTML」传参，而 `timeline()` 的契约是纯文本，被二次转义。改为调用方传纯文本并给 `.timeline-body` 补 `white-space: pre-line`；**刻意不把组件改成 `raw`**——body 含用户填写的解绑原因，组件转义是必要的 XSS 防线
+- **签发设备密钥后详情页不刷新**：凭证区块仍显示「尚未签发设备密钥」，用户会误以为签发失败；且弹窗打开期间背景表格显示的是**上一轮的掩码**，看起来像「弹窗里的密钥与页面上不是同一个」。已把 `reload()` 挪到弹窗之前（先刷新、再弹窗）
+- **空白串可当「原因」落库**：`BindingUnbindRequest` / `DeviceFreezeRequest` / `DeviceRetireRequest` 只有 `min_length=1`、不 strip，`"   "` 能过关并写进记录，时间线里出现「解绑设备 X：   」使责任追溯失效（P4 的 `rejectReason` 已是「空白不算填了」口径）。三处都加 strip 校验器 → 400 `VALIDATION_ERROR`
+- **二维码前缀大小写导致自相矛盾**：`parse_payload` 用 `.upper()` 容忍 `jd|`（P4 单测已钉死该宽容行为），但 precheck 的 SHA-256 命中按字节严格比对，于是同一份输入先被判「格式合法」再被判「伪造」，报错文案误导排查。现只把**前缀段**归一为大写，其余字节仍严格比对（前缀是格式标签、不承载安全语义）
+- **工作台阶段说明文案过期**：平台端仍写「P3/P4 已交付」、商户端仍写「当前处于 P2 前端地基阶段：商户端接口将在后续阶段交付」，与已交付的能力不符，已更新到 P5
 - **P-06（删除无级联校验）**：租户 / 云服务商 / 产品模板 / 授权的删除端点先校验关联数据，存在时返回 `CASCADE_CONFLICT` 并在 `details` 中给出各项数量
 - **P-03（新建产品未绑定客户）**：客户产品的 `tenant_id` 为 `NOT NULL`，创建时必须指定租户与模板且校验授权（`PRODUCT_NOT_AUTHORIZED`），租户详情可直接看到其产品
 - **前端列表页事件监听器累积**：`createListPage` 的事件委托原绑在应用壳长期持有的容器上，跨导航不断叠加，表现为「点一次按钮弹出多个弹窗」；改为绑定到每次渲染新建的根节点
@@ -85,8 +112,8 @@
 
 ### 计划中
 
-- P5 设备/分配/绑定：四维状态机、幂等绑定、租户隔离矩阵
-- P6 烧录工厂端：脱敏序列化、烧录上报、抽检
+- P6 烧录工厂端：脱敏序列化、烧录上报、抽检、固件；**并需决策两件 P5 遗留**：①「冻结已分配/已绑定设备」的能力（放宽 `ASSET_TRANSITIONS[FROZEN]` 需同步改 P4 已钉死的 14 条单测）；② `GENERATED → IN_STOCK` 的「入库」动作端点（批次导入的设备当前进不了分配链路）
+- P5 待补测试：`tests/integration/test_allocation.py`、`test_tenant_isolation.py`（租户隔离参数化矩阵）、`test_device_heartbeat.py`（`test_binding.py` 的 53 条已落地）
 - P8 终端用户小程序端：扫码激活双分支、WebSocket 流式对话
 - P9 AI 配置与运营看板：知识库、音色、内容安全、指标聚合
 - P10 部署与质量保障：Docker、CI、端到端全闭环测试

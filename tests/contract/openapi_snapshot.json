@@ -148,6 +148,527 @@
         "title": "ActivationStatus",
         "type": "string"
       },
+      "AllocationExecuteResult": {
+        "description": "分配执行结果。\n\n``skipped`` 用于表达「重跑时已处于目标状态、无需再动」的明细——\n它与 ``allocated`` 分开计数，否则重跑会让成功数虚高。",
+        "properties": {
+          "allocatedCount": {
+            "default": 0,
+            "title": "Allocatedcount",
+            "type": "integer"
+          },
+          "allocation": {
+            "$ref": "#/components/schemas/AllocationOrderResponse"
+          },
+          "failedCount": {
+            "default": 0,
+            "title": "Failedcount",
+            "type": "integer"
+          },
+          "failures": {
+            "items": {
+              "$ref": "#/components/schemas/AllocationFailure"
+            },
+            "title": "Failures",
+            "type": "array"
+          },
+          "skippedCount": {
+            "default": 0,
+            "title": "Skippedcount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "allocation"
+        ],
+        "title": "AllocationExecuteResult",
+        "type": "object"
+      },
+      "AllocationFailure": {
+        "description": "一条失败明细（执行结果里的可读原因）。",
+        "properties": {
+          "code": {
+            "description": "错误码，便于前端分类展示",
+            "title": "Code",
+            "type": "string"
+          },
+          "deviceId": {
+            "title": "Deviceid",
+            "type": "string"
+          },
+          "deviceSn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Devicesn"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "deviceId",
+          "code",
+          "message"
+        ],
+        "title": "AllocationFailure",
+        "type": "object"
+      },
+      "AllocationItemResponse": {
+        "description": "分配明细行。",
+        "properties": {
+          "allocatedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allocatedat"
+          },
+          "allocationOrderId": {
+            "title": "Allocationorderid",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "deviceId": {
+            "title": "Deviceid",
+            "type": "string"
+          },
+          "deviceSn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Devicesn"
+          },
+          "errorMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errormessage"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "description": "PENDING / ALLOCATED / FAILED / SKIPPED",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "allocationOrderId",
+          "deviceId",
+          "status",
+          "createdAt"
+        ],
+        "title": "AllocationItemResponse",
+        "type": "object"
+      },
+      "AllocationItemStatus": {
+        "description": "分配单明细行状态。\n\n刻意与 :class:`AllocationStatus` 分开：一张分配单里「哪几台成功、\n哪几台失败」是逐行的信息，把整体状态当成明细状态会丢失失败原因。",
+        "enum": [
+          "PENDING",
+          "ALLOCATED",
+          "FAILED",
+          "SKIPPED"
+        ],
+        "title": "AllocationItemStatus",
+        "type": "string"
+      },
+      "AllocationOrderCreateRequest": {
+        "description": "创建分配单。\n\n``deviceIds`` 指向的设备必须处于 ``IN_STOCK``\n（未冻结、未报废、尚未属于任何租户），否则执行阶段逐行失败；\n创建阶段只做「非空 + 去重 + 数量上限」的形态校验。",
+        "properties": {
+          "clientProductId": {
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Clientproductid",
+            "type": "string"
+          },
+          "deviceIds": {
+            "description": "设备 ID 列表（最多 500 台）",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Deviceids",
+            "type": "array"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "tenantId": {
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Tenantid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenantId",
+          "clientProductId",
+          "deviceIds"
+        ],
+        "title": "AllocationOrderCreateRequest",
+        "type": "object"
+      },
+      "AllocationOrderDetailResponse": {
+        "description": "分配单详情（带归属名称与明细行）。",
+        "properties": {
+          "allocatedCount": {
+            "default": 0,
+            "title": "Allocatedcount",
+            "type": "integer"
+          },
+          "allocationNo": {
+            "title": "Allocationno",
+            "type": "string"
+          },
+          "clientProductCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clientproductcode"
+          },
+          "clientProductId": {
+            "title": "Clientproductid",
+            "type": "string"
+          },
+          "clientProductName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clientproductname"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "createdBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdby"
+          },
+          "executedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Executedat"
+          },
+          "executedBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Executedby"
+          },
+          "failedCount": {
+            "default": 0,
+            "title": "Failedcount",
+            "type": "integer"
+          },
+          "failureReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failurereason"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "itemTotal": {
+            "default": 0,
+            "title": "Itemtotal",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AllocationItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "networkType": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Networktype"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "statusLabel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Statuslabel"
+          },
+          "tenantId": {
+            "title": "Tenantid",
+            "type": "string"
+          },
+          "tenantName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenantname"
+          },
+          "totalCount": {
+            "default": 0,
+            "title": "Totalcount",
+            "type": "integer"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "allocationNo",
+          "tenantId",
+          "clientProductId",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "AllocationOrderDetailResponse",
+        "type": "object"
+      },
+      "AllocationOrderResponse": {
+        "description": "分配单（列表项）。",
+        "properties": {
+          "allocatedCount": {
+            "default": 0,
+            "title": "Allocatedcount",
+            "type": "integer"
+          },
+          "allocationNo": {
+            "title": "Allocationno",
+            "type": "string"
+          },
+          "clientProductId": {
+            "title": "Clientproductid",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "createdBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdby"
+          },
+          "executedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Executedat"
+          },
+          "executedBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Executedby"
+          },
+          "failedCount": {
+            "default": 0,
+            "title": "Failedcount",
+            "type": "integer"
+          },
+          "failureReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failurereason"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "statusLabel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Statuslabel"
+          },
+          "tenantId": {
+            "title": "Tenantid",
+            "type": "string"
+          },
+          "totalCount": {
+            "default": 0,
+            "title": "Totalcount",
+            "type": "integer"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "allocationNo",
+          "tenantId",
+          "clientProductId",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "AllocationOrderResponse",
+        "type": "object"
+      },
+      "AllocationStatus": {
+        "description": "分配单状态。\n\n状态机::\n\n    DRAFT     → EXECUTING\n    EXECUTING → COMPLETED | FAILED\n    FAILED    → EXECUTING   (允许修复后重跑，只补未成功的明细)\n\n``COMPLETED`` 再次调用执行接口**不做状态迁移**，而是直接回放既有结果\n（幂等语义，与 P4 的「已入库订单再调生成接口」保持一致）。",
+        "enum": [
+          "DRAFT",
+          "EXECUTING",
+          "COMPLETED",
+          "FAILED"
+        ],
+        "title": "AllocationStatus",
+        "type": "string"
+      },
       "AsrRequest": {
         "description": "语音识别请求。\n\n``audio_base64`` 承载真实音频；离线环境下可只传 ``hint_text``，\n由 mock 的 ``echo`` 模式复读——这样语音链路在无音频素材时也能联调。",
         "properties": {
@@ -809,6 +1330,431 @@
         ],
         "title": "BindStatus",
         "type": "string"
+      },
+      "BindingConfirmRequest": {
+        "description": "确认绑定请求。",
+        "properties": {
+          "confirmToken": {
+            "description": "precheck 返回的确认令牌",
+            "maxLength": 256,
+            "minLength": 8,
+            "title": "Confirmtoken",
+            "type": "string"
+          },
+          "endUserId": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "终端用户标识（`end_users` 属 P9，此处只存不校验）",
+            "title": "Enduserid"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          }
+        },
+        "required": [
+          "confirmToken"
+        ],
+        "title": "BindingConfirmRequest",
+        "type": "object"
+      },
+      "BindingPrecheckRequest": {
+        "description": "扫码预检请求。",
+        "properties": {
+          "qrPayload": {
+            "description": "二维码原始文本（JX|… 或 JD|…），由前端扫码器读取后原样提交",
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Qrpayload",
+            "type": "string"
+          }
+        },
+        "required": [
+          "qrPayload"
+        ],
+        "title": "BindingPrecheckRequest",
+        "type": "object"
+      },
+      "BindingPrecheckResponse": {
+        "description": "扫码预检结果（含一次性确认令牌）。\n\n``confirmToken`` 是**明文令牌，仅此一次返回**；前端应在提交 ``bind`` 后立即丢弃。",
+        "properties": {
+          "assetStatus": {
+            "title": "Assetstatus",
+            "type": "string"
+          },
+          "bindingId": {
+            "title": "Bindingid",
+            "type": "string"
+          },
+          "clientProductId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clientproductid"
+          },
+          "clientProductName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clientproductname"
+          },
+          "confirmToken": {
+            "description": "一次性确认令牌，明文仅此一次返回",
+            "title": "Confirmtoken",
+            "type": "string"
+          },
+          "deviceId": {
+            "title": "Deviceid",
+            "type": "string"
+          },
+          "deviceLabel": {
+            "description": "四维状态派生的展示标签",
+            "title": "Devicelabel",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "title": "Expiresat",
+            "type": "string"
+          },
+          "expiresInSeconds": {
+            "description": "令牌剩余有效秒数（默认 300）",
+            "title": "Expiresinseconds",
+            "type": "integer"
+          },
+          "networkType": {
+            "title": "Networktype",
+            "type": "string"
+          },
+          "qrFormat": {
+            "description": "JX（集贤 4G）/ JD（京东 Wi-Fi）",
+            "title": "Qrformat",
+            "type": "string"
+          },
+          "sn": {
+            "title": "Sn",
+            "type": "string"
+          },
+          "tenantId": {
+            "title": "Tenantid",
+            "type": "string"
+          },
+          "tenantName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenantname"
+          }
+        },
+        "required": [
+          "bindingId",
+          "deviceId",
+          "sn",
+          "networkType",
+          "deviceLabel",
+          "assetStatus",
+          "tenantId",
+          "qrFormat",
+          "confirmToken",
+          "expiresAt",
+          "expiresInSeconds"
+        ],
+        "title": "BindingPrecheckResponse",
+        "type": "object"
+      },
+      "BindingRecordStatus": {
+        "description": "**绑定记录**的生命周期状态（``device_bindings.status``）。\n\n为什么单独开一个枚举，而不是给 :class:`BindingStatus` 加 ``PENDING``？\n两者描述的对象不同：\n\n* ``BindingStatus`` 说的是**设备**（第四维状态机，只有两个取值）；\n* ``BindingRecordStatus`` 说的是**记录**，而记录确实存在\n  「已扫码预检、等待确认令牌」这个合法的中间态。\n\n合成一个枚举会造出「设备已绑定、但记录还是 PENDING」这种\n类型上无法自洽的状态——用两个枚举把这种组合从语法上排除掉。",
+        "enum": [
+          "PENDING",
+          "BOUND",
+          "UNBOUND"
+        ],
+        "title": "BindingRecordStatus",
+        "type": "string"
+      },
+      "BindingResponse": {
+        "description": "绑定记录。\n\n**不含令牌字段**：摘要留在库内，明文在 ``precheck`` 后即应被前端丢弃。",
+        "properties": {
+          "assetStatus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assetstatus"
+          },
+          "bindCount": {
+            "default": 0,
+            "title": "Bindcount",
+            "type": "integer"
+          },
+          "bindStatus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bindstatus"
+          },
+          "boundAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Boundat"
+          },
+          "boundBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Boundby"
+          },
+          "clientProductId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clientproductid"
+          },
+          "confirmedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmedat"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "deviceId": {
+            "title": "Deviceid",
+            "type": "string"
+          },
+          "deviceLabel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Devicelabel"
+          },
+          "endUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enduserid"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "networkType": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Networktype"
+          },
+          "qrFormat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qrformat"
+          },
+          "qrPayloadHash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qrpayloadhash"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "sn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sn"
+          },
+          "status": {
+            "description": "PENDING / BOUND / UNBOUND",
+            "title": "Status",
+            "type": "string"
+          },
+          "statusLabel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "中文状态名",
+            "title": "Statuslabel"
+          },
+          "tenantId": {
+            "title": "Tenantid",
+            "type": "string"
+          },
+          "unbindReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unbindreason"
+          },
+          "unboundAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unboundat"
+          },
+          "unboundBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unboundby"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "deviceId",
+          "tenantId",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "BindingResponse",
+        "type": "object"
+      },
+      "BindingUnbindRequest": {
+        "description": "解绑请求。\n\n原因必填，且**空白串不算填了原因**——与 P4 订单驳回的 ``rejectReason``\n同一口径（那边由服务层拒绝 ``\"   \"``）。只写 ``min_length=1`` 时\n``\"   \"`` 能通过校验并被原样写进绑定记录，时间线里就会出现\n「解绑设备 X：   」这种看着没有原因、无法追溯责任的记录。",
+        "properties": {
+          "reason": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "BindingUnbindRequest",
+        "type": "object"
       },
       "Body_upload_batch_api_v1_platform_batches_post": {
         "properties": {
@@ -1777,6 +2723,12 @@
             "title": "Networktype",
             "type": "string"
           },
+          "online": {
+            "default": false,
+            "description": "按 180 秒心跳窗口派生的在线判据",
+            "title": "Online",
+            "type": "boolean"
+          },
           "sn": {
             "title": "Sn",
             "type": "string"
@@ -1875,6 +2827,51 @@
         "title": "DeviceCredentialBrief",
         "type": "object"
       },
+      "DeviceCredentialIssueRequest": {
+        "description": "签发设备密钥。\n\n``expiresInDays`` 留空表示长期有效；续签会**覆盖**同类型凭证\n（``device_credentials`` 上有 ``UNIQUE(device_id, credential_type)``），\n旧密钥随即失效——这正是设备丢失时该有的行为。",
+        "properties": {
+          "credentialType": {
+            "default": "DEVICE_SECRET",
+            "maxLength": 32,
+            "title": "Credentialtype",
+            "type": "string"
+          },
+          "expiresInDays": {
+            "anyOf": [
+              {
+                "maximum": 3650.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expiresindays"
+          }
+        },
+        "title": "DeviceCredentialIssueRequest",
+        "type": "object"
+      },
+      "DeviceCredentialIssueResult": {
+        "description": "签发结果。**明文 ``secret`` 仅此一次返回**。",
+        "properties": {
+          "credential": {
+            "$ref": "#/components/schemas/DeviceCredentialBrief"
+          },
+          "secret": {
+            "description": "明文密钥，仅此一次返回；库内只存 SHA-256 摘要",
+            "title": "Secret",
+            "type": "string"
+          }
+        },
+        "required": [
+          "credential",
+          "secret"
+        ],
+        "title": "DeviceCredentialIssueResult",
+        "type": "object"
+      },
       "DeviceDetailResponse": {
         "description": "设备详情：附加归属名称、凭证掩码与最近事件。\n\n与列表项的唯一结构性差异就是**这里带名称**\n（``tenantName`` / ``clientProductName`` / ``orderNo``）：\n详情页是单条记录，需要自解释（用户可能直接从消息里点进来），\n而列表页靠下拉映射即可——这不是遗漏，而是有意的分工。",
         "properties": {
@@ -1912,6 +2909,16 @@
           "bindStatus": {
             "title": "Bindstatus",
             "type": "string"
+          },
+          "binding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BindingResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "boundAt": {
             "anyOf": [
@@ -2075,6 +3082,12 @@
           "networkType": {
             "title": "Networktype",
             "type": "string"
+          },
+          "online": {
+            "default": false,
+            "description": "按 180 秒心跳窗口派生的在线判据",
+            "title": "Online",
+            "type": "boolean"
           },
           "onlineStatus": {
             "title": "Onlinestatus",
@@ -2337,7 +3350,7 @@
         "type": "object"
       },
       "DeviceFreezeRequest": {
-        "description": "冻结设备。\n\n原因必填：冻结是「人为阻断一台已出货设备」的动作，\n没有原因会让后续解冻与责任追溯无从下手。",
+        "description": "冻结设备。\n\n原因必填：冻结是「人为阻断一台已出货设备」的动作，\n没有原因会让后续解冻与责任追溯无从下手。\n\n★ 空白串不算填了原因（与订单驳回 ``rejectReason`` 同一口径）：\n只有 ``min_length=1`` 时 ``\"   \"`` 能过关并原样落库，\n时间线里就会出现「冻结设备 X：   」这类无法追溯的记录。",
         "properties": {
           "reason": {
             "maxLength": 512,
@@ -2350,6 +3363,102 @@
           "reason"
         ],
         "title": "DeviceFreezeRequest",
+        "type": "object"
+      },
+      "DeviceHeartbeatRequest": {
+        "description": "设备心跳上报。\n\n★ 心跳是**设备侧**端点，因此不能用平台 / 商户的 JWT——\n设备持有的是 ``precheck`` 之外的另一套凭据：平台签发的一次性\n``DEVICE_SECRET``。这里要求 ``sn`` + ``secret`` 同时给出并校验摘要，\n否则任何人拿到 SN 就能把任意设备刷成在线（SN 印在机身与包装上，不算秘密）。",
+        "properties": {
+          "firmwareVersion": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firmwareversion"
+          },
+          "secret": {
+            "description": "平台签发的设备密钥明文（库内只存 SHA-256 摘要）",
+            "maxLength": 256,
+            "minLength": 8,
+            "title": "Secret",
+            "type": "string"
+          },
+          "sn": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Sn",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sn",
+          "secret"
+        ],
+        "title": "DeviceHeartbeatRequest",
+        "type": "object"
+      },
+      "DeviceHeartbeatResponse": {
+        "description": "心跳结果。",
+        "properties": {
+          "deviceId": {
+            "title": "Deviceid",
+            "type": "string"
+          },
+          "heartbeatIntervalSeconds": {
+            "description": "建议心跳间隔（HEARTBEAT_INTERVAL_SECONDS）",
+            "title": "Heartbeatintervalseconds",
+            "type": "integer"
+          },
+          "lastHeartbeatAt": {
+            "format": "date-time",
+            "title": "Lastheartbeatat",
+            "type": "string"
+          },
+          "online": {
+            "description": "按 180 秒窗口派生的在线判据，恒为 true",
+            "title": "Online",
+            "type": "boolean"
+          },
+          "onlineStatus": {
+            "title": "Onlinestatus",
+            "type": "string"
+          },
+          "onlineWindowSeconds": {
+            "description": "在线判定窗口（ONLINE_WINDOW_SECONDS）",
+            "title": "Onlinewindowseconds",
+            "type": "integer"
+          },
+          "serverTime": {
+            "format": "date-time",
+            "title": "Servertime",
+            "type": "string"
+          },
+          "simulated": {
+            "default": false,
+            "description": "是否为平台模拟心跳（演示用，绝不伪造为真实设备上报）",
+            "title": "Simulated",
+            "type": "boolean"
+          },
+          "sn": {
+            "title": "Sn",
+            "type": "string"
+          }
+        },
+        "required": [
+          "deviceId",
+          "sn",
+          "online",
+          "onlineStatus",
+          "lastHeartbeatAt",
+          "onlineWindowSeconds",
+          "heartbeatIntervalSeconds",
+          "serverTime"
+        ],
+        "title": "DeviceHeartbeatResponse",
         "type": "object"
       },
       "DeviceResponse": {
@@ -2523,6 +3632,12 @@
             "title": "Networktype",
             "type": "string"
           },
+          "online": {
+            "default": false,
+            "description": "按 180 秒心跳窗口派生的在线判据",
+            "title": "Online",
+            "type": "boolean"
+          },
           "onlineStatus": {
             "title": "Onlinestatus",
             "type": "string"
@@ -2631,7 +3746,7 @@
         "type": "object"
       },
       "DeviceRetireRequest": {
-        "description": "报废设备。",
+        "description": "报废设备（原因必填，空白串同样不算）。",
         "properties": {
           "reason": {
             "maxLength": 512,
@@ -2644,6 +3759,31 @@
           "reason"
         ],
         "title": "DeviceRetireRequest",
+        "type": "object"
+      },
+      "DeviceSimulateHeartbeatRequest": {
+        "description": "平台模拟心跳 / 模拟掉线。\n\n``online=false`` 用于演示「超过 180 秒窗口即判定离线」——\n否则只能真的等三分钟，验收无法自动化。",
+        "properties": {
+          "firmwareVersion": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firmwareversion"
+          },
+          "online": {
+            "default": true,
+            "description": "false 表示把设备置为离线（模拟窗口超时）",
+            "title": "Online",
+            "type": "boolean"
+          }
+        },
+        "title": "DeviceSimulateHeartbeatRequest",
         "type": "object"
       },
       "DeviceStatsResponse": {
@@ -3922,6 +5062,88 @@
         "title": "OtaSupport",
         "type": "string"
       },
+      "PageResult_AllocationItemResponse_": {
+        "properties": {
+          "page": {
+            "description": "当前页码",
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "description": "每页条数",
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "records": {
+            "description": "当前页记录",
+            "items": {
+              "$ref": "#/components/schemas/AllocationItemResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "description": "总记录数",
+            "title": "Total",
+            "type": "integer"
+          },
+          "totalPages": {
+            "description": "总页数",
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "title": "PageResult[AllocationItemResponse]",
+        "type": "object"
+      },
+      "PageResult_AllocationOrderResponse_": {
+        "properties": {
+          "page": {
+            "description": "当前页码",
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "description": "每页条数",
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "records": {
+            "description": "当前页记录",
+            "items": {
+              "$ref": "#/components/schemas/AllocationOrderResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "description": "总记录数",
+            "title": "Total",
+            "type": "integer"
+          },
+          "totalPages": {
+            "description": "总页数",
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "title": "PageResult[AllocationOrderResponse]",
+        "type": "object"
+      },
       "PageResult_AuthorizationResponse_": {
         "properties": {
           "page": {
@@ -4043,6 +5265,47 @@
           "totalPages"
         ],
         "title": "PageResult[BatchResponse]",
+        "type": "object"
+      },
+      "PageResult_BindingResponse_": {
+        "properties": {
+          "page": {
+            "description": "当前页码",
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "description": "每页条数",
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "records": {
+            "description": "当前页记录",
+            "items": {
+              "$ref": "#/components/schemas/BindingResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "description": "总记录数",
+            "title": "Total",
+            "type": "integer"
+          },
+          "totalPages": {
+            "description": "总页数",
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "title": "PageResult[BindingResponse]",
         "type": "object"
       },
       "PageResult_ClientProductResponse_": {
@@ -6464,6 +7727,57 @@
         ]
       }
     },
+    "/api/v1/device/heartbeat": {
+      "post": {
+        "description": "设备定期上报心跳（建议间隔见响应里的 `heartbeatIntervalSeconds`）。\n\n**鉴权方式**：请求体携带 `sn` + `secret`，服务端比对 `sha256(secret)` 与库内摘要——设备不持有 JWT，因此本端点**不挂认证依赖**。密钥由平台在「设备详情 → 签发设备密钥」处一次性下发。\n\n**在线判定**：心跳时间与 `onlineWindowSeconds`（默认 180 秒）比较，超出窗口即视为离线；只有在线状态**真的变化**时才写一条设备事件，避免每 30 秒一条把时间线淹掉。\n\n**幂等**：心跳天然可重复，不需要幂等键。",
+        "operationId": "report_heartbeat_api_v1_device_heartbeat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceHeartbeatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceHeartbeatResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "设备未签发密钥 / 密钥已失效 / 密钥校验失败"
+          },
+          "404": {
+            "description": "设备不存在"
+          },
+          "409": {
+            "description": "设备已冻结（DEVICE_FROZEN）或已报废（DEVICE_NOT_AVAILABLE）"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "设备心跳上报",
+        "tags": [
+          "设备侧"
+        ]
+      }
+    },
     "/api/v1/health": {
       "get": {
         "description": "进程存活即返回 UP，不检查下游依赖。",
@@ -6582,6 +7896,743 @@
         "summary": "修改密码",
         "tags": [
           "认证"
+        ]
+      }
+    },
+    "/api/v1/merchant/bindings": {
+      "get": {
+        "description": "分页查询**本租户**的绑定记录（租户过滤在服务层经 `scoped()` 收口）。支持按状态 / 设备筛选，`keyword` 匹配设备 SN（服务层用子查询实现）。\n\n响应带设备侧快照（`sn` / `deviceLabel` / `assetStatus` / `bindStatus` / `networkType`），列表因此可以自解释，不需要前端再逐台回查设备。",
+        "operationId": "list_my_bindings_api_v1_merchant_bindings_get",
+        "parameters": [
+          {
+            "description": "绑定记录状态 PENDING / BOUND / UNBOUND",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/BindingRecordStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "绑定记录状态 PENDING / BOUND / UNBOUND",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "按设备筛选",
+            "in": "query",
+            "name": "deviceId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按设备筛选",
+              "title": "Deviceid"
+            }
+          },
+          {
+            "description": "设备 SN 关键字",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "设备 SN 关键字",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_BindingResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "绑定记录列表",
+        "tags": [
+          "商户端 · 产品与订单"
+        ]
+      }
+    },
+    "/api/v1/merchant/devices": {
+      "get": {
+        "description": "分页查询**本租户**的设备（租户过滤在服务层经 `scoped()` 收口，ADR-08）。支持按客户产品与四维状态筛选，`keyword` 匹配 SN / IMEI / MAC。\n\n`onlineStatus` 按**派生在线判据**筛选（最后一次心跳是否落在 `ONLINE_WINDOW_SECONDS` 窗口内），因此「落库还是 ONLINE 但已超窗」的设备会出现在 `OFFLINE` 里——展示字段 `online` 与它口径一致。\n\n平台自有库存（`tenantId` 为空）不会出现在这里：租户作用域天然把它挡在外面。",
+        "operationId": "list_my_devices_api_v1_merchant_devices_get",
+        "parameters": [
+          {
+            "description": "按客户产品筛选",
+            "in": "query",
+            "name": "clientProductId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按客户产品筛选",
+              "title": "Clientproductid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "assetStatus",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/AssetStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Assetstatus"
+            }
+          },
+          {
+            "in": "query",
+            "name": "activationStatus",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ActivationStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Activationstatus"
+            }
+          },
+          {
+            "in": "query",
+            "name": "onlineStatus",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/OnlineStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Onlinestatus"
+            }
+          },
+          {
+            "in": "query",
+            "name": "bindStatus",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/BindStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Bindstatus"
+            }
+          },
+          {
+            "description": "SN / IMEI / MAC",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "SN / IMEI / MAC",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_DeviceResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "我的设备列表",
+        "tags": [
+          "商户端 · 产品与订单"
+        ]
+      }
+    },
+    "/api/v1/merchant/devices/bind/precheck": {
+      "post": {
+        "description": "提交扫码结果，判定「这台设备能不能绑、绑给谁」，并签发一次性确认令牌。\n\n判定顺序即错误码优先级：二维码格式 / 签名（`QR_INVALID`）→ 设备是否存在（`DEVICE_NOT_FOUND`）→ 载荷摘要与设备记录是否一致（`QR_INVALID`，挡住字段被改过的码）→ 租户匹配（`DEVICE_NOT_IN_TENANT`）→ 冻结（`DEVICE_FROZEN`）→ 单绑约束（`DEVICE_ALREADY_BOUND`，`details` 带原绑定ID / 时间 / 终端用户）→ 可绑状态（只有 `ALLOCATED` 可绑）→ 产品授权（`PRODUCT_NOT_AUTHORIZED`）。\n\n**令牌明文仅此一次返回**（`confirmToken`），有效期 `QR_CONFIRM_TOKEN_TTL_SECONDS`（默认 300 秒）、用一次即销毁；库内只存 SHA-256 摘要，二维码载荷也只存摘要。",
+        "operationId": "precheck_binding_api_v1_merchant_devices_bind_precheck_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BindingPrecheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BindingPrecheckResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "设备不属于当前租户"
+          },
+          "404": {
+            "description": "二维码无效（QR_INVALID）或设备不存在"
+          },
+          "409": {
+            "description": "设备已绑定 / 已冻结 / 状态不可绑 / 产品未授权"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "扫码预检",
+        "tags": [
+          "商户端 · 产品与订单"
+        ]
+      }
+    },
+    "/api/v1/merchant/devices/{device_id}": {
+      "get": {
+        "description": "含四维状态派生标签 `label`、派生在线判据 `online`、产品名称、**凭证掩码**（只有 `secretHint`，永不含明文密钥）、最近事件时间线，以及当前绑定记录 `binding`（未绑定过为 `null`）。\n\n访问其他租户的设备返回 **404**（不返回 403）——避免通过错误码探测。",
+        "operationId": "get_my_device_api_v1_merchant_devices__device_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "设备不存在或不属于本租户"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "我的设备详情",
+        "tags": [
+          "商户端 · 产品与订单"
+        ]
+      }
+    },
+    "/api/v1/merchant/devices/{device_id}/bind": {
+      "post": {
+        "description": "用 `precheck` 返回的 `confirmToken` 完成绑定，设备资产状态 `ALLOCATED → BOUND`、`bindStatus` 置为 `BOUND`。\n\n**幂等**：可携带请求头 `Idempotency-Key`；同一键的重放**先于令牌校验**返回首次响应（令牌在首次绑定成功时已销毁，否则重放会误报 `QR_EXPIRED`）。同一键配不同请求体会返回 `IDEMPOTENCY_CONFLICT`。",
+        "operationId": "bind_device_api_v1_merchant_devices__device_id__bind_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "幂等键（可选，建议客户端生成 UUID）",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "幂等键（可选，建议客户端生成 UUID）",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BindingConfirmRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BindingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "设备不存在或不属于本租户"
+          },
+          "409": {
+            "description": "令牌过期 / 已使用 / 设备已绑定 / 产品未授权"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "确认绑定",
+        "tags": [
+          "商户端 · 产品与订单"
+        ]
+      }
+    },
+    "/api/v1/merchant/devices/{device_id}/events": {
+      "get": {
+        "description": "分页查询设备的流转事件（按时间倒序），含资产 / 激活 / 在线 / 绑定四个维度。",
+        "operationId": "list_my_device_events_api_v1_merchant_devices__device_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_DeviceEventResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "设备不存在或不属于本租户"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "我的设备事件时间线",
+        "tags": [
+          "商户端 · 产品与订单"
+        ]
+      }
+    },
+    "/api/v1/merchant/devices/{device_id}/unbind": {
+      "post": {
+        "description": "解绑设备（原因必填）。设备资产状态 `BOUND → ALLOCATED`、`bindStatus` 置为 `UNBOUND`——**不退回平台库存**：设备仍属于本租户，只是不再绑定终端用户。\n\n**幂等**：与绑定同一套三段式（作用域为解绑路径）。",
+        "operationId": "unbind_device_api_v1_merchant_devices__device_id__unbind_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "幂等键（可选，建议客户端生成 UUID）",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "幂等键（可选，建议客户端生成 UUID）",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BindingUnbindRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BindingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "设备不存在或不属于本租户"
+          },
+          "409": {
+            "description": "设备当前未绑定"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "解绑设备",
+        "tags": [
+          "商户端 · 产品与订单"
         ]
       }
     },
@@ -7045,6 +9096,469 @@
         "summary": "我的产品详情",
         "tags": [
           "商户端 · 产品与订单"
+        ]
+      }
+    },
+    "/api/v1/platform/allocations": {
+      "get": {
+        "description": "分页查询分配单（平台全局长）。支持按状态 / 目标租户筛选，`keyword` 匹配分配单号。",
+        "operationId": "list_allocations_api_v1_platform_allocations_get",
+        "parameters": [
+          {
+            "description": "分配单状态",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/AllocationStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "分配单状态",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "按目标租户筛选",
+            "in": "query",
+            "name": "tenantId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按目标租户筛选",
+              "title": "Tenantid"
+            }
+          },
+          {
+            "description": "分配单号关键字",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "分配单号关键字",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_AllocationOrderResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "分配单列表",
+        "tags": [
+          "平台端 · 分配"
+        ]
+      },
+      "post": {
+        "description": "创建分配单（`DRAFT`），把一批设备分配给指定租户的指定客户产品。\n\n**创建阶段只做硬校验**：目标租户必须存在且 `ACTIVE`；客户产品必须存在且属于该租户（否则按「不存在」处理）。设备是否可分配留给「执行」阶段逐行判定——那才是库存真正被扣减的时刻。\n\n**幂等**：可携带请求头 `Idempotency-Key`。重复提交同一键会回放首次响应；同一键配不同请求体会返回 `IDEMPOTENCY_CONFLICT`。",
+        "operationId": "create_allocation_api_v1_platform_allocations_post",
+        "parameters": [
+          {
+            "description": "幂等键（可选，建议客户端生成 UUID）",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "幂等键（可选，建议客户端生成 UUID）",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllocationOrderCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllocationOrderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "目标租户已被禁用"
+          },
+          "404": {
+            "description": "租户或客户产品不存在"
+          },
+          "409": {
+            "description": "幂等冲突"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "创建分配单",
+        "tags": [
+          "平台端 · 分配"
+        ]
+      }
+    },
+    "/api/v1/platform/allocations/{allocation_id}": {
+      "get": {
+        "description": "含租户 / 客户产品名称与编码、联网方式，以及**全部明细行**（逐行的成功 / 失败原因）。明细只在详情里返回：列表页带 500 行明细会把列表接口拖垮。",
+        "operationId": "get_allocation_detail_api_v1_platform_allocations__allocation_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "allocation_id",
+            "required": true,
+            "schema": {
+              "title": "Allocation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllocationOrderDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "分配单不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "分配单详情",
+        "tags": [
+          "平台端 · 分配"
+        ]
+      }
+    },
+    "/api/v1/platform/allocations/{allocation_id}/execute": {
+      "post": {
+        "description": "把明细中的设备划到目标租户名下（`IN_STOCK → ALLOCATED`）。\n\n**逐行处理，不做整单回滚**：成功的行立刻保留，失败的行只标自己（`status=FAILED` + `errorMessage`），整单按「有没有失败」落 `COMPLETED` / `FAILED`。重跑只补未成功的明细，已成功的行记为 `SKIPPED`。\n\n**幂等**：`COMPLETED` 的分配单再次调用不会做任何迁移，直接回放既有计数。\n\n逐行判定优先级：设备不存在 → 不属于本次租户 → 已在本租户且已分配（跳过）→ 已冻结 → 不可分配状态；产品授权是**整单一次**校验，失败则整单失败。",
+        "operationId": "execute_allocation_api_v1_platform_allocations__allocation_id__execute_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "allocation_id",
+            "required": true,
+            "schema": {
+              "title": "Allocation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllocationExecuteResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "分配单不存在"
+          },
+          "409": {
+            "description": "分配单当前状态不允许执行"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "执行分配单",
+        "tags": [
+          "平台端 · 分配"
+        ]
+      }
+    },
+    "/api/v1/platform/allocations/{allocation_id}/items": {
+      "get": {
+        "description": "分页查询分配明细行（按创建顺序），可按行状态筛选。",
+        "operationId": "list_allocation_items_api_v1_platform_allocations__allocation_id__items_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "allocation_id",
+            "required": true,
+            "schema": {
+              "title": "Allocation Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "行状态 PENDING / ALLOCATED / FAILED / SKIPPED",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/AllocationItemStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "行状态 PENDING / ALLOCATED / FAILED / SKIPPED",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_AllocationItemResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "分配单不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "分配明细",
+        "tags": [
+          "平台端 · 分配"
         ]
       }
     },
@@ -8412,7 +10926,7 @@
     },
     "/api/v1/platform/devices": {
       "get": {
-        "description": "分页查询设备。支持按租户 / 客户产品 / 四维状态筛选，`keyword` 匹配 SN / IMEI / MAC；`sortBy` 支持 `created_at` / `sn` / `generated_at`。",
+        "description": "分页查询设备。支持按租户 / 客户产品 / 四维状态筛选，`keyword` 匹配 SN / IMEI / MAC；`sortBy` 支持 `created_at` / `sn` / `generated_at`。\n\n`unallocated=true` 只看**尚未分配给任何租户的平台库存**（`tenantId IS NULL`），是「分配设备」页挑选目标设备的取值来源。\n\n`onlineStatus` 按**派生在线判据**（最后一次心跳是否落在 `ONLINE_WINDOW_SECONDS` 窗口内）筛选：落库仍是 `ONLINE` 但已超窗的设备会出现在 `OFFLINE` 里，与展示字段 `online` 口径一致。",
         "operationId": "list_devices_api_v1_platform_devices_get",
         "parameters": [
           {
@@ -8525,6 +11039,18 @@
                 }
               ],
               "title": "Bindstatus"
+            }
+          },
+          {
+            "description": "仅看尚未分配给任何租户的平台库存",
+            "in": "query",
+            "name": "unallocated",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "仅看尚未分配给任何租户的平台库存",
+              "title": "Unallocated",
+              "type": "boolean"
             }
           },
           {
@@ -8710,6 +11236,70 @@
           }
         ],
         "summary": "设备详情",
+        "tags": [
+          "平台端 · 订单与设备"
+        ]
+      }
+    },
+    "/api/v1/platform/devices/{device_id}/credentials": {
+      "post": {
+        "description": "为设备签发（或轮换）设备凭证。**明文 `secret` 仅此一次返回**：库内只存 `sha256` 摘要与「前 4 位 + ****」的掩码提示 `secretHint`。\n\n同 `(deviceId, credentialType)` 已有凭证时**覆盖**该行（唯一约束保证一台设备一个设备密钥）：旧密钥随即失效——这正是设备丢失时该有的行为。重新签发会同时解除吊销状态。\n\n用途：设备侧 `POST /device/heartbeat` 用该密钥鉴权（设备不持有 JWT）。",
+        "operationId": "issue_device_credential_api_v1_platform_devices__device_id__credentials_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceCredentialIssueRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceCredentialIssueResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "不支持的凭证类型"
+          },
+          "404": {
+            "description": "设备不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "签发设备密钥",
         "tags": [
           "平台端 · 订单与设备"
         ]
@@ -8941,6 +11531,67 @@
           }
         ],
         "summary": "报废设备",
+        "tags": [
+          "平台端 · 订单与设备"
+        ]
+      }
+    },
+    "/api/v1/platform/devices/{device_id}/simulate-heartbeat": {
+      "post": {
+        "description": "演示与验收用：模拟设备心跳上报，或把设备置为离线。\n\n- `online=true`（默认）→ 写入心跳时间并把在线状态推到 `ONLINE`\n- `online=false` → 模拟「最后一次心跳已超出在线窗口」：把心跳时间挪到窗口外（`ONLINE_WINDOW_SECONDS`，默认 180 秒）**并**把在线状态置为 `OFFLINE`，写一条 `OFFLINE` 事件\n\n为什么需要模拟掉线？若只能靠真实等待来验证「超窗即离线」，验收就必须干等三分钟，无法自动化。响应里的 `simulated=true` 明确标注这不是真实设备上报，避免演示数据被误当成设备事实。\n\n审计：`SIMULATE_HEARTBEAT`（真实心跳不写审计，模拟是人工动作，必须留痕）。",
+        "operationId": "simulate_device_heartbeat_api_v1_platform_devices__device_id__simulate_heartbeat_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceSimulateHeartbeatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceHeartbeatResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "设备已冻结或已报废"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "模拟设备心跳 / 掉线",
         "tags": [
           "平台端 · 订单与设备"
         ]

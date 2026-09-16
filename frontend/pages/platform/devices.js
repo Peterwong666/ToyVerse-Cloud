@@ -38,8 +38,16 @@ import {
   toOptions,
 } from './common.js';
 
-/** 可冻结的资产状态（与后端 FREEZABLE_ASSET_STATUSES 保持一致） */
-const FREEZABLE = new Set(['GENERATED', 'IN_STOCK']);
+/**
+ * 可冻结的资产状态。
+ *
+ * P5 修正（P4 遗留缺陷）：P4 这里写的是 `GENERATED` / `IN_STOCK`，但后端
+ * 已把冻结范围收紧为**只允许 `IN_STOCK`**（见 app/models/enums.py 的
+ * `FREEZABLE_ASSET_STATUSES`）。前端集合比后端宽会让「冻结」按钮出现在
+ * 一定会被拒绝的设备上，用户点完只能收到 400 —— 这正是 P3 反复强调的
+ * 「不要让用户点了才知道不行」。此处与后端 FREEZABLE_ASSET_STATUSES 对齐。
+ */
+const FREEZABLE = new Set(['IN_STOCK']);
 
 /** 已知的资产状态 → 主状态列配色 */
 const LABEL_TONE_BY_ASSET = {
@@ -132,6 +140,16 @@ function buildColumns({ tenantLabels, productLabels }) {
       render: (row) => statusTag(row.networkType, NETWORK_MAP),
     },
     {
+      key: 'online',
+      title: '在线',
+      width: '90px',
+      // ★ P5：本列一律以布尔 `online`（按 180 秒心跳窗口派生）为准。
+      // 为什么不用 `onlineStatus`：那是**落库的投影**，只在下一次心跳或
+      // 模拟心跳时才改写；设备掉线后它仍停留在「在线」，而 `online`
+      // 会随窗口失效自动变 false。四维标签里的 onlineStatus 只用于筛选。
+      render: (row) => tag(row.online ? '在线' : '离线', row.online ? 'success' : 'warning'),
+    },
+    {
       key: 'generated_at',
       title: '生成时间',
       sortable: true,
@@ -142,13 +160,20 @@ function buildColumns({ tenantLabels, productLabels }) {
       key: 'actions',
       title: '操作',
       align: 'right',
-      width: '200px',
+      width: '320px',
       nowrap: true,
       render: (row) => {
         const canWrite = auth.hasPerm(PERM.platform.deviceWrite);
         const buttons = [
           `<button type="button" class="btn btn-sm btn-ghost" data-action="open-device" data-id="${esc(row.id)}">详情</button>`,
         ];
+        // 模拟心跳是演示用动作（后端响应里 simulated=true），
+        // 已报废设备不再产生任何状态流转，因此不提供该按钮。
+        if (canWrite && row.assetStatus !== 'RETIRED') {
+          buttons.push(
+            `<button type="button" class="btn btn-sm btn-ghost" data-action="simulate-heartbeat" data-id="${esc(row.id)}">模拟心跳</button>`,
+          );
+        }
         if (canWrite && FREEZABLE.has(row.assetStatus)) {
           buttons.push(
             `<button type="button" class="btn btn-sm" data-action="freeze-device" data-id="${esc(row.id)}">冻结</button>`,
@@ -221,7 +246,7 @@ export async function renderDevices(container, ctx) {
   const page = createListPage({
     container,
     title: '设备库存',
-    desc: '平台自有库存与已分配给租户的设备。状态按「资产 / 激活 / 在线 / 绑定」四个维度分别展示（ADR-03）。',
+    desc: '平台自有库存与已分配给租户的设备。状态按「资产 / 激活 / 在线 / 绑定」四个维度分别展示（ADR-03）；「在线」列以 180 秒心跳窗口派生的 online 为准。',
     actions: [{ label: '刷新', icon: 'refresh', action: 'reload-list' }],
     columns: buildColumns({ tenantLabels, productLabels }),
     fetcher: (params) =>
@@ -262,9 +287,35 @@ export async function renderDevices(container, ctx) {
 
       if (action === 'open-device') {
         if (!row) return;
+        // P5：设备详情页已注册路由，这里走真正的跳转（把设备 id 写进 URL，
+        // 刷新与分享都不丢状态）。保留路由缺失的兜底分支，避免路由表被
+        // 改动时整页抛错白屏。
         const hasRoute = (router.routes || []).some((item) => item.name === 'deviceDetail');
         if (hasRoute) router.goByName('deviceDetail', { id: row.id });
-        else toast.info('设备详情页尚未注册路由；本阶段可先在列表中查看四维状态');
+        else toast.info('设备详情页尚未注册路由，可先在本列表中查看该设备的四维状态');
+        return;
+      }
+
+      if (action === 'simulate-heartbeat') {
+        if (!row) return;
+        const handle = toast.loading('正在模拟设备心跳…');
+        try {
+          const result = await api.post(
+            `/platform/devices/${row.id}/simulate-heartbeat`,
+            { online: true },
+            { idempotencyKey: api.newIdempotencyKey() },
+          );
+          handle.close();
+          // 后端会回 simulated=true 表示这是平台演示心跳，绝不冒充真实上报
+          toast.success(
+            `已写入演示心跳：${result?.online === false ? '设备离线' : '设备在线'}` +
+              `${result?.simulated ? '（模拟数据）' : ''}`,
+          );
+          reload();
+        } catch (error) {
+          handle.close();
+          notifyError(error, '模拟心跳失败');
+        }
         return;
       }
 
@@ -373,7 +424,7 @@ export async function renderDevices(container, ctx) {
             unit: '台',
             icon: 'activity',
             tone: 'coral',
-            foot: '在线状态 = 在线',
+            foot: '180 秒心跳窗口内（与列表「在线」列同口径）',
           },
         ]),
       ),
@@ -381,6 +432,11 @@ export async function renderDevices(container, ctx) {
   };
 
   async function refreshStats(filters = {}) {
+    // 「在线」卡的口径说明（P5）：
+    //   列表「在线」列读的是布尔 `online`（180 秒心跳窗口派生）；
+    //   统计卡因为要一次拿总数，只能用列表接口的 `onlineStatus=ONLINE` 过滤。
+    //   后端已把该过滤条件改为**同一窗口口径**，因此两者的数字一致。
+    //   若哪天这里与列表列出现偏差，优先怀疑这个过滤器口径被改回去了。
     const [total, inStock, activated, online] = await Promise.all([
       countSafe('/platform/devices', { ...filters }),
       countSafe('/platform/devices', { ...filters, assetStatus: 'IN_STOCK' }),

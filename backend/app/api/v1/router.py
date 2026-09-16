@@ -7,7 +7,16 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.v1 import ai, auth, health, merchant, platform, platform_orders
+from app.api.v1 import (
+    ai,
+    auth,
+    device,
+    health,
+    merchant,
+    platform,
+    platform_allocations,
+    platform_orders,
+)
 
 api_router = APIRouter()
 
@@ -25,8 +34,17 @@ api_router.include_router(platform.router)
 # 追加到同一文件必然冲突，拆开后只在下面这几行相遇。
 api_router.include_router(platform_orders.router)
 
+# ---- 平台端 · 分配（P5：分配单 创建 / 执行 / 明细） ----
+# 与 P4 分模块同理：P5 与其它阶段并行开发，追加到同一文件必然冲突。
+api_router.include_router(platform_allocations.router)
+
 # ---- 商户端（P4：我的订单；P5 起继续追加设备 / 绑定 / 小程序 / 运营数据） ----
 api_router.include_router(merchant.router)
+
+# ---- 设备侧（P5：心跳上报，密钥鉴权、**不挂 JWT**） ----
+# 设备（玩具本体）没有账号可登录，鉴权靠平台签发的 DEVICE_SECRET 摘要比对，
+# 因此独占一个模块，避免被误加到需要认证的依赖分组里。
+api_router.include_router(device.router)
 
 # ---- AI 供应商与调试台（P7：供应商列表 / 健康探测 / 对话 / ASR / TTS / 离线素材） ----
 api_router.include_router(ai.router)

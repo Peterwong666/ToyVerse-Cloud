@@ -192,7 +192,8 @@
 
 ## P5 设备 / 分配 / 绑定 ★
 
-- [ ] 🔑 Alembic `0011_allocations_bindings.py` — `allocation_orders` `allocation_items` `device_bindings`
+- [x] 🔑 Alembic `0011_allocations_bindings.py` — `allocation_orders` `allocation_items` `device_bindings`
+  > **三表之外没有第 4 张表**：5 分钟 confirm-token 直接以 `device_bindings.status=PENDING` + `confirm_token_hash` 落在绑定行上，`bind` 成功时把摘要置空即「销毁」。这样「绑定意图」与「绑定事实」在同一行内完成生命周期，且 `UNIQUE(device_id)` 能把**单绑约束下沉到数据库层**（并发下也不依赖服务层的「先查后写」）。
 > **以下三项已在 P4 提前交付**（设备表随 P4 落地，为不重复实现而一并完成）：四维状态模型与迁移服务、设备流转时间线（`device_events` + `GET /platform/devices/{id}/events`）、生命周期操作 `freeze` / `thaw` / `retire`。P5 只需在此基础上补「分配 → 绑定」链路。
 > 注意：冻结范围已在 P4 收紧为**只允许 `IN_STOCK`**（与 `ASSET_TRANSITIONS[FROZEN]={IN_STOCK}` 对称，解冻才能原路恢复）；`activation_status` / `online_status` / `bind_status` 三条链路的**写入**仍待 P5 的激活与心跳实现。
 
@@ -203,17 +204,31 @@
   - `bind_status`: `UNBOUND ⇄ BOUND`
 - [x] 设备流转时间线（`device_events`）与 `GET /platform/devices/{id}/events`（P4 交付）
 - [x] 设备生命周期操作：`freeze` / `thaw` / `retire`（P4 交付，原因必填）
-- [ ] 分配单：创建 / 列表 / 详情 / 幂等执行（校验租户 ACTIVE、设备 IN_STOCK、产品已授权）
-- [ ] 🔑 绑定流程：`precheck`（sha256 命中 + 5 分钟 confirm-token + 租户匹配）→ `bind`（幂等键、单绑约束、冻结拦截）
-- [ ] 解绑：`POST /merchant/devices/{id}/unbind`
-- [ ] 心跳：`POST /device/heartbeat` + 180 秒在线窗口判定
-- [ ] 演示心跳：`POST /platform/devices/{id}/simulate-heartbeat`（响应明确 `simulated: true`）
-- [ ] 修复 P-04（登录校验租户状态）
-- [ ] `frontend/pages/platform/{devices,device_detail,allocations}.js`、`frontend/pages/merchant/{devices,bindings}.js`
-- [ ] 🔑 `tests/integration/test_tenant_isolation.py` — **租户隔离参数化矩阵（每端点一条）**
-- [ ] `tests/integration/test_binding.py` — 幂等重放、confirm-token 过期、冻结拦截
+- [x] 分配单：创建 / 列表 / 详情 / 幂等执行（校验租户 ACTIVE、设备 IN_STOCK、产品已授权）
+  - 逐行处理、**部分失败不整单回滚**（成功的行必须保留，否则重跑会重复分配）；`FAILED → EXECUTING` 允许重跑，`COMPLETED` 再次调用是**幂等回放**
+- [x] 🔑 绑定流程：`precheck`（sha256 命中 + 5 分钟 confirm-token + 租户匹配）→ `bind`（幂等键、单绑约束、冻结拦截）
+  - 「SHA-256 命中」= 用设备行**重算规范载荷**再比对摘要，因此无签名的集贤 `JX` 格式同样无法被篡改（`JX` 本身没有签名，只能靠这一层）
+- [x] 解绑：`POST /merchant/devices/{id}/unbind`（原因必填，写审计与事件）
+- [x] 心跳：`POST /device/heartbeat` + 180 秒在线窗口判定
+  - 设备侧端点**不使用 JWT**：以 `sn` + 设备密钥（`SHA-256` 摘要比对）鉴权。为此新增 `POST /platform/devices/{id}/credentials` 签发 `DEVICE_SECRET`，明文仅回一次，续签覆盖同类型旧密钥——否则「任何人拿到 SN 就能把设备刷成在线」，而 SN 是印在机身与包装上的
+  - 在线判定以 `last_heartbeat_at` + 180 秒窗口为**单一事实来源**；`online_status` 只是落库投影，列表/详情另给派生布尔 `online`，统计与筛选同样按窗口口径，避免「掉线了但枚举还写着 ONLINE」
+- [x] 演示心跳：`POST /platform/devices/{id}/simulate-heartbeat`（响应明确 `simulated: true`，且 `online=false` 可模拟窗口超时）
+- [x] 修复 P-04（登录校验租户状态）—— **P1 已修复，本阶段复核确认**（登录与刷新两条路径都校验 `tenant.status`，`tests/integration/test_auth.py` 已覆盖），未重复实现
+- [x] `frontend/pages/platform/{devices,device_detail,allocations}.js`、`frontend/pages/merchant/{devices,bindings}.js`
+  - `devices.js` 为改造：修掉 P4 两处遗留（`FREEZABLE` 过期集合含 `GENERATED`、「详情」按钮只给提示不跳转），新增「在线」列与「模拟心跳」
+  - 商户端设备详情实现为弹窗（本阶段路由清单未含商户端设备详情页）
+- [x] 🔑 `tests/integration/test_tenant_isolation.py` — **租户隔离参数化矩阵（每端点一条）**
+- [x] `tests/integration/test_binding.py` — 幂等重放、confirm-token 过期、冻结拦截
+- [x] 另补 `tests/integration/test_allocation.py`、`tests/integration/test_device_heartbeat.py`
 
 **验收**：移植 `server.js` 全部硬化语义（confirm-token 过期与销毁、冻结校验、授权校验、幂等重放返回同一条）；租户隔离测试全绿。
+👉 实测结论见 `项目进度.md` 的「P5 验收记录」。
+
+**已知局限**：
+1. **冻结范围与绑定链路的交叉限制**：`FREEZABLE_ASSET_STATUSES = {IN_STOCK}`（P4 收紧）与绑定只接受 `ALLOCATED` 互斥，因此「已分配 / 已绑定的设备」**无法被冻结**——「冻结一台已出货给商户的设备」这个能力目前缺失。绑定流程里的冻结校验因此只对「入库时被冻结、尚未分配」的设备生效，属**防御性校验**（语义正确但正常流程下不可达）。若要恢复该能力，需要放宽 `ASSET_TRANSITIONS[FROZEN]` 允许 `FROZEN → ALLOCATED/BOUND`，并同步改 P4 已钉死的 14 条单元断言——留待 P6 一并决策。
+2. **`GENERATED → IN_STOCK`（批次导入设备的「入库」动作）仍无端点**：CSV 批次导入的设备停在 `GENERATED` 且 `tenant_id` 为空，而分配只接受 `IN_STOCK`，所以导入的设备当前无法直接进入分配链路。本阶段用种子里的**平台自有库存**设备（`tenant_id` 空 + `IN_STOCK`）演示分配；该动作归 P6 工厂端的入库环节。
+3. `end_user_id` 只存不建外键（`end_users` 属 P9），与 P7 的 `dialogue_sessions.device_id` 同一处理方式。
+4. 元素截图通道在验收后半段超时（`evaluate` 正常），部分界面修复只有 DOM 证据与一张修复前截图，未逐张留图。
 
 ---
 

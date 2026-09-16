@@ -259,6 +259,28 @@ FREEZABLE_ASSET_STATUSES: frozenset[AssetStatus] = frozenset({AssetStatus.IN_STO
 ALLOCATABLE_ASSET_STATUSES: frozenset[AssetStatus] = frozenset({AssetStatus.IN_STOCK})
 
 
+#: 设备事件类型 → 事件所属维度（``device_events.event_type`` → ``dimension``）
+#:
+#: 与状态迁移表同样的理由：时间线的每条事件都要标明「哪一维变了」，
+#: 散落在各调用点自行赋值，必然出现同一事件归属不同维度的情况。
+DEVICE_EVENT_DIMENSIONS: dict[str, str] = {
+    "GENERATED": "asset",
+    "IMPORTED": "asset",
+    "IN_STOCK": "asset",
+    "ALLOCATED": "asset",
+    "FROZEN": "asset",
+    "THAWED": "asset",
+    "RETIRED": "asset",
+    "BOUND": "bind",
+    "UNBOUND": "bind",
+    "ACTIVATED": "activation",
+    "BIND_FAILED": "activation",
+    "HEARTBEAT": "online",
+    "ONLINE": "online",
+    "OFFLINE": "online",
+}
+
+
 def derive_device_label(
     asset_status: AssetStatus | str,
     activation_status: ActivationStatus | str,
@@ -340,7 +362,17 @@ class BatchLineStatus(StrEnum):
 
 
 class AllocationStatus(StrEnum):
-    """分配单状态。"""
+    """分配单状态。
+
+    状态机::
+
+        DRAFT     → EXECUTING
+        EXECUTING → COMPLETED | FAILED
+        FAILED    → EXECUTING   (允许修复后重跑，只补未成功的明细)
+
+    ``COMPLETED`` 再次调用执行接口**不做状态迁移**，而是直接回放既有结果
+    （幂等语义，与 P4 的「已入库订单再调生成接口」保持一致）。
+    """
 
     DRAFT = "DRAFT"
     EXECUTING = "EXECUTING"
@@ -348,11 +380,77 @@ class AllocationStatus(StrEnum):
     FAILED = "FAILED"
 
 
-class BindingStatus(StrEnum):
-    """绑定记录状态。"""
+class AllocationItemStatus(StrEnum):
+    """分配单明细行状态。
 
+    刻意与 :class:`AllocationStatus` 分开：一张分配单里「哪几台成功、
+    哪几台失败」是逐行的信息，把整体状态当成明细状态会丢失失败原因。
+    """
+
+    PENDING = "PENDING"  # 待执行
+    ALLOCATED = "ALLOCATED"  # 已分配给租户
+    FAILED = "FAILED"  # 分配失败（原因写在 error_message）
+    SKIPPED = "SKIPPED"  # 已处于目标状态，重跑时跳过
+
+
+#: 分配单状态 → 允许迁移到的下一状态
+ALLOCATION_TRANSITIONS: dict[AllocationStatus, frozenset[AllocationStatus]] = {
+    AllocationStatus.DRAFT: frozenset({AllocationStatus.EXECUTING}),
+    AllocationStatus.EXECUTING: frozenset(
+        {AllocationStatus.COMPLETED, AllocationStatus.FAILED}
+    ),
+    AllocationStatus.FAILED: frozenset({AllocationStatus.EXECUTING}),
+    AllocationStatus.COMPLETED: frozenset(),
+}
+
+#: 分配单状态 → 中文展示名
+ALLOCATION_STATUS_LABELS: dict[AllocationStatus, str] = {
+    AllocationStatus.DRAFT: "草稿",
+    AllocationStatus.EXECUTING: "执行中",
+    AllocationStatus.COMPLETED: "已完成",
+    AllocationStatus.FAILED: "执行失败",
+}
+
+
+class BindingStatus(StrEnum):
+    """**设备维度**的绑定状态（``devices.bind_status``，ADR-03 的第四维）。
+
+    只有「已绑定 / 未绑定」两个取值——设备自身的状态不该表达
+    「正在等待某张确认令牌」这类**流程中间态**。
+    """
+
+    UNBOUND = "UNBOUND"
+    BOUND = "BOUND"
+
+
+class BindingRecordStatus(StrEnum):
+    """**绑定记录**的生命周期状态（``device_bindings.status``）。
+
+    为什么单独开一个枚举，而不是给 :class:`BindingStatus` 加 ``PENDING``？
+    两者描述的对象不同：
+
+    * ``BindingStatus`` 说的是**设备**（第四维状态机，只有两个取值）；
+    * ``BindingRecordStatus`` 说的是**记录**，而记录确实存在
+      「已扫码预检、等待确认令牌」这个合法的中间态。
+
+    合成一个枚举会造出「设备已绑定、但记录还是 PENDING」这种
+    类型上无法自洽的状态——用两个枚举把这种组合从语法上排除掉。
+    """
+
+    PENDING = "PENDING"  # 已通过 precheck 并签发确认令牌，等待 bind 确认
     BOUND = "BOUND"
     UNBOUND = "UNBOUND"
+
+
+class CredentialType(StrEnum):
+    """设备凭证类型（``device_credentials.credential_type``）。
+
+    只存 **SHA-256 摘要**，明文仅在签发响应里出现一次。
+    """
+
+    DEVICE_SECRET = "DEVICE_SECRET"  # 设备侧心跳 / 上报用的密钥
+    PRODUCT_SECRET = "PRODUCT_SECRET"  # 产品级密钥
+    VENDOR_TOKEN = "VENDOR_TOKEN"  # 厂商侧令牌
 
 
 # ---------------------------------------------------------------------------

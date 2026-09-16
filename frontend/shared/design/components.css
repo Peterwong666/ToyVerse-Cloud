@@ -1078,6 +1078,9 @@
   font-size: var(--text-sm);
   color: var(--text-secondary);
   line-height: var(--leading-normal);
+  /* 时间线正文以纯文本 + 换行传入（由组件统一转义），
+     用 pre-line 让 \n 呈现为换行，同时保留自动折行（pre-wrap 会连空格一起保留） */
+  white-space: pre-line;
 }
 
 /* ------------------------------------------------------------

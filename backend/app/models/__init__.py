@@ -15,6 +15,7 @@ from app.models.ai import (
     RolePreset,
     VoiceProfile,
 )
+from app.models.allocation import AllocationItem, AllocationOrder, DeviceBinding
 from app.models.audit import AuditLog, IdempotencyKey, OutboxEvent
 from app.models.catalog import (
     ClientProduct,
@@ -38,6 +39,8 @@ from app.models.org import Factory, Organization, Position
 __all__ = [
     "AiConfig",
     "AiProvider",
+    "AllocationItem",
+    "AllocationOrder",
     "AuditLog",
     "Base",
     "BurnReport",
@@ -46,6 +49,7 @@ __all__ = [
     "Device",
     "DeviceBatch",
     "DeviceBatchLine",
+    "DeviceBinding",
     "DeviceCredential",
     "DeviceEvent",
     "DialogueMessage",

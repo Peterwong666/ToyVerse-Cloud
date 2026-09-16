@@ -375,3 +375,76 @@ export const BATCH_LINE_STATUS_OPTIONS = [
   { value: '', label: '全部行状态' },
   ...mapToOptions(BATCH_LINE_STATUS_MAP),
 ];
+
+/* ============================================================
+   P5（分配 / 绑定）状态映射、下拉选项与错误码提示
+   ------------------------------------------------------------
+   以下内容为 P5 阶段追加，不修改上文任何既有导出。
+
+   与 P4 同一取舍：**文案与配色在前端定义**，后端只给中文 label，
+   而列表列需要 tone；后端新增取值时此处若缺项，
+   statusTag 会退化为显示原始英文码（不至于显示空白）。
+
+   为什么错误码提示单独导出成 P5_ERROR_HINTS 而不是并进上面的
+   ERROR_HINTS：ERROR_HINTS 是 P3/P4 的既有私有常量，其它页面
+   正在使用，直接改它等于把 P5 的影响面扩散到 P3/P4 的页面。
+   这里的做法是**只增不改**，由 P5 页面把两处提示合并使用。
+   ============================================================ */
+
+/* ---- 分配单状态（对应后端 AllocationStatus） ---- */
+export const ALLOCATION_STATUS_MAP = {
+  DRAFT: { text: '草稿', tone: 'warning' },
+  EXECUTING: { text: '执行中', tone: 'info' },
+  COMPLETED: { text: '已完成', tone: 'success' },
+  FAILED: { text: '执行失败', tone: 'danger' },
+};
+
+/* ---- 分配明细行状态（对应后端 AllocationItemStatus） ---- */
+export const ALLOCATION_ITEM_STATUS_MAP = {
+  PENDING: { text: '待分配', tone: 'warning' },
+  ALLOCATED: { text: '已分配', tone: 'success' },
+  FAILED: { text: '分配失败', tone: 'danger' },
+  SKIPPED: { text: '已跳过', tone: 'default' },
+};
+
+/* ---- 绑定记录状态（对应后端 BindingStatus） ----
+   注意与设备维度的 BIND_STATUS_MAP（未绑定 / 已绑定）不同：
+   绑定**记录**多了 PENDING（预检已签发确认令牌、但尚未确认），
+   两者不可互换使用。 */
+export const BINDING_RECORD_STATUS_MAP = {
+  PENDING: { text: '待确认', tone: 'warning' },
+  BOUND: { text: '已绑定', tone: 'success' },
+  UNBOUND: { text: '已解绑', tone: 'default' },
+};
+
+export const ALLOCATION_STATUS_OPTIONS = [
+  { value: '', label: '全部状态' },
+  ...mapToOptions(ALLOCATION_STATUS_MAP),
+];
+export const ALLOCATION_ITEM_STATUS_OPTIONS = [
+  { value: '', label: '全部明细状态' },
+  ...mapToOptions(ALLOCATION_ITEM_STATUS_MAP),
+];
+export const BINDING_RECORD_STATUS_OPTIONS = [
+  { value: '', label: '全部绑定状态' },
+  ...mapToOptions(BINDING_RECORD_STATUS_MAP),
+];
+
+/**
+ * P5 错误码 → 处理建议。
+ *
+ * 与 ERROR_HINTS 的分工：这里只放 P5 新引入、或 P5 场景下需要
+ * **不同建议**的错误码（例如 DEVICE_FROZEN 在分配场景要说明
+ * 「先解冻再分配」）。页面侧合并时 P5 的条目优先。
+ */
+export const P5_ERROR_HINTS = {
+  TENANT_DISABLED: '该租户已被禁用，不能向其分配设备。请先到「租户管理」启用租户。',
+  DEVICE_NOT_AVAILABLE:
+    '设备当前不处于可分配状态（需为「已入库待生产」且未冻结、未报废、尚未归属任何租户）。请刷新设备列表后重新选择。',
+  DEVICE_FROZEN: '设备处于冻结状态，无法分配或绑定。请先在设备详情页解冻。',
+  DEVICE_NOT_IN_TENANT: '该设备不属于当前租户，无法在此租户下操作。请确认设备归属后再试。',
+  PRODUCT_NOT_AUTHORIZED: '该产品未授权给此租户。请先在「客户产品」页完成授权，或在分配单里改选产品。',
+  QR_INVALID: '二维码内容无效或被篡改，不是本平台签发的码。请核对后重新扫描设备机身 / 包装上的码。',
+  QR_EXPIRED: '确认码已过期（有效期 5 分钟），请重新扫码获取新的确认码。',
+  DEVICE_ALREADY_BOUND: '该设备已被绑定。如需换绑，请先在绑定管理中解绑，再重新扫码。',
+};

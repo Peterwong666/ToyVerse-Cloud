@@ -21,8 +21,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
+from app.schemas.binding import BindingResponse
 from app.schemas.catalog import ApiModel
 
 
@@ -34,6 +35,10 @@ class DeviceBrief(ApiModel):
     network_type: str
     asset_status: str
     label: str = Field(default="", description="四维状态派生的展示标签")
+    #: 与 ``DeviceResponse.online`` 同一判据（``last_heartbeat_at`` 是否落在
+    #: ``ONLINE_WINDOW_SECONDS`` 窗口内）。摘要也带上它，否则嵌在订单 / 批次里的
+    #: 设备列表只能显示四维标签里的「在线」，而标签恰恰是不会自己变的落库投影。
+    online: bool = Field(default=False, description="按 180 秒心跳窗口派生的在线判据")
 
 
 class DeviceCredentialBrief(ApiModel):
@@ -100,6 +105,14 @@ class DeviceResponse(ApiModel):
     online_status: str
     bind_status: str
     label: str = Field(default="", description="四维状态派生的展示标签，仅供展示")
+    #: 「是否在线」的**派生**判据：``last_heartbeat_at`` 距 ``now`` 不超过
+    #: ``ONLINE_WINDOW_SECONDS``（默认 180 秒）。
+    #:
+    #: 为什么在 ``onlineStatus`` 之外再给一个布尔值？因为 ``onlineStatus``
+    #: 是**落库的投影**（心跳写入 / 离线模拟改写），两次心跳之间的
+    #: 180 秒窗口内它不会自己变；若前端只看枚举，设备掉线后仍会显示「在线」。
+    #: 展示一律以 ``online`` 为准，``onlineStatus`` 用于筛选与四维标签。
+    online: bool = Field(default=False, description="按 180 秒心跳窗口派生的在线判据")
 
     generated_at: datetime | None = None
     activated_at: datetime | None = None
@@ -129,6 +142,11 @@ class DeviceDetailResponse(DeviceResponse):
     credentials: list[DeviceCredentialBrief] = Field(default_factory=list)
     events: list[DeviceEventResponse] = Field(default_factory=list)
     event_total: int = 0
+    #: 当前绑定记录（未绑定过则为 ``None``）。
+    #:
+    #: 放在详情里而不是只给一个端点：设备详情页要回答「这台现在绑在哪」，
+    #: 让人先点进「绑定管理」再搜一次 SN 是没必要的往返。
+    binding: BindingResponse | None = None
 
 
 class QrCodeItemResponse(ApiModel):
@@ -146,15 +164,35 @@ class DeviceFreezeRequest(ApiModel):
 
     原因必填：冻结是「人为阻断一台已出货设备」的动作，
     没有原因会让后续解冻与责任追溯无从下手。
+
+    ★ 空白串不算填了原因（与订单驳回 ``rejectReason`` 同一口径）：
+    只有 ``min_length=1`` 时 ``"   "`` 能过关并原样落库，
+    时间线里就会出现「冻结设备 X：   」这类无法追溯的记录。
     """
 
     reason: str = Field(min_length=1, max_length=512)
 
+    @field_validator("reason")
+    @classmethod
+    def _strip_reason(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("冻结原因不能为空白")
+        return cleaned
+
 
 class DeviceRetireRequest(ApiModel):
-    """报废设备。"""
+    """报废设备（原因必填，空白串同样不算）。"""
 
     reason: str = Field(min_length=1, max_length=512)
+
+    @field_validator("reason")
+    @classmethod
+    def _strip_reason(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("报废原因不能为空白")
+        return cleaned
 
 
 class DeviceThawRequest(ApiModel):
@@ -181,14 +219,83 @@ class DeviceStatsResponse(ApiModel):
     by_bind_status: dict[str, int] = Field(default_factory=dict)
 
 
+class DeviceHeartbeatRequest(ApiModel):
+    """设备心跳上报。
+
+    ★ 心跳是**设备侧**端点，因此不能用平台 / 商户的 JWT——
+    设备持有的是 ``precheck`` 之外的另一套凭据：平台签发的一次性
+    ``DEVICE_SECRET``。这里要求 ``sn`` + ``secret`` 同时给出并校验摘要，
+    否则任何人拿到 SN 就能把任意设备刷成在线（SN 印在机身与包装上，不算秘密）。
+    """
+
+    sn: str = Field(min_length=1, max_length=64)
+    secret: str = Field(
+        min_length=8,
+        max_length=256,
+        description="平台签发的设备密钥明文（库内只存 SHA-256 摘要）",
+    )
+    firmware_version: str | None = Field(default=None, max_length=64)
+
+
+class DeviceHeartbeatResponse(ApiModel):
+    """心跳结果。"""
+
+    device_id: str
+    sn: str
+    online: bool = Field(description="按 180 秒窗口派生的在线判据，恒为 true")
+    online_status: str
+    last_heartbeat_at: datetime
+    online_window_seconds: int = Field(description="在线判定窗口（ONLINE_WINDOW_SECONDS）")
+    heartbeat_interval_seconds: int = Field(description="建议心跳间隔（HEARTBEAT_INTERVAL_SECONDS）")
+    server_time: datetime
+    simulated: bool = Field(
+        default=False, description="是否为平台模拟心跳（演示用，绝不伪造为真实设备上报）"
+    )
+
+
+class DeviceSimulateHeartbeatRequest(ApiModel):
+    """平台模拟心跳 / 模拟掉线。
+
+    ``online=false`` 用于演示「超过 180 秒窗口即判定离线」——
+    否则只能真的等三分钟，验收无法自动化。
+    """
+
+    online: bool = Field(default=True, description="false 表示把设备置为离线（模拟窗口超时）")
+    firmware_version: str | None = Field(default=None, max_length=64)
+
+
+class DeviceCredentialIssueRequest(ApiModel):
+    """签发设备密钥。
+
+    ``expiresInDays`` 留空表示长期有效；续签会**覆盖**同类型凭证
+    （``device_credentials`` 上有 ``UNIQUE(device_id, credential_type)``），
+    旧密钥随即失效——这正是设备丢失时该有的行为。
+    """
+
+    credential_type: str = Field(default="DEVICE_SECRET", max_length=32)
+    expires_in_days: int | None = Field(default=None, ge=1, le=3650)
+
+
+class DeviceCredentialIssueResult(ApiModel):
+    """签发结果。**明文 ``secret`` 仅此一次返回**。"""
+
+    credential: DeviceCredentialBrief
+    secret: str = Field(description="明文密钥，仅此一次返回；库内只存 SHA-256 摘要")
+
+
 __all__ = [
     "DeviceBrief",
     "DeviceCredentialBrief",
+    "DeviceCredentialIssueRequest",
+    "DeviceCredentialIssueResult",
     "DeviceDetailResponse",
     "DeviceEventResponse",
     "DeviceFreezeRequest",
+    "DeviceHeartbeatRequest",
+    "DeviceHeartbeatResponse",
     "DeviceResponse",
     "DeviceRetireRequest",
+    "DeviceSimulateHeartbeatRequest",
     "DeviceStatsResponse",
     "DeviceThawRequest",
     "QrCodeItemResponse",

@@ -73,7 +73,7 @@ export function button(o = {}) {
     ${raw(id ? `id="${esc(id)}"` : '')}
     ${raw(disabled || loading ? 'disabled aria-disabled="true"' : '')}
     ${raw(title ? `title="${esc(title)}"` : '')}
-  >${raw(iconHtml)}${label ? html`<span>${label}</span>` : ''}</button>`;
+  >${raw(iconHtml)}${label ? raw(html`<span>${esc(label)}</span>`) : ''}</button>`;
 }
 
 /** 图标按钮（无文字） */
