@@ -175,7 +175,7 @@ export function createListPage(o = {}) {
  * @param {Array} [o.actions]
  * @param {Array<{key:string,label:string,badge?:number}>} [o.tabs]
  * @param {string} [o.activeTab]
- * @returns {{body:HTMLElement, head:HTMLElement, setTab:Function, activeTab:string}}
+ * @returns {{body:HTMLElement, head:HTMLElement, setActions:Function, setTab:Function, activeTab:string}}
  */
 export function createDetailPage(container, o = {}) {
   const { title = '', desc = '', backPath, router, actions = [], tabs = [], activeTab = '' } = o;
@@ -197,17 +197,27 @@ export function createDetailPage(container, o = {}) {
   backRow.firstElementChild?.addEventListener('click', () => router.back(backPath));
   head.append(backRow);
 
+  const renderActionsMarkup = (list = []) =>
+    list
+      .filter((item) => !item.perm || auth.hasPerm(item.perm))
+      .map((item) => button(item))
+      .join('');
+
   const headWrapper = document.createElement('template');
   headWrapper.innerHTML = pageHead({
     title,
     desc,
-    actions: actions
-      .filter((item) => !item.perm || auth.hasPerm(item.perm))
-      .map((item) => button(item))
-      .join(''),
+    actions: renderActionsMarkup(actions),
   }).trim();
   head.append(headWrapper.content);
   container.append(head);
+
+  // 页头动作容器：setActions() 会重新渲染它。
+  // 为什么需要动态更新：动作是否出现取决于**资源当前状态**
+  // （例如订单「待审核」才有审核按钮、`APPROVED` 才有生成设备按钮）。
+  // 若只在首屏算一次，页面内操作改变状态后按钮就过期了，
+  // 用户必须手动刷新才能看到下一步操作。
+  const actionsEl = head.querySelector('.page-head-actions');
 
   /* ---- 标签页 ---- */
   const body = h('div');
@@ -246,6 +256,14 @@ export function createDetailPage(container, o = {}) {
      *  页头按钮的事件请绑在它上面，而不是 container ——
      *  container 由应用壳长期持有，绑在上面会随切页不断叠加监听器。 */
     head,
+    /**
+     * 重新渲染页头动作按钮（权限过滤规则与首屏一致）。
+     * 用于「资源状态变化后按钮需要跟着变」的场景，例如订单详情页
+     * 审核通过后要把「审核/驳回」换成「生成设备」。
+     */
+    setActions: (list = []) => {
+      if (actionsEl) actionsEl.innerHTML = renderActionsMarkup(list);
+    },
     get activeTab() {
       return active;
     },

@@ -161,38 +161,48 @@
 
 ## P4 订单与设备生成 ★
 
-- [ ] 🔑 Alembic `0008_orders.py` — `orders`
-- [ ] 🔑 Alembic `0009_devices_credentials.py` — `devices` `device_credentials` `device_events`
-- [ ] 🔑 Alembic `0010_device_batches.py` — `device_batches` `device_batch_lines` `factory_orders` `burn_reports` `inspections`
-- [ ] `app/models/{order,device,factory}.py` + 对应 schemas
-- [ ] 🔑 `app/services/qrcode_service.py` — **双格式生成与解析**
-  - 集贤 4G：`JX|{SN}|{IMEI}|{ICCID}|{deviceId}`
-  - 京东 Wi-Fi：`JD|{tenant_id}|{product_id}|{sn}|{sign}`，sign 用 HMAC-SHA256
-  - 修复原型 `data.js:595` 把 `clientId` 误传入 `tenant_id` 位置的缺陷
-- [ ] 🔑 `app/services/order_service.py` — 订单状态机（`pending_audit → approved|rejected → generating → generated → in_stock → producing → shipped_to_client → completed`）
-- [ ] 审核：`POST /platform/orders/{id}/audit`（仅 `pending_audit` 可审核）
-- [ ] 生成设备：`POST /platform/orders/{id}/generate`（JX 走 provider，JD 本地生成）
-- [ ] 设备入库、批次绑定
-- [ ] `POST /platform/orders/{id}/qrcodes` — 批次二维码/SN 导出
-- [ ] 设备批次 CSV 导入（上传 → SHA-256 去重 → 预检 → 导入 → 进度 → 错误报告 → 幂等重跑）
-- [ ] 🔑 `frontend/pages/platform/{orders,order_detail,devices,batches}.js`
-- [ ] `tests/unit/test_order_state_machine.py` + `test_qrcode.py`（**格式断言**）
-- [ ] `tests/integration/test_order_flow.py` + `test_batch_import.py`
+- [x] 🔑 Alembic `0008_orders.py` — `orders`
+- [x] 🔑 Alembic `0009_devices_batches.py` — `device_batches` `devices` `device_batch_lines` `device_credentials` `device_events`
+- [x] 🔑 Alembic `0010_factory_production.py` — `factory_orders` `burn_reports` `inspections`
 
-**验收**：`pending_audit → approved → generated → in_stock` 全通；二维码两格式断言通过；CSV 导入产出错误行报告。
+> **与原计划的编号差异**：原计划把 `device_batches` 放在 `0010`，但 `devices.batch_id` 指向 `device_batches`——若批次表晚于设备表创建，外键就指向尚不存在的表。因此 `0009` 内部按**依赖方向**排序（批次 → 设备 → 批次明细 → 凭证 → 事件），`0010` 只承载工厂生产三表。
+- [x] `app/models/{order,device,factory}.py` + 对应 schemas
+- [x] 🔑 `app/services/qrcode_service.py` — **双格式生成与解析**
+  - 集贤 4G：`JX|{SN}|{IMEI}|{ICCID}|{deviceId}`（恒 5 段，空字段保留空段）
+  - 京东 Wi-Fi：`JD|{tenant_id}|{product_id}|{sn}|{sign}`，`sign = HMAC-SHA256(f"{tenantId}|{productId}|{sn}", QR_SIGN_SECRET)` 小写 hex，校验用 `hmac.compare_digest`
+  - **已修正原型 `data.js:595` 把 `clientId` 误传入 `tenant_id` 位置的缺陷**（并用单测钉死字段顺序）
+- [x] 🔑 `app/services/order_service.py` — 订单状态机（`PENDING_AUDIT → APPROVED|REJECTED → GENERATING → GENERATED → IN_STOCK → PRODUCING → SHIPPED_TO_CLIENT → COMPLETED`，另有 `GENERATING → APPROVED` 回退边用于厂商失败；迁移一律经 `ORDER_TRANSITIONS` 校验）
+- [x] 审核：`POST /platform/orders/{id}/audit`（仅 `PENDING_AUDIT` 可审核；驳回必须填原因）
+- [x] 生成设备：`POST /platform/orders/{id}/generate`（JX 走 provider，**未配置密钥时 503 且绝不伪造成功**；JD 本地生成）
+- [x] 设备入库、批次绑定
+- [x] `GET /platform/orders/{id}/qrcodes` — 二维码/SN 导出（前端可导出 CSV）
+- [x] 设备批次 CSV 导入（上传 → SHA-256 去重 → 预检 → 导入 → 进度 → 错误报告 → 幂等重跑）
+- [x] 🔑 `frontend/pages/platform/{orders,order_detail,devices,batches}.js` + `frontend/pages/merchant/orders.js`（较原计划增加商户端下单页）
+- [x] `tests/unit/test_order_state_machine.py` + `test_qrcode.py`（**格式断言**）+ `test_device_state_machine.py`（冻结语义与迁移表自洽，14 条）
+- [x] `tests/integration/test_order_flow.py`（32 条）+ `test_batch_import.py`（24 条）
+- [x] 商户端下单与查单：`POST/GET /merchant/orders`（带 `Idempotency-Key`）、`GET /merchant/products`（供下单选择产品）
+
+**验收**（2026-09-16 实测通过）：`PENDING_AUDIT → APPROVED → GENERATED → IN_STOCK` 全通（浏览器实测：审核通过 → 生成设备 → 订单入库 + 3 台设备）；二维码两格式断言通过；CSV 导入产出错误行报告（`text/csv` + BOM + 行号原因）。`make check` 全绿（**397 passed**、mypy strict 69 文件、契约 51 路径一致）；`make fe-check` 195 处导入匹配；`alembic check` 零漂移。
+
+**独立验证**：由子代理产出 56 条集成用例（含租户隔离矩阵、幂等重放、批次安全限额、四维状态白名单），**发现 2 个真缺陷 + 4 条观察项并已全部修复**（见 `项目进度.md` 的 P4 验收记录）。
+
+**已知局限**：① 工厂端端点属 P6（三张工厂表已建好）；② 设备详情页不在本阶段前端清单内，P5 补；③ `duplicatedRows` 是预检快照，口径修正不回溯历史批次；④ `COMPLETED` 订单再调生成接口为幂等回放（有心设计）。
 
 ---
 
 ## P5 设备 / 分配 / 绑定 ★
 
 - [ ] 🔑 Alembic `0011_allocations_bindings.py` — `allocation_orders` `allocation_items` `device_bindings`
-- [ ] 🔑 设备**四维状态**模型与状态迁移服务
+> **以下三项已在 P4 提前交付**（设备表随 P4 落地，为不重复实现而一并完成）：四维状态模型与迁移服务、设备流转时间线（`device_events` + `GET /platform/devices/{id}/events`）、生命周期操作 `freeze` / `thaw` / `retire`。P5 只需在此基础上补「分配 → 绑定」链路。
+> 注意：冻结范围已在 P4 收紧为**只允许 `IN_STOCK`**（与 `ASSET_TRANSITIONS[FROZEN]={IN_STOCK}` 对称，解冻才能原路恢复）；`activation_status` / `online_status` / `bind_status` 三条链路的**写入**仍待 P5 的激活与心跳实现。
+
+- [x] 🔑 设备**四维状态**模型与状态迁移服务（P4 交付）
   - `asset_status`: `PENDING_GEN → GENERATED → IN_STOCK → PRODUCING → PRODUCED → SHIPPED → ALLOCATED → BOUND → RETIRED`，另有 `IN_STOCK ⇄ FROZEN`（`previous_asset_status` 记录）
   - `activation_status`: `NOT_ACTIVATED → ACTIVATING → ACTIVATED | BIND_FAILED`
   - `online_status`: `NEVER_ONLINE ⇄ ONLINE ⇄ OFFLINE`
   - `bind_status`: `UNBOUND ⇄ BOUND`
-- [ ] 设备流转时间线（`device_events`）与 `GET /devices/{id}/events`
-- [ ] 设备生命周期操作：`freeze` / `thaw` / `retire`
+- [x] 设备流转时间线（`device_events`）与 `GET /platform/devices/{id}/events`（P4 交付）
+- [x] 设备生命周期操作：`freeze` / `thaw` / `retire`（P4 交付，原因必填）
 - [ ] 分配单：创建 / 列表 / 详情 / 幂等执行（校验租户 ACTIVE、设备 IN_STOCK、产品已授权）
 - [ ] 🔑 绑定流程：`precheck`（sha256 命中 + 5 分钟 confirm-token + 租户匹配）→ `bind`（幂等键、单绑约束、冻结拦截）
 - [ ] 解绑：`POST /merchant/devices/{id}/unbind`
@@ -333,6 +343,7 @@
 - [ ] `docs/12-项目复盘.md` — 背景目标 / 三个遗留项目的整合决策 / 架构演进 / 关键问题与解法 / 度量结果 / 不足与路线图 / 经验沉淀
 - [x] `docs/13-火山引擎硬件对话智能体配置说明.md` — **已提前产出**（P7/P8 真实联调的前置资料）：控制台四步配置（产品 / License / 智能体 / SDK）、设备端三条接入路径（官方 Demo 板 / 预编译体验包 / 自行移植）、客户端 API 与回调清单、服务端 `Aibot*` OpenAPI、与本项目数据模型的映射、排错速查与**取证边界声明**
 
+- [x] `docs/14-ESP32-S3刷机与联调步骤清单.md` — **已提前产出**（真机联调当天的执行清单）：云端链路自检 → 工具链准备 → 四条接入路径决策树（官方 Demo 板 / 体验包 / Sense 自行移植 / 低负载 WebSocket）→ 配网与首次对话判据 → 失败速查表（F-01~F-10）→ 真机结果回填项
 ### P11-B 学习手册（`learning/`，**不上传 GitHub**）
 
 - [ ] `learning/README.md` — 使用说明与学习路径

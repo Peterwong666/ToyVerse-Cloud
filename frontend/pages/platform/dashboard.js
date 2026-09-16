@@ -39,19 +39,36 @@ export async function renderDashboard(container) {
         load: () => countSafe('/platform/templates'),
       },
       {
-        label: '订单总数',
+        label: '客户产品',
+        unit: '个',
+        icon: 'package',
+        tone: 'info',
+        foot: '全部租户合计',
+        load: () => countSafe('/platform/client-products'),
+      },
+      {
+        // 待审核是平台运营每天要清的「待办」，单独做一张卡
+        label: '待审核订单',
         unit: '单',
         icon: 'clipboard',
         tone: 'accent',
-        foot: (value) => (typeof value === 'number' ? '含全部状态' : 'P4 阶段交付'),
+        foot: '需要平台处理',
+        load: () => countSafe('/platform/orders', { status: 'PENDING_AUDIT' }),
+      },
+      {
+        label: '订单总数',
+        unit: '单',
+        icon: 'layers',
+        tone: 'coral',
+        foot: '含全部状态',
         load: () => countSafe('/platform/orders'),
       },
       {
         label: '设备总量',
         unit: '台',
         icon: 'device',
-        tone: 'coral',
-        foot: (value) => (typeof value === 'number' ? '全部租户合计' : 'P4/P5 阶段交付'),
+        tone: 'brand',
+        foot: '含平台库存',
         load: () => countSafe('/platform/devices'),
       },
     ],
@@ -68,7 +85,7 @@ export async function renderDashboard(container) {
     },
 
     fallbacks: [
-      'P3 目录域已交付：租户、产品模板、云服务商、客户产品与授权均可在此端管理（统计项「租户总数」「产品模板」已接入真实数据）。订单、设备与操作日志的接口将随 P4/P5 等阶段交付，未就绪的统计项显示「—」而非报错。',
+      'P3/P4 已交付：租户、产品模板、云服务商、客户产品、订单与设备均已接入真实数据（统计卡显示「—」表示对应接口未就绪）。操作日志（审计）列表与工厂端相关能力将随后续阶段交付。',
     ],
   });
 }

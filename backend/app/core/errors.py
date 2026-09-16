@@ -41,6 +41,9 @@ class ErrorCode(StrEnum):
     # 请求本身合法，只是与既有资源撞了唯一键；客户端应提示「换一个编码」，
     # 而不是让用户以为表单填错了。每个主要资源一个码，便于前端精确定位字段。
     PRODUCT_CODE_EXISTS = "PRODUCT_CODE_EXISTS"
+    #: 同一份文件被用于「另一个订单/租户」的批次导入。
+    #: 不能静默复用旧批次——那会把设备悄悄挂到旧订单上。
+    BATCH_FILE_CONFLICT = "BATCH_FILE_CONFLICT"
     CLOUD_CODE_EXISTS = "CLOUD_CODE_EXISTS"
     TEMPLATE_CODE_EXISTS = "TEMPLATE_CODE_EXISTS"
     PRODUCT_NOT_AUTHORIZED = "PRODUCT_NOT_AUTHORIZED"
@@ -80,6 +83,7 @@ _STATUS_MAP: dict[ErrorCode, int] = {
     ErrorCode.CASCADE_CONFLICT: 409,
     ErrorCode.IDEMPOTENCY_CONFLICT: 409,
     ErrorCode.PRODUCT_CODE_EXISTS: 409,
+    ErrorCode.BATCH_FILE_CONFLICT: 409,
     ErrorCode.CLOUD_CODE_EXISTS: 409,
     ErrorCode.TEMPLATE_CODE_EXISTS: 409,
     ErrorCode.PRODUCT_NOT_AUTHORIZED: 409,
@@ -111,6 +115,7 @@ _DEFAULT_MESSAGE: dict[ErrorCode, str] = {
     ErrorCode.CASCADE_CONFLICT: "存在关联数据，无法删除",
     ErrorCode.IDEMPOTENCY_CONFLICT: "重复请求，且原请求尚未完成",
     ErrorCode.PRODUCT_CODE_EXISTS: "产品编码已存在",
+    ErrorCode.BATCH_FILE_CONFLICT: "该文件已用于其它订单的批次，请修改文件内容或更换订单",
     ErrorCode.CLOUD_CODE_EXISTS: "云服务商编码已存在",
     ErrorCode.TEMPLATE_CODE_EXISTS: "产品模板编码已存在",
     ErrorCode.PRODUCT_NOT_AUTHORIZED: "该产品未授权给此租户",
@@ -223,6 +228,10 @@ def cascade_conflict(message: str | None = None, *, details: Any = None) -> AppE
 
 def idempotency_conflict(message: str | None = None) -> AppException:
     return AppException(ErrorCode.IDEMPOTENCY_CONFLICT, message)
+
+
+def batch_file_conflict(message: str | None = None, *, details: Any = None) -> AppException:
+    return AppException(ErrorCode.BATCH_FILE_CONFLICT, message, details=details)
 
 
 def product_code_exists(message: str | None = None, *, details: Any = None) -> AppException:

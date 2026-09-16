@@ -137,6 +137,17 @@
         "title": "AccountCreateResult",
         "type": "object"
       },
+      "ActivationStatus": {
+        "description": "设备激活状态。",
+        "enum": [
+          "NOT_ACTIVATED",
+          "ACTIVATING",
+          "ACTIVATED",
+          "BIND_FAILED"
+        ],
+        "title": "ActivationStatus",
+        "type": "string"
+      },
       "AsrRequest": {
         "description": "语音识别请求。\n\n``audio_base64`` 承载真实音频；离线环境下可只传 ``hint_text``，\n由 mock 的 ``echo`` 模式复读——这样语音链路在无音频素材时也能联调。",
         "properties": {
@@ -259,6 +270,23 @@
         ],
         "title": "AsrResponse",
         "type": "object"
+      },
+      "AssetStatus": {
+        "description": "设备资产状态（物理流转维度）。\n\n``IN_STOCK`` 与 ``FROZEN`` 之间可双向迁移，\n冻结时把原状态记入 ``devices.previous_asset_status``，解冻时恢复。",
+        "enum": [
+          "PENDING_GEN",
+          "GENERATED",
+          "IN_STOCK",
+          "PRODUCING",
+          "PRODUCED",
+          "SHIPPED",
+          "ALLOCATED",
+          "BOUND",
+          "FROZEN",
+          "RETIRED"
+        ],
+        "title": "AssetStatus",
+        "type": "string"
       },
       "AuthorizationResponse": {
         "description": "授权记录。",
@@ -495,6 +523,306 @@
           "templateId"
         ],
         "title": "AuthorizeResult",
+        "type": "object"
+      },
+      "BatchLineResponse": {
+        "description": "批次明细行。",
+        "properties": {
+          "batchId": {
+            "title": "Batchid",
+            "type": "string"
+          },
+          "deviceId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deviceid"
+          },
+          "errorMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errormessage"
+          },
+          "iccid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iccid"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "imei": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imei"
+          },
+          "mac": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mac"
+          },
+          "rowNo": {
+            "title": "Rowno",
+            "type": "integer"
+          },
+          "sn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sn"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "batchId",
+          "rowNo",
+          "status"
+        ],
+        "title": "BatchLineResponse",
+        "type": "object"
+      },
+      "BatchResponse": {
+        "description": "批次（预检 / 导入）响应。",
+        "properties": {
+          "batchNo": {
+            "title": "Batchno",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "createdBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdby"
+          },
+          "duplicatedRows": {
+            "default": 0,
+            "title": "Duplicatedrows",
+            "type": "integer"
+          },
+          "errorReportAvailable": {
+            "default": false,
+            "description": "是否存在逐行错误明细",
+            "title": "Errorreportavailable",
+            "type": "boolean"
+          },
+          "fileName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filename"
+          },
+          "fileSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "文件摘要，同摘要重复上传会直接复用本批次",
+            "title": "Filesha256"
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finishedat"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "importedRatio": {
+            "default": 0.0,
+            "description": "已导入 / 有效行，0~1",
+            "title": "Importedratio",
+            "type": "number"
+          },
+          "importedRows": {
+            "default": 0,
+            "title": "Importedrows",
+            "type": "integer"
+          },
+          "invalidRows": {
+            "default": 0,
+            "title": "Invalidrows",
+            "type": "integer"
+          },
+          "networkType": {
+            "title": "Networktype",
+            "type": "string"
+          },
+          "orderId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Orderid"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startedat"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tenantId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenantid"
+          },
+          "totalRows": {
+            "default": 0,
+            "title": "Totalrows",
+            "type": "integer"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          },
+          "validRows": {
+            "default": 0,
+            "title": "Validrows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "batchNo",
+          "networkType",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "BatchResponse",
+        "type": "object"
+      },
+      "BatchStatus": {
+        "description": "设备批次导入状态。",
+        "enum": [
+          "UPLOADED",
+          "PRE_CHECKED",
+          "IMPORTING",
+          "IMPORTED",
+          "FAILED"
+        ],
+        "title": "BatchStatus",
+        "type": "string"
+      },
+      "BindStatus": {
+        "description": "设备绑定状态（与终端用户的绑定关系）。",
+        "enum": [
+          "UNBOUND",
+          "BOUND"
+        ],
+        "title": "BindStatus",
+        "type": "string"
+      },
+      "Body_upload_batch_api_v1_platform_batches_post": {
+        "properties": {
+          "file": {
+            "description": "CSV 文件",
+            "format": "binary",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_batch_api_v1_platform_batches_post",
         "type": "object"
       },
       "ChangePasswordRequest": {
@@ -1428,6 +1756,955 @@
         "title": "CurrentUserResponse",
         "type": "object"
       },
+      "DeviceBrief": {
+        "description": "设备摘要（嵌在订单生成结果、批次明细等场景）。",
+        "properties": {
+          "assetStatus": {
+            "title": "Assetstatus",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "default": "",
+            "description": "四维状态派生的展示标签",
+            "title": "Label",
+            "type": "string"
+          },
+          "networkType": {
+            "title": "Networktype",
+            "type": "string"
+          },
+          "sn": {
+            "title": "Sn",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "sn",
+          "networkType",
+          "assetStatus"
+        ],
+        "title": "DeviceBrief",
+        "type": "object"
+      },
+      "DeviceCredentialBrief": {
+        "description": "设备凭证摘要。**只有掩码，没有明文密钥。**",
+        "properties": {
+          "algorithm": {
+            "default": "sha256",
+            "title": "Algorithm",
+            "type": "string"
+          },
+          "credentialType": {
+            "title": "Credentialtype",
+            "type": "string"
+          },
+          "expiresAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expiresat"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "issuedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuedat"
+          },
+          "lastUsedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastusedat"
+          },
+          "revokedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revokedat"
+          },
+          "secretHint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "前 4 位 + ****",
+            "title": "Secrethint"
+          }
+        },
+        "required": [
+          "id",
+          "credentialType"
+        ],
+        "title": "DeviceCredentialBrief",
+        "type": "object"
+      },
+      "DeviceDetailResponse": {
+        "description": "设备详情：附加归属名称、凭证掩码与最近事件。\n\n与列表项的唯一结构性差异就是**这里带名称**\n（``tenantName`` / ``clientProductName`` / ``orderNo``）：\n详情页是单条记录，需要自解释（用户可能直接从消息里点进来），\n而列表页靠下拉映射即可——这不是遗漏，而是有意的分工。",
+        "properties": {
+          "activatedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activatedat"
+          },
+          "activationStatus": {
+            "title": "Activationstatus",
+            "type": "string"
+          },
+          "assetStatus": {
+            "title": "Assetstatus",
+            "type": "string"
+          },
+          "batchId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batchid"
+          },
+          "bindStatus": {
+            "title": "Bindstatus",
+            "type": "string"
+          },
+          "boundAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Boundat"
+          },
+          "clientProductId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clientproductid"
+          },
+          "clientProductName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clientproductname"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "credentials": {
+            "items": {
+              "$ref": "#/components/schemas/DeviceCredentialBrief"
+            },
+            "title": "Credentials",
+            "type": "array"
+          },
+          "eventTotal": {
+            "default": 0,
+            "title": "Eventtotal",
+            "type": "integer"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/DeviceEventResponse"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "firmwareVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firmwareversion"
+          },
+          "freezeReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freezereason"
+          },
+          "frozenAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frozenat"
+          },
+          "generatedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generatedat"
+          },
+          "iccid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iccid"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "imei": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imei"
+          },
+          "label": {
+            "default": "",
+            "description": "四维状态派生的展示标签，仅供展示",
+            "title": "Label",
+            "type": "string"
+          },
+          "lastHeartbeatAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastheartbeatat"
+          },
+          "mac": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mac"
+          },
+          "networkType": {
+            "title": "Networktype",
+            "type": "string"
+          },
+          "onlineStatus": {
+            "title": "Onlinestatus",
+            "type": "string"
+          },
+          "orderId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Orderid"
+          },
+          "orderNo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Orderno"
+          },
+          "previousAssetStatus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previousassetstatus"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "retireReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retirereason"
+          },
+          "retiredAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retiredat"
+          },
+          "sn": {
+            "title": "Sn",
+            "type": "string"
+          },
+          "tenantId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "为空表示平台自有库存",
+            "title": "Tenantid"
+          },
+          "tenantName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenantname"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          },
+          "vendorDeviceId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendordeviceid"
+          }
+        },
+        "required": [
+          "id",
+          "sn",
+          "networkType",
+          "assetStatus",
+          "activationStatus",
+          "onlineStatus",
+          "bindStatus",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "DeviceDetailResponse",
+        "type": "object"
+      },
+      "DeviceEventResponse": {
+        "description": "设备流转事件（设备详情时间线的数据来源）。",
+        "properties": {
+          "actorAccount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actoraccount"
+          },
+          "actorId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actorid"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "deviceId": {
+            "title": "Deviceid",
+            "type": "string"
+          },
+          "dimension": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "asset / activation / online / bind",
+            "title": "Dimension"
+          },
+          "eventType": {
+            "title": "Eventtype",
+            "type": "string"
+          },
+          "fromStatus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fromstatus"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "tenantId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenantid"
+          },
+          "toStatus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tostatus"
+          },
+          "traceId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Traceid"
+          }
+        },
+        "required": [
+          "id",
+          "deviceId",
+          "eventType",
+          "createdAt"
+        ],
+        "title": "DeviceEventResponse",
+        "type": "object"
+      },
+      "DeviceFreezeRequest": {
+        "description": "冻结设备。\n\n原因必填：冻结是「人为阻断一台已出货设备」的动作，\n没有原因会让后续解冻与责任追溯无从下手。",
+        "properties": {
+          "reason": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "DeviceFreezeRequest",
+        "type": "object"
+      },
+      "DeviceResponse": {
+        "description": "设备列表项。\n\n**刻意不含名称类字段**（``tenantName`` / ``tenantCode`` / ``clientProductName``）：\n列表页的租户与产品下拉本来就由各自的接口提供，前端已用「id → 名称」映射渲染。\n若这里再带一份名称，就会出现两套来源——下拉改名后列表还显示旧名，\n是典型的「看起来对的脏数据」。因此名称只在\n:class:`DeviceDetailResponse` 里出现（那里是单条记录，需要自解释）。\n\n这里给出的是**原始 id**：``tenantId`` 为空表示平台自有库存（尚未分配给租户）。",
+        "properties": {
+          "activatedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activatedat"
+          },
+          "activationStatus": {
+            "title": "Activationstatus",
+            "type": "string"
+          },
+          "assetStatus": {
+            "title": "Assetstatus",
+            "type": "string"
+          },
+          "batchId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batchid"
+          },
+          "bindStatus": {
+            "title": "Bindstatus",
+            "type": "string"
+          },
+          "boundAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Boundat"
+          },
+          "clientProductId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clientproductid"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "firmwareVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firmwareversion"
+          },
+          "freezeReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freezereason"
+          },
+          "frozenAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frozenat"
+          },
+          "generatedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generatedat"
+          },
+          "iccid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iccid"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "imei": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imei"
+          },
+          "label": {
+            "default": "",
+            "description": "四维状态派生的展示标签，仅供展示",
+            "title": "Label",
+            "type": "string"
+          },
+          "lastHeartbeatAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastheartbeatat"
+          },
+          "mac": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mac"
+          },
+          "networkType": {
+            "title": "Networktype",
+            "type": "string"
+          },
+          "onlineStatus": {
+            "title": "Onlinestatus",
+            "type": "string"
+          },
+          "orderId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Orderid"
+          },
+          "previousAssetStatus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previousassetstatus"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "retireReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retirereason"
+          },
+          "retiredAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retiredat"
+          },
+          "sn": {
+            "title": "Sn",
+            "type": "string"
+          },
+          "tenantId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "为空表示平台自有库存",
+            "title": "Tenantid"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          },
+          "vendorDeviceId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendordeviceid"
+          }
+        },
+        "required": [
+          "id",
+          "sn",
+          "networkType",
+          "assetStatus",
+          "activationStatus",
+          "onlineStatus",
+          "bindStatus",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "DeviceResponse",
+        "type": "object"
+      },
+      "DeviceRetireRequest": {
+        "description": "报废设备。",
+        "properties": {
+          "reason": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "DeviceRetireRequest",
+        "type": "object"
+      },
+      "DeviceStatsResponse": {
+        "description": "设备统计（供前端统计卡与工作台）。\n\n四个维度分开给出而不是合成一个数字：四维是正交的，\n「在线数」与「已激活数」回答的是不同问题，合成会丢失信息。",
+        "properties": {
+          "byActivationStatus": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Byactivationstatus",
+            "type": "object"
+          },
+          "byAssetStatus": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Byassetstatus",
+            "type": "object"
+          },
+          "byBindStatus": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Bybindstatus",
+            "type": "object"
+          },
+          "byOnlineStatus": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Byonlinestatus",
+            "type": "object"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "DeviceStatsResponse",
+        "type": "object"
+      },
+      "DeviceThawRequest": {
+        "description": "解冻设备（原因可选）。\n\n与冻结不同，解冻是**恢复**动作，业务上不要求说明理由；\n允许留空是为了让前端可以直接提供一个「一键解冻」按钮。",
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "DeviceThawRequest",
+        "type": "object"
+      },
       "EnableStatus": {
         "description": "通用的启用/停用状态。",
         "enum": [
@@ -1436,6 +2713,56 @@
         ],
         "title": "EnableStatus",
         "type": "string"
+      },
+      "GenerateResult": {
+        "description": "设备生成结果。\n\n``vendorMessage`` 承载「非致命的厂商侧信息」：例如 mock 引擎生成的\n设备会明确标注「模拟结果」，或厂商只返回了部分设备 ID。\n若厂商密钥未配置，则不会走到这里——服务层直接抛\n``VENDOR_UNAVAILABLE``（ADR-07：安全失败，绝不伪造成功）。",
+        "properties": {
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/DeviceBrief"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "failed": {
+            "description": "失败数",
+            "title": "Failed",
+            "type": "integer"
+          },
+          "generated": {
+            "description": "实际生成成功数",
+            "title": "Generated",
+            "type": "integer"
+          },
+          "orderId": {
+            "title": "Orderid",
+            "type": "string"
+          },
+          "requested": {
+            "description": "本次请求生成的设备数",
+            "title": "Requested",
+            "type": "integer"
+          },
+          "vendorMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendormessage"
+          }
+        },
+        "required": [
+          "orderId",
+          "requested",
+          "generated",
+          "failed"
+        ],
+        "title": "GenerateResult",
+        "type": "object"
       },
       "HTTPValidationError": {
         "properties": {
@@ -1469,6 +2796,27 @@
           "total"
         ],
         "title": "ListResult[OptionItem]",
+        "type": "object"
+      },
+      "ListResult_QrCodeItemResponse_": {
+        "properties": {
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/QrCodeItemResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total"
+        ],
+        "title": "ListResult[QrCodeItemResponse]",
         "type": "object"
       },
       "ListResult_TenantOption_": {
@@ -1573,6 +2921,66 @@
           }
         },
         "title": "LogoutRequest",
+        "type": "object"
+      },
+      "MerchantOrderCreateRequest": {
+        "description": "商户端下单。",
+        "properties": {
+          "applicantName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applicantname"
+          },
+          "applicantPhone": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applicantphone"
+          },
+          "clientProductId": {
+            "description": "必须是本租户已启用的客户产品",
+            "minLength": 1,
+            "title": "Clientproductid",
+            "type": "string"
+          },
+          "quantity": {
+            "description": "下单数量（台）",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          }
+        },
+        "required": [
+          "clientProductId",
+          "quantity"
+        ],
+        "title": "MerchantOrderCreateRequest",
         "type": "object"
       },
       "MessageResult": {
@@ -1938,6 +3346,16 @@
         "title": "NetworkType",
         "type": "string"
       },
+      "OnlineStatus": {
+        "description": "设备在线状态。",
+        "enum": [
+          "NEVER_ONLINE",
+          "ONLINE",
+          "OFFLINE"
+        ],
+        "title": "OnlineStatus",
+        "type": "string"
+      },
       "OptionItem": {
         "description": "通用下拉选项。",
         "properties": {
@@ -1956,6 +3374,544 @@
         ],
         "title": "OptionItem",
         "type": "object"
+      },
+      "OrderAuditRequest": {
+        "description": "订单审核。\n\n``rejectReason`` 在驳回时**必填**——驳回而不给理由，\n商户端无法整改，只能重复下单。",
+        "properties": {
+          "decision": {
+            "enum": [
+              "APPROVED",
+              "REJECTED"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "rejectReason": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "驳回原因（驳回时必填）",
+            "title": "Rejectreason"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "审核备注",
+            "title": "Remark"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "OrderAuditRequest",
+        "type": "object"
+      },
+      "OrderDetailResponse": {
+        "description": "订单详情：附加生成摘要与设备摘要。",
+        "properties": {
+          "applicantName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applicantname"
+          },
+          "applicantPhone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applicantphone"
+          },
+          "auditRemark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auditremark"
+          },
+          "auditedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auditedat"
+          },
+          "auditedBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auditedby"
+          },
+          "clientProductCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clientproductcode"
+          },
+          "clientProductId": {
+            "title": "Clientproductid",
+            "type": "string"
+          },
+          "clientProductName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clientproductname"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "deviceCount": {
+            "default": 0,
+            "description": "该订单已生成（在册）的设备数",
+            "title": "Devicecount",
+            "type": "integer"
+          },
+          "devices": {
+            "description": "最近生成的设备（最多 200 台）",
+            "items": {
+              "$ref": "#/components/schemas/DeviceBrief"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "generatedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generatedat"
+          },
+          "generatedCount": {
+            "default": 0,
+            "title": "Generatedcount",
+            "type": "integer"
+          },
+          "generationDetail": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generationdetail"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "networkType": {
+            "title": "Networktype",
+            "type": "string"
+          },
+          "orderNo": {
+            "title": "Orderno",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "rejectReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejectreason"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "statusLabel": {
+            "default": "",
+            "description": "中文展示名，仅供展示",
+            "title": "Statuslabel",
+            "type": "string"
+          },
+          "tenantCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenantcode"
+          },
+          "tenantId": {
+            "title": "Tenantid",
+            "type": "string"
+          },
+          "tenantName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenantname"
+          },
+          "totalAmount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Totalamount"
+          },
+          "unitPrice": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unitprice"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "orderNo",
+          "tenantId",
+          "clientProductId",
+          "networkType",
+          "quantity",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "OrderDetailResponse",
+        "type": "object"
+      },
+      "OrderResponse": {
+        "description": "订单列表项。",
+        "properties": {
+          "applicantName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applicantname"
+          },
+          "applicantPhone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applicantphone"
+          },
+          "auditRemark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auditremark"
+          },
+          "auditedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auditedat"
+          },
+          "auditedBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auditedby"
+          },
+          "clientProductCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clientproductcode"
+          },
+          "clientProductId": {
+            "title": "Clientproductid",
+            "type": "string"
+          },
+          "clientProductName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clientproductname"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "deviceCount": {
+            "default": 0,
+            "description": "该订单已生成（在册）的设备数",
+            "title": "Devicecount",
+            "type": "integer"
+          },
+          "generatedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generatedat"
+          },
+          "generatedCount": {
+            "default": 0,
+            "title": "Generatedcount",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "networkType": {
+            "title": "Networktype",
+            "type": "string"
+          },
+          "orderNo": {
+            "title": "Orderno",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "rejectReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejectreason"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "statusLabel": {
+            "default": "",
+            "description": "中文展示名，仅供展示",
+            "title": "Statuslabel",
+            "type": "string"
+          },
+          "tenantCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenantcode"
+          },
+          "tenantId": {
+            "title": "Tenantid",
+            "type": "string"
+          },
+          "tenantName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenantname"
+          },
+          "totalAmount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Totalamount"
+          },
+          "unitPrice": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unitprice"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "orderNo",
+          "tenantId",
+          "clientProductId",
+          "networkType",
+          "quantity",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "OrderResponse",
+        "type": "object"
+      },
+      "OrderStatus": {
+        "description": "订单生命周期。\n\n状态机::\n\n    PENDING_AUDIT → APPROVED | REJECTED\n    APPROVED      → GENERATING\n    GENERATING    → GENERATED\n    GENERATED     → IN_STOCK\n    IN_STOCK      → PRODUCING\n    PRODUCING     → SHIPPED_TO_CLIENT   (烧录数量达标)\n    SHIPPED_TO_CLIENT → COMPLETED       (终端完成激活)",
+        "enum": [
+          "PENDING_AUDIT",
+          "APPROVED",
+          "REJECTED",
+          "GENERATING",
+          "GENERATED",
+          "IN_STOCK",
+          "PRODUCING",
+          "SHIPPED_TO_CLIENT",
+          "COMPLETED"
+        ],
+        "title": "OrderStatus",
+        "type": "string"
       },
       "OtaSupport": {
         "description": "OTA 支持情况。",
@@ -2005,6 +3961,88 @@
           "totalPages"
         ],
         "title": "PageResult[AuthorizationResponse]",
+        "type": "object"
+      },
+      "PageResult_BatchLineResponse_": {
+        "properties": {
+          "page": {
+            "description": "当前页码",
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "description": "每页条数",
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "records": {
+            "description": "当前页记录",
+            "items": {
+              "$ref": "#/components/schemas/BatchLineResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "description": "总记录数",
+            "title": "Total",
+            "type": "integer"
+          },
+          "totalPages": {
+            "description": "总页数",
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "title": "PageResult[BatchLineResponse]",
+        "type": "object"
+      },
+      "PageResult_BatchResponse_": {
+        "properties": {
+          "page": {
+            "description": "当前页码",
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "description": "每页条数",
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "records": {
+            "description": "当前页记录",
+            "items": {
+              "$ref": "#/components/schemas/BatchResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "description": "总记录数",
+            "title": "Total",
+            "type": "integer"
+          },
+          "totalPages": {
+            "description": "总页数",
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "title": "PageResult[BatchResponse]",
         "type": "object"
       },
       "PageResult_ClientProductResponse_": {
@@ -2087,6 +4125,129 @@
           "totalPages"
         ],
         "title": "PageResult[CloudProviderResponse]",
+        "type": "object"
+      },
+      "PageResult_DeviceEventResponse_": {
+        "properties": {
+          "page": {
+            "description": "当前页码",
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "description": "每页条数",
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "records": {
+            "description": "当前页记录",
+            "items": {
+              "$ref": "#/components/schemas/DeviceEventResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "description": "总记录数",
+            "title": "Total",
+            "type": "integer"
+          },
+          "totalPages": {
+            "description": "总页数",
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "title": "PageResult[DeviceEventResponse]",
+        "type": "object"
+      },
+      "PageResult_DeviceResponse_": {
+        "properties": {
+          "page": {
+            "description": "当前页码",
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "description": "每页条数",
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "records": {
+            "description": "当前页记录",
+            "items": {
+              "$ref": "#/components/schemas/DeviceResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "description": "总记录数",
+            "title": "Total",
+            "type": "integer"
+          },
+          "totalPages": {
+            "description": "总页数",
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "title": "PageResult[DeviceResponse]",
+        "type": "object"
+      },
+      "PageResult_OrderResponse_": {
+        "properties": {
+          "page": {
+            "description": "当前页码",
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "description": "每页条数",
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "records": {
+            "description": "当前页记录",
+            "items": {
+              "$ref": "#/components/schemas/OrderResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "description": "总记录数",
+            "title": "Total",
+            "type": "integer"
+          },
+          "totalPages": {
+            "description": "总页数",
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "title": "PageResult[OrderResponse]",
         "type": "object"
       },
       "PageResult_TemplateResponse_": {
@@ -2307,6 +4468,42 @@
           "defaultCode"
         ],
         "title": "ProviderListResult",
+        "type": "object"
+      },
+      "QrCodeItemResponse": {
+        "description": "二维码导出项。",
+        "properties": {
+          "deviceId": {
+            "title": "Deviceid",
+            "type": "string"
+          },
+          "format": {
+            "description": "JX（集贤 4G）/ JD（京东 Wi-Fi）",
+            "title": "Format",
+            "type": "string"
+          },
+          "networkType": {
+            "title": "Networktype",
+            "type": "string"
+          },
+          "payload": {
+            "description": "二维码文本，前端据此渲染图形",
+            "title": "Payload",
+            "type": "string"
+          },
+          "sn": {
+            "title": "Sn",
+            "type": "string"
+          }
+        },
+        "required": [
+          "deviceId",
+          "sn",
+          "networkType",
+          "payload",
+          "format"
+        ],
+        "title": "QrCodeItemResponse",
         "type": "object"
       },
       "RefreshRequest": {
@@ -4388,6 +6585,469 @@
         ]
       }
     },
+    "/api/v1/merchant/orders": {
+      "get": {
+        "description": "分页查询**本租户**的订单（租户过滤在服务层经 `scoped()` 收口）。支持按状态筛选，`keyword` 匹配订单号。",
+        "operationId": "list_my_orders_api_v1_merchant_orders_get",
+        "parameters": [
+          {
+            "description": "订单状态",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/OrderStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "订单状态",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "按客户产品筛选",
+            "in": "query",
+            "name": "clientProductId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按客户产品筛选",
+              "title": "Clientproductid"
+            }
+          },
+          {
+            "description": "订单号关键字",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "订单号关键字",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_OrderResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "我的订单列表",
+        "tags": [
+          "商户端 · 产品与订单"
+        ]
+      },
+      "post": {
+        "description": "为**本租户**下单，订单初始状态为 `PENDING_AUDIT`，等待平台审核。\n\n`clientProductId` 必须属于本租户且已启用，否则按「不存在」处理；联网方式会从客户产品**快照**到订单，产品后续改配置不影响本订单。\n\n**幂等**：可携带请求头 `Idempotency-Key`。重复提交同一键会回放首次响应；同一键配不同请求体会返回 `IDEMPOTENCY_CONFLICT`。",
+        "operationId": "create_order_api_v1_merchant_orders_post",
+        "parameters": [
+          {
+            "description": "幂等键（可选，建议客户端生成 UUID）",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "幂等键（可选，建议客户端生成 UUID）",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MerchantOrderCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "客户产品不存在或不属于本租户"
+          },
+          "409": {
+            "description": "产品已停用或幂等冲突"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "下单",
+        "tags": [
+          "商户端 · 产品与订单"
+        ]
+      }
+    },
+    "/api/v1/merchant/orders/{order_id}": {
+      "get": {
+        "description": "本租户订单详情。访问其他租户的订单会返回 **404**（不返回 403）——避免通过错误码探测他人资源是否存在。",
+        "operationId": "get_my_order_api_v1_merchant_orders__order_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "订单不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "我的订单详情",
+        "tags": [
+          "商户端 · 产品与订单"
+        ]
+      }
+    },
+    "/api/v1/merchant/products": {
+      "get": {
+        "description": "分页查询**本租户**的客户产品（下单时 `clientProductId` 的取值来源）。\n\n租户过滤在服务层经 `scoped()` 收口（ADR-08），商户不可能看到其他租户的产品；响应复用平台端的 `ClientProductResponse`，字段与平台视角一致——少给字段会让前端误以为「没有这个数据」，而隔离本来由作用域保证，无需靠裁剪字段来加固。",
+        "operationId": "list_my_products_api_v1_merchant_products_get",
+        "parameters": [
+          {
+            "description": "名称 / 编码",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "名称 / 编码",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "产品状态",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/EnableStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "产品状态",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_ClientProductResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "我的产品列表",
+        "tags": [
+          "商户端 · 产品与订单"
+        ]
+      }
+    },
+    "/api/v1/merchant/products/{product_id}": {
+      "get": {
+        "description": "本租户客户产品详情。访问其他租户的产品返回 **404**（不返回 403）——避免通过错误码探测他人资源是否存在。",
+        "operationId": "get_my_product_api_v1_merchant_products__product_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientProductResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "产品不存在或不属于本租户"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "我的产品详情",
+        "tags": [
+          "商户端 · 产品与订单"
+        ]
+      }
+    },
     "/api/v1/platform/authorizations/{authorization_id}": {
       "delete": {
         "description": "**修复 P-06**：该授权下已有客户产品时拒绝撤销（``CASCADE_CONFLICT``）。",
@@ -4436,6 +7096,432 @@
         "summary": "撤销授权",
         "tags": [
           "平台端"
+        ]
+      }
+    },
+    "/api/v1/platform/batches": {
+      "get": {
+        "description": "分页查询批次（含总数 / 有效 / 无效 / 重复 / 已导入行数）。",
+        "operationId": "list_batches_api_v1_platform_batches_get",
+        "parameters": [
+          {
+            "description": "批次状态",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/BatchStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "批次状态",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "批次号 / 文件名",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "批次号 / 文件名",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_BatchResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "批次列表",
+        "tags": [
+          "平台端 · 订单与设备"
+        ]
+      },
+      "post": {
+        "description": "上传 CSV 并完成**预检**（缺 SN / SN 已存在 → `INVALID`；文件内重复 → `SKIPPED`）。\n\n**幂等**：同一份文件（SHA-256 相同）重复上传会直接返回已存在的批次，不会重复导入也不会报错。\n\n列名容错：`SN` / `序列号` / `serial`、`IMEI` / `imei`、`ICCID` / `iccid`、`MAC` / `mac`；最多 5000 行、5 MB。",
+        "operationId": "upload_batch_api_v1_platform_batches_post",
+        "parameters": [
+          {
+            "description": "关联订单（可选）",
+            "in": "query",
+            "name": "orderId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "关联订单（可选）",
+              "title": "Orderid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_batch_api_v1_platform_batches_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "上传批次 CSV（预检）",
+        "tags": [
+          "平台端 · 订单与设备"
+        ]
+      }
+    },
+    "/api/v1/platform/batches/{batch_id}/error-report": {
+      "get": {
+        "description": "返回带 BOM 的 CSV（`text/csv`），Excel 直接双击打开不乱码。",
+        "operationId": "download_error_report_api_v1_platform_batches__batch_id__error_report_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "text/csv": {}
+            },
+            "description": "错误明细 CSV"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "下载批次错误报告",
+        "tags": [
+          "平台端 · 订单与设备"
+        ]
+      }
+    },
+    "/api/v1/platform/batches/{batch_id}/import": {
+      "post": {
+        "description": "把预检通过的行导入为设备（`assetStatus=GENERATED`，`tenantId` 留空 = 平台库存）。\n\n**幂等**：已 `IMPORTED` 的批次直接返回；失败后重跑只补未导入的行，不会重复建设备。",
+        "operationId": "import_batch_api_v1_platform_batches__batch_id__import_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "批次当前状态不允许导入"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "导入批次",
+        "tags": [
+          "平台端 · 订单与设备"
+        ]
+      }
+    },
+    "/api/v1/platform/batches/{batch_id}/lines": {
+      "get": {
+        "description": "分页查询批次明细行（按行号升序），可按行状态筛选。",
+        "operationId": "list_batch_lines_api_v1_platform_batches__batch_id__lines_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "title": "Batch Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "行状态 VALID/INVALID/SKIPPED/IMPORTED",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "行状态 VALID/INVALID/SKIPPED/IMPORTED",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_BatchLineResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "批次明细",
+        "tags": [
+          "平台端 · 订单与设备"
         ]
       }
     },
@@ -5321,6 +8407,990 @@
         "summary": "云服务商连通性检测",
         "tags": [
           "平台端"
+        ]
+      }
+    },
+    "/api/v1/platform/devices": {
+      "get": {
+        "description": "分页查询设备。支持按租户 / 客户产品 / 四维状态筛选，`keyword` 匹配 SN / IMEI / MAC；`sortBy` 支持 `created_at` / `sn` / `generated_at`。",
+        "operationId": "list_devices_api_v1_platform_devices_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "tenantId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenantid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "clientProductId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Clientproductid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "orderId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Orderid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "assetStatus",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/AssetStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Assetstatus"
+            }
+          },
+          {
+            "in": "query",
+            "name": "activationStatus",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ActivationStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Activationstatus"
+            }
+          },
+          {
+            "in": "query",
+            "name": "onlineStatus",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/OnlineStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Onlinestatus"
+            }
+          },
+          {
+            "in": "query",
+            "name": "bindStatus",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/BindStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Bindstatus"
+            }
+          },
+          {
+            "description": "SN / IMEI / MAC",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "SN / IMEI / MAC",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_DeviceResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "设备列表",
+        "tags": [
+          "平台端 · 订单与设备"
+        ]
+      }
+    },
+    "/api/v1/platform/devices/stats": {
+      "get": {
+        "description": "按四个维度分别聚合设备数量（供统计卡与工作台）。",
+        "operationId": "device_stats_api_v1_platform_devices_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceStatsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "设备统计",
+        "tags": [
+          "平台端 · 订单与设备"
+        ]
+      }
+    },
+    "/api/v1/platform/devices/{device_id}": {
+      "get": {
+        "description": "含四维状态派生标签 `label`、归属名称、**凭证掩码**（只有 `secretHint`，永不含明文密钥）与最近事件（时间线）。",
+        "operationId": "get_device_detail_api_v1_platform_devices__device_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "设备详情",
+        "tags": [
+          "平台端 · 订单与设备"
+        ]
+      }
+    },
+    "/api/v1/platform/devices/{device_id}/events": {
+      "get": {
+        "description": "分页查询设备的流转事件（按时间倒序）。",
+        "operationId": "list_device_events_api_v1_platform_devices__device_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_DeviceEventResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "设备事件时间线",
+        "tags": [
+          "平台端 · 订单与设备"
+        ]
+      }
+    },
+    "/api/v1/platform/devices/{device_id}/freeze": {
+      "post": {
+        "description": "冻结设备（原因必填）。仅 `IN_STOCK` 可冻结，冻结时把原状态记入 `previousAssetStatus`，解冻时恢复。",
+        "operationId": "freeze_device_api_v1_platform_devices__device_id__freeze_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceFreezeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "当前状态不允许冻结"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "冻结设备",
+        "tags": [
+          "平台端 · 订单与设备"
+        ]
+      }
+    },
+    "/api/v1/platform/devices/{device_id}/retire": {
+      "post": {
+        "description": "报废设备（原因必填，写入 `retireReason`）。报废是**终态**，不可再迁移。",
+        "operationId": "retire_device_api_v1_platform_devices__device_id__retire_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceRetireRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "当前状态不允许报废"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "报废设备",
+        "tags": [
+          "平台端 · 订单与设备"
+        ]
+      }
+    },
+    "/api/v1/platform/devices/{device_id}/thaw": {
+      "post": {
+        "description": "解冻设备并恢复冻结前状态（无法原路恢复时回落到 `IN_STOCK`，见事件详情）。",
+        "operationId": "thaw_device_api_v1_platform_devices__device_id__thaw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/DeviceThawRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "解冻设备",
+        "tags": [
+          "平台端 · 订单与设备"
+        ]
+      }
+    },
+    "/api/v1/platform/orders": {
+      "get": {
+        "description": "分页查询订单。支持按状态 / 租户 / 客户产品筛选，`keyword` 匹配订单号。",
+        "operationId": "list_orders_api_v1_platform_orders_get",
+        "parameters": [
+          {
+            "description": "订单状态",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/OrderStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "订单状态",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "按租户筛选",
+            "in": "query",
+            "name": "tenantId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按租户筛选",
+              "title": "Tenantid"
+            }
+          },
+          {
+            "description": "按客户产品筛选",
+            "in": "query",
+            "name": "clientProductId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按客户产品筛选",
+              "title": "Clientproductid"
+            }
+          },
+          {
+            "description": "订单号关键字",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "订单号关键字",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_OrderResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "订单列表",
+        "tags": [
+          "平台端 · 订单与设备"
+        ]
+      }
+    },
+    "/api/v1/platform/orders/{order_id}": {
+      "get": {
+        "description": "含租户 / 客户产品名称与编码、联网方式、设备计数与最近生成的设备摘要。",
+        "operationId": "get_order_detail_api_v1_platform_orders__order_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "订单详情",
+        "tags": [
+          "平台端 · 订单与设备"
+        ]
+      }
+    },
+    "/api/v1/platform/orders/{order_id}/audit": {
+      "post": {
+        "description": "审核订单（**仅 `PENDING_AUDIT` 可审核**，否则返回 `INVALID_STATE_TRANSITION`）。\n\n- `decision=APPROVED` → 订单进入 `APPROVED`\n- `decision=REJECTED` → 订单进入 `REJECTED`（终态），**必须**填写 `rejectReason`",
+        "operationId": "audit_order_api_v1_platform_orders__order_id__audit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderAuditRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "订单当前状态不允许审核"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "审核订单",
+        "tags": [
+          "平台端 · 订单与设备"
+        ]
+      }
+    },
+    "/api/v1/platform/orders/{order_id}/generate": {
+      "post": {
+        "description": "按订单生成设备并入库：`APPROVED → GENERATING → GENERATED → IN_STOCK`。\n\n**按联网方式分支**：\n- `4G`（集贤）→ 调用厂商接口分配设备；**未配置厂商密钥时按 ADR-07 安全失败**，订单退回 `APPROVED`，返回 `VENDOR_UNAVAILABLE`（503），绝不伪造成功\n- `WIFI`（京东 JoyInside）→ 平台本地生成 SN，不依赖厂商接口\n\n**幂等**：订单已处于生成后状态时，直接返回既有结果，不会重复造设备。",
+        "operationId": "generate_devices_api_v1_platform_orders__order_id__generate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "订单当前状态不允许生成"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "厂商未配置"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "生成设备",
+        "tags": [
+          "平台端 · 订单与设备"
+        ]
+      }
+    },
+    "/api/v1/platform/orders/{order_id}/qrcodes": {
+      "get": {
+        "description": "返回订单下全部设备的二维码文本（`payload`），前端据此渲染图形。\n\n- 集贤 4G：`JX|{SN}|{IMEI}|{ICCID}|{deviceId}`\n- 京东 Wi-Fi：`JD|{tenantId}|{productId}|{sn}|{sign}`，`sign` 为 HMAC-SHA256\n\n签名规范：`HMAC-SHA256(f\"{tenantId}|{productId}|{sn}\", QR_SIGN_SECRET)`。",
+        "operationId": "export_order_qrcodes_api_v1_platform_orders__order_id__qrcodes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResult_QrCodeItemResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "导出订单二维码",
+        "tags": [
+          "平台端 · 订单与设备"
         ]
       }
     },

@@ -23,7 +23,16 @@ from app.models.catalog import (
     ProductAuthorization,
     ProductTemplate,
 )
+from app.models.device import (
+    Device,
+    DeviceBatch,
+    DeviceBatchLine,
+    DeviceCredential,
+    DeviceEvent,
+)
+from app.models.factory import BurnReport, FactoryOrder, Inspection
 from app.models.identity import RefreshToken, Role, RolePermission, Tenant, UserAccount
+from app.models.order import Order
 from app.models.org import Factory, Organization, Position
 
 __all__ = [
@@ -31,15 +40,24 @@ __all__ = [
     "AiProvider",
     "AuditLog",
     "Base",
+    "BurnReport",
     "ClientProduct",
     "CloudProvider",
+    "Device",
+    "DeviceBatch",
+    "DeviceBatchLine",
+    "DeviceCredential",
+    "DeviceEvent",
     "DialogueMessage",
     "DialogueSession",
     "Factory",
+    "FactoryOrder",
     "IdempotencyKey",
+    "Inspection",
     "KbFile",
     "KnowledgeBase",
     "MiniAppConfig",
+    "Order",
     "Organization",
     "OutboxEvent",
     "Position",

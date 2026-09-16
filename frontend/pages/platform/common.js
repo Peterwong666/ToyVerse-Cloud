@@ -177,6 +177,8 @@ const ERROR_HINTS = {
   CASCADE_CONFLICT: '该数据仍被其它数据引用。请先按提示解除关联，或改为「停用」而不是删除。',
   PRODUCT_NOT_AUTHORIZED: '请先在「产品模板」页把该模板授权给这个租户，再创建客户产品。',
   PRODUCT_CODE_EXISTS: '产品编码需要全局唯一，请更换一个。',
+  BATCH_FILE_CONFLICT:
+    '这份文件的内容已经用于另一个订单的批次导入。请修改文件内容（例如更换 SN）或改选正确的订单。',
   CLOUD_CODE_EXISTS: '云服务商编码需要全局唯一，请更换一个。',
   TEMPLATE_CODE_EXISTS: '产品模板编码需要全局唯一，请更换一个。',
   TENANT_CODE_EXISTS: '租户编码需要全局唯一，请更换一个。',
@@ -280,3 +282,96 @@ export default {
   confirmThenRun,
   setHtml,
 };
+
+/* ============================================================
+   P4（订单 / 设备 / 批次）状态映射与下拉选项
+   ------------------------------------------------------------
+   以下内容为 P4 阶段追加，不修改上文任何既有导出。
+
+   为什么状态文案写在前端而不是直接拿后端 label：
+     * 列表里的状态列需要**配色**（tone），后端只给中文 label；
+     * 设备四维状态必须**分列展示**（ADR-03），四个维度各有自己的
+       配色语义，合并成单一 label 会丢掉「哪一维异常」的信息。
+     * 与后端 app/models/enums.py 的取值一一对应；后端新增取值时
+       此处若缺项，statusTag 会退化为显示原始英文码（不至于显示空白）。
+   ============================================================ */
+
+/* ---- 订单状态（对应后端 OrderStatus / ORDER_STATUS_LABELS） ---- */
+export const ORDER_STATUS_MAP = {
+  PENDING_AUDIT: { text: '待审核', tone: 'warning' },
+  APPROVED: { text: '已审核', tone: 'info' },
+  REJECTED: { text: '已驳回', tone: 'danger' },
+  GENERATING: { text: '生成中', tone: 'info' },
+  GENERATED: { text: '已生成', tone: 'teal' },
+  IN_STOCK: { text: '已入库', tone: 'brand' },
+  PRODUCING: { text: '生产中', tone: 'warning' },
+  SHIPPED_TO_CLIENT: { text: '已出货', tone: 'success' },
+  COMPLETED: { text: '已完成', tone: 'success' },
+};
+
+/* ---- 设备四维状态（对应后端 AssetStatus / ActivationStatus /
+        OnlineStatus / BindStatus，见 ADR-03） ---- */
+export const ASSET_STATUS_MAP = {
+  PENDING_GEN: { text: '待生成', tone: 'default' },
+  GENERATED: { text: '已生成', tone: 'info' },
+  IN_STOCK: { text: '已入库待生产', tone: 'brand' },
+  PRODUCING: { text: '生产烧录中', tone: 'warning' },
+  PRODUCED: { text: '已烧录完成', tone: 'teal' },
+  SHIPPED: { text: '已出货', tone: 'teal' },
+  ALLOCATED: { text: '已分配', tone: 'info' },
+  BOUND: { text: '已绑定', tone: 'success' },
+  FROZEN: { text: '已冻结', tone: 'coral' },
+  RETIRED: { text: '已报废', tone: 'default' },
+};
+
+export const ACTIVATION_STATUS_MAP = {
+  NOT_ACTIVATED: { text: '未激活', tone: 'default' },
+  ACTIVATING: { text: '激活中', tone: 'warning' },
+  ACTIVATED: { text: '已激活', tone: 'success' },
+  BIND_FAILED: { text: '激活失败', tone: 'danger' },
+};
+
+export const ONLINE_STATUS_MAP = {
+  NEVER_ONLINE: { text: '从未在线', tone: 'default' },
+  ONLINE: { text: '在线', tone: 'success' },
+  OFFLINE: { text: '离线', tone: 'warning' },
+};
+
+export const BIND_STATUS_MAP = {
+  UNBOUND: { text: '未绑定', tone: 'default' },
+  BOUND: { text: '已绑定', tone: 'success' },
+};
+
+/* ---- 批次与明细行状态（对应后端 BatchStatus / BatchLineStatus） ---- */
+export const BATCH_STATUS_MAP = {
+  UPLOADED: { text: '已上传待预检', tone: 'warning' },
+  PRE_CHECKED: { text: '预检完成', tone: 'info' },
+  IMPORTING: { text: '导入中', tone: 'info' },
+  IMPORTED: { text: '导入完成', tone: 'success' },
+  FAILED: { text: '导入失败', tone: 'danger' },
+};
+
+export const BATCH_LINE_STATUS_MAP = {
+  VALID: { text: '有效', tone: 'info' },
+  INVALID: { text: '无效', tone: 'danger' },
+  IMPORTED: { text: '已导入', tone: 'success' },
+  SKIPPED: { text: '已跳过', tone: 'default' },
+  FAILED: { text: '导入失败', tone: 'danger' },
+};
+
+/* ---- 下拉选项：由映射表派生，保证「文案只有一处定义」 ---- */
+const mapToOptions = (map) => Object.entries(map).map(([value, { text }]) => ({ value, label: text }));
+
+export const ORDER_STATUS_OPTIONS = [{ value: '', label: '全部状态' }, ...mapToOptions(ORDER_STATUS_MAP)];
+export const ASSET_STATUS_OPTIONS = [{ value: '', label: '全部资产状态' }, ...mapToOptions(ASSET_STATUS_MAP)];
+export const ACTIVATION_STATUS_OPTIONS = [
+  { value: '', label: '全部激活状态' },
+  ...mapToOptions(ACTIVATION_STATUS_MAP),
+];
+export const ONLINE_STATUS_OPTIONS = [{ value: '', label: '全部在线状态' }, ...mapToOptions(ONLINE_STATUS_MAP)];
+export const BIND_STATUS_OPTIONS = [{ value: '', label: '全部绑定状态' }, ...mapToOptions(BIND_STATUS_MAP)];
+export const BATCH_STATUS_OPTIONS = [{ value: '', label: '全部状态' }, ...mapToOptions(BATCH_STATUS_MAP)];
+export const BATCH_LINE_STATUS_OPTIONS = [
+  { value: '', label: '全部行状态' },
+  ...mapToOptions(BATCH_LINE_STATUS_MAP),
+];

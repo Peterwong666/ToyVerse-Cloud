@@ -114,14 +114,22 @@ async def record_failure(
     action: AuditAction | str,
     summary: str,
     detail: dict[str, Any] | None = None,
+    resource_type: str | None = None,
+    resource_id: str | None = None,
     actor: AuthContext | None = None,
     request: Request | None = None,
 ) -> AuditLog:
-    """写入一条失败审计。"""
+    """写入一条失败审计。
+
+    ``resource_type`` / ``resource_id`` 必须能传进来：失败审计若不带资源标识，
+    运维就只能靠摘要文字去猜是哪一单/哪台设备出了问题（P4 阶段实测到的缺口）。
+    """
     return await record(
         session,
         action=action,
         actor=actor,
+        resource_type=resource_type,
+        resource_id=resource_id,
         summary=summary,
         detail=detail,
         success=False,

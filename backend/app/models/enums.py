@@ -244,9 +244,16 @@ ASSET_TRANSITIONS: dict[AssetStatus, frozenset[AssetStatus]] = {
 }
 
 #: 允许被冻结的资产状态
-FREEZABLE_ASSET_STATUSES: frozenset[AssetStatus] = frozenset(
-    {AssetStatus.GENERATED, AssetStatus.IN_STOCK}
-)
+#:
+#: **只允许冻结 ``IN_STOCK``**，理由是把「冻结 ⇄ 解冻」严格限制在
+#: ``IN_STOCK`` 与 ``FROZEN`` 两个状态之间，与 ``ASSET_TRANSITIONS``
+#: 里 ``FROZEN → {IN_STOCK}`` 保持**对称**（否则解冻时无法原路恢复，
+#: 只能回落到别的状态，语义会变得含糊）。
+#:
+#: 业务上也不需要冻结未入库的设备：``ALLOCATABLE_ASSET_STATUSES`` 只含
+#: ``IN_STOCK``，即「冻结」能提供的保护（防止被分配/使用）对
+#: ``GENERATED`` 设备毫无增量价值——不入库本身就已经阻断了后续流转。
+FREEZABLE_ASSET_STATUSES: frozenset[AssetStatus] = frozenset({AssetStatus.IN_STOCK})
 
 #: 可被分配（下单/分配单）的资产状态
 ALLOCATABLE_ASSET_STATUSES: frozenset[AssetStatus] = frozenset({AssetStatus.IN_STOCK})

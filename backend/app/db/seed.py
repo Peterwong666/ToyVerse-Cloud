@@ -31,17 +31,24 @@ from app.models.catalog import (
     ProductAuthorization,
     ProductTemplate,
 )
+from app.models.device import Device, DeviceEvent
 from app.models.enums import (
     BUILTIN_ROLES,
+    ActivationStatus,
+    AssetStatus,
+    BindStatus,
     CloudProviderStatus,
     CloudVendor,
     EnableStatus,
     NetworkType,
+    OnlineStatus,
+    OrderStatus,
     OtaSupport,
     TenantStatus,
     UserStatus,
 )
 from app.models.identity import Role, RolePermission, Tenant, UserAccount
+from app.models.order import Order
 
 logger = get_logger(__name__)
 
@@ -172,6 +179,7 @@ async def seed_demo_data() -> None:
             await _seed_tenants(session)
             await _seed_tenant_users(session)
             await _seed_catalog(session)
+            await _seed_orders_devices(session)
 
         await session.commit()
 
@@ -487,6 +495,143 @@ async def _seed_catalog(session: AsyncSession) -> None:
         )
     await session.flush()
     logger.info("目录域演示数据初始化完成")
+
+
+# ---------------------------------------------------------------------------
+# 订单与设备（P4 演示数据）
+# ---------------------------------------------------------------------------
+
+
+async def _seed_orders_devices(session: AsyncSession) -> None:
+    """写入 P4 演示订单与设备（幂等）。
+
+    设计要点
+    --------
+    * 两个订单覆盖两种**典型时序**：一个已入库（含设备，用于演示订单详情 /
+      设备列表 / 二维码导出），一个待审核（用于演示审核流程）。
+      待审核单刻意没有设备——真实业务里设备是审核通过之后才生成的。
+    * 设备 SN 用**固定值**而不是随机生成：演示数据必须可重现。
+      用随机 SN 的话每次启动都会新增一批设备，「幂等」就名存实亡了。
+    * 设备状态刻意做成混合态（已入库 / 已冻结 / 已分配），否则四维状态
+      在界面上看不出差别，演示价值会打折扣。
+    * 事件的 ``actor_account`` 记为 ``seed``，与真实操作用户可区分。
+    """
+    product = (
+        await session.execute(select(ClientProduct).where(ClientProduct.id == "prod-t001-cube"))
+    ).scalar_one_or_none()
+    if product is None:
+        logger.warning("演示客户产品不存在，跳过订单与设备种子数据")
+        return
+
+    existing_orders = set((await session.execute(select(Order.order_no))).scalars().all())
+
+    # ---- ① 已入库订单（含设备） ----
+    if "ORD-20260101-DEMO" not in existing_orders:
+        order = Order(
+            id="o-demo-stocked",
+            order_no="ORD-20260101-DEMO",
+            tenant_id="t-001",
+            client_product_id=product.id,
+            quantity=5,
+            status=str(OrderStatus.IN_STOCK),
+            network_type=product.network_type,
+            applicant_name="王经理",
+            applicant_phone="13800000001",
+            remark="演示订单：已审核、已生成设备并入库",
+            audited_by="admin",
+            audited_at=utcnow(),
+            audit_remark="演示数据自动审核通过",
+            generated_count=5,
+            generated_at=utcnow(),
+            generation_detail={
+                "ok": True,
+                "requested": 5,
+                "generated": 5,
+                "failed": 0,
+                # 演示产品的联网方式是 WIFI → 京东 JD 格式本地生成
+                "format": "JD",
+                "simulated": True,
+                "vendor": "种子数据：本地生成，未调用厂商接口",
+            },
+        )
+        session.add(order)
+        await session.flush()
+
+        # (资产状态, 激活状态, 在线状态, 绑定状态, 是否追加冻结/分配事件)
+        layout: tuple[tuple[str, str, str, str], ...] = (
+            (AssetStatus.IN_STOCK, ActivationStatus.NOT_ACTIVATED, OnlineStatus.NEVER_ONLINE, BindStatus.UNBOUND),
+            (AssetStatus.IN_STOCK, ActivationStatus.NOT_ACTIVATED, OnlineStatus.NEVER_ONLINE, BindStatus.UNBOUND),
+            (AssetStatus.IN_STOCK, ActivationStatus.NOT_ACTIVATED, OnlineStatus.NEVER_ONLINE, BindStatus.UNBOUND),
+            (AssetStatus.FROZEN, ActivationStatus.NOT_ACTIVATED, OnlineStatus.NEVER_ONLINE, BindStatus.UNBOUND),
+            (AssetStatus.ALLOCATED, ActivationStatus.NOT_ACTIVATED, OnlineStatus.NEVER_ONLINE, BindStatus.UNBOUND),
+        )
+        for index, (asset, activation, online, bind) in enumerate(layout, start=1):
+            frozen = asset == AssetStatus.FROZEN
+            device = Device(
+                id=f"d-demo-{index:02d}",
+                tenant_id="t-001",
+                order_id=order.id,
+                client_product_id=product.id,
+                sn=f"SN-20260101-DEMO{index:02d}",
+                mac=f"AA:BB:CC:00:00:{index:02X}",
+                network_type=product.network_type,
+                firmware_version=product.firmware_version,
+                asset_status=str(asset),
+                previous_asset_status=str(AssetStatus.IN_STOCK) if frozen else None,
+                activation_status=str(activation),
+                online_status=str(online),
+                bind_status=str(bind),
+                generated_at=utcnow(),
+                frozen_at=utcnow() if frozen else None,
+                freeze_reason="演示：人为冻结设备以展示冻结态" if frozen else None,
+                remark=f"订单 {order.order_no} 演示设备",
+            )
+            session.add(device)
+            await session.flush()
+
+            chain: list[tuple[str, str | None, str | None]] = [
+                ("GENERATED", str(AssetStatus.PENDING_GEN), str(AssetStatus.GENERATED)),
+                ("IN_STOCK", str(AssetStatus.GENERATED), str(AssetStatus.IN_STOCK)),
+            ]
+            if frozen:
+                chain.append(("FROZEN", str(AssetStatus.IN_STOCK), str(AssetStatus.FROZEN)))
+            if asset == AssetStatus.ALLOCATED:
+                chain.append(("ALLOCATED", str(AssetStatus.IN_STOCK), str(AssetStatus.ALLOCATED)))
+
+            for event_type, from_status, to_status in chain:
+                session.add(
+                    DeviceEvent(
+                        id=new_id("device_event"),
+                        device_id=device.id,
+                        tenant_id=device.tenant_id,
+                        event_type=event_type,
+                        dimension="asset",
+                        from_status=from_status,
+                        to_status=to_status,
+                        actor_account="seed",
+                        summary="演示数据：随种子写入的设备流转事件",
+                    )
+                )
+
+    # ---- ② 待审核订单（无设备，演示审核流程） ----
+    if "ORD-20260102-DEMO" not in existing_orders:
+        session.add(
+            Order(
+                id="o-demo-pending",
+                order_no="ORD-20260102-DEMO",
+                tenant_id="t-001",
+                client_product_id=product.id,
+                quantity=3,
+                status=str(OrderStatus.PENDING_AUDIT),
+                network_type=product.network_type,
+                applicant_name="李经理",
+                applicant_phone="13800000002",
+                remark="演示订单：待平台审核（用于演示审核与驳回流程）",
+            )
+        )
+
+    await session.flush()
+    logger.info("订单与设备演示数据初始化完成")
 
 
 # ---------------------------------------------------------------------------

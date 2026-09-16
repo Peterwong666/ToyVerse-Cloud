@@ -42,6 +42,7 @@ export const ERROR_CODES = {
   CASCADE_CONFLICT: 'CASCADE_CONFLICT',
   IDEMPOTENCY_CONFLICT: 'IDEMPOTENCY_CONFLICT',
   PRODUCT_CODE_EXISTS: 'PRODUCT_CODE_EXISTS',
+  BATCH_FILE_CONFLICT: 'BATCH_FILE_CONFLICT',
   CLOUD_CODE_EXISTS: 'CLOUD_CODE_EXISTS',
   TEMPLATE_CODE_EXISTS: 'TEMPLATE_CODE_EXISTS',
   PRODUCT_NOT_AUTHORIZED: 'PRODUCT_NOT_AUTHORIZED',
@@ -219,7 +220,8 @@ async function refreshAccessToken() {
  * @param {object} [options]
  * @param {object} [options.params] 查询参数
  * @param {any}    [options.body]   请求体（对象自动 JSON 序列化）
- * @param {boolean}[options.raw]    true → 返回完整 Response，不做错误处理
+ * @param {boolean}[options.raw]    true → 成功时返回完整 Response（可读 headers / blob()）；
+ *                                  非 2xx 仍抛 ApiError，错误语义不变
  * @param {boolean}[options.silent] true → 不触发全局错误处理器
  * @param {string} [options.idempotencyKey] 幂等键（写操作防重复提交）
  * @param {object} [options.headers]
@@ -236,6 +238,7 @@ async function request(method, path, options = {}) {
     timeout = config.requestTimeout,
     idempotencyKey,
     silent = false,
+    raw = false,
     retryOn401 = true,
   } = options;
 
@@ -290,10 +293,17 @@ async function request(method, path, options = {}) {
     clearTimeout(timer);
   }
 
-  const payload = await parseBody(response);
-
   /* ---- 成功 ---- */
-  if (response.ok) return payload;
+  // raw=true 时**必须跳过 parseBody**：读取 body 会把流消费掉，
+  // 之后调用方再调 response.blob() / text() 会抛
+  // `TypeError: Body is unusable: Body has already been read`。
+  if (response.ok) {
+    return raw ? response : await parseBody(response);
+  }
+
+  // 失败路径：这里必须读 body 才能构造统一的 {code,message,traceId} 错误，
+  // 消费掉无妨——随后就抛 ApiError 了。
+  const payload = await parseBody(response);
 
   /* ---- 401：尝试刷新一次并重放 ---- */
   if (response.status === 401 && retryOn401 && auth.refreshToken) {
@@ -351,8 +361,15 @@ export const api = {
    */
   upload: (path, formData, options) => request('POST', path, { ...options, body: formData, timeout: 120000 }),
 
-  /** 原始请求（需要读取响应头时使用） */
-  raw: (method, path, options) => request(method, path, options),
+  /**
+   * 原始请求：**返回未消费的 Response**，用于读响应头或下载文件
+   * （`await (await api.raw(...)).blob()`）。
+   *
+   * 这里强制 `raw: true` —— 方法名已经表达了意图，
+   * 若还要调用方再传一次 `{raw:true}` 才生效，等于埋了个坑。
+   * 注意：非 2xx 仍抛 ApiError，错误语义与其他方法一致。
+   */
+  raw: (method, path, options) => request(method, path, { ...options, raw: true }),
 
   /** 生成幂等键（写操作防重复提交） */
   newIdempotencyKey: () => newTraceId(),
