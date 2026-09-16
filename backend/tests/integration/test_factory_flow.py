@@ -1707,3 +1707,120 @@ class TestFrozenDeviceDuringDispatch:
         assert (await _burn(client, fh, dispatched["id"], 1)).status_code == 200
         assert (await _ship(client, fh, dispatched["id"])).status_code == 200
         assert (await _device_row(db, devices[1].id)).asset_status == str(AssetStatus.IN_STOCK)
+
+
+# ===========================================================================
+# 十二、工单与设备的归属（P6 验收实测发现 → 已修复）
+# ===========================================================================
+
+
+class TestFactoryOrderDeviceOwnership:
+    """工单维度的查询必须以 ``devices.factory_order_id`` 为准。
+
+    修复前的实现用「订单 + 状态」推断工单的设备范围，由此暴露出两个可观测问题
+    （均由 P6 的端到端验收在真实服务上实测发现，不是推测）：
+
+    1. **二维码清单多打标签**：工单只委托 1 台，但导出返回订单下全部设备
+       （含被冻结 / 已先分配给客户的那台）。标签一旦贴上就很难挽回。
+    2. **抽检范围过宽**：只比对 ``order_id`` 相等，于是一台**从未进入生产**
+       的同订单设备也能被这张工单抽检并计入合格率。
+
+    根因是把「归属」当成「状态的函数」——归属是事实，必须落库。
+    本类把 ``factory_order_id`` 的写入与两处范围收口钉死。
+    """
+
+    async def test_devices_are_claimed_by_the_work_order(
+        self, client: AsyncClient, auth: Any, db: AsyncSession, make_tenant: Any
+    ) -> None:
+        """派单时被认领的设备写入 ``factoryOrderId``，未派工的一台保持为 ``None``。"""
+        tenant = await make_tenant(code="FLOW-K1", name="工单归属租户")
+        catalog = await _seed_catalog(db, tenant.id, suffix="FLOWK1")
+        order, devices = await _lib_stocked_order(
+            db, tenant_id=tenant.id, product_id=catalog["product_id"], quantity=2, sn_prefix="SN-K1"
+        )
+        platform = await auth.platform_headers()
+
+        frozen = await client.post(
+            f"{PLATFORM}/devices/{devices[1].id}/freeze", headers=platform, json={"reason": "扣下"}
+        )
+        assert frozen.status_code == 200, frozen.text
+
+        factory = await _make_factory(db, code="FAC-K1")
+        fo_id = (await _dispatch_ok(client, platform, order.id, factory.id))["id"]
+
+        claimed = await _device_row(db, devices[0].id)
+        unclaimed = await _device_row(db, devices[1].id)
+        assert claimed.factory_order_id == fo_id, "被派工的设备必须认领到该工单"
+        assert unclaimed.factory_order_id is None, "未派工（冻结）的设备不该被认领"
+
+    async def test_qrcodes_cover_only_this_work_order(
+        self, client: AsyncClient, auth: Any, db: AsyncSession, make_tenant: Any
+    ) -> None:
+        """★ 二维码清单只含本工单认领的设备——不多打标签。"""
+        tenant = await make_tenant(code="FLOW-K2", name="标签数量租户")
+        catalog = await _seed_catalog(db, tenant.id, suffix="FLOWK2")
+        order, devices = await _lib_stocked_order(
+            db, tenant_id=tenant.id, product_id=catalog["product_id"], quantity=3, sn_prefix="SN-K2"
+        )
+        platform = await auth.platform_headers()
+
+        # 扣下一台：订单有 3 台，工单只委托 2 台
+        assert (
+            await client.post(
+                f"{PLATFORM}/devices/{devices[2].id}/freeze",
+                headers=platform,
+                json={"reason": "扣下"},
+            )
+        ).status_code == 200
+
+        factory = await _make_factory(db, code="FAC-K2")
+        fh = await _factory_headers(auth, db, factory=factory, account="13600011011")
+        dispatched = await _dispatch_ok(client, platform, order.id, factory.id)
+        assert dispatched["quantity"] == 2
+
+        qr = await client.get(f"{FACTORY}/orders/{dispatched['id']}/qrcodes", headers=fh)
+        assert qr.status_code == 200, qr.text
+        body = qr.json()
+        assert body["total"] == 2, f"清单必须等于工单委托台数，实际 {body['total']}"
+        sids = {item["sn"] for item in body["records"]}
+        assert devices[2].sn not in sids, "被冻结（未派工）的设备不该出现在清单里"
+        assert {devices[0].sn, devices[1].sn} == sids
+
+    @pytest.mark.parametrize("picked", [0, 1, 2])
+    async def test_inspection_rejects_device_not_in_this_work_order(
+        self, client: AsyncClient, auth: Any, db: AsyncSession, make_tenant: Any, picked: int
+    ) -> None:
+        """★ 抽检只接受本工单认领的设备；同订单但未派工的那台 → 400。
+
+        参数化 ``picked`` 把三种设备都试一遍：
+        0/1 = 已派工（应 201），2 = 被冻结未派工（应 400）。
+        """
+        tenant = await make_tenant(code=f"FLOW-K3-{picked}", name="抽检范围租户")
+        catalog = await _seed_catalog(db, tenant.id, suffix=f"FLOWK3{picked}")
+        order, devices = await _lib_stocked_order(
+            db, tenant_id=tenant.id, product_id=catalog["product_id"], quantity=3, sn_prefix=f"SN-K3{picked}"
+        )
+        platform = await auth.platform_headers()
+
+        assert (
+            await client.post(
+                f"{PLATFORM}/devices/{devices[2].id}/freeze",
+                headers=platform,
+                json={"reason": "扣下"},
+            )
+        ).status_code == 200
+
+        factory = await _make_factory(db, code=f"FAC-K3-{picked}")
+        fh = await _factory_headers(auth, db, factory=factory, account=f"1360001102{picked}")
+        fo_id = (await _dispatch_ok(client, platform, order.id, factory.id))["id"]
+
+        response = await client.post(
+            f"{FACTORY}/orders/{fo_id}/inspect",
+            headers=fh,
+            json={"sn": devices[picked].sn, "result": "PASS"},
+        )
+        if picked == 2:
+            body = _assert_error(response, 400, "VALIDATION_ERROR")
+            assert body["details"]["field"] == "sn"
+        else:
+            assert response.status_code == 201, response.text

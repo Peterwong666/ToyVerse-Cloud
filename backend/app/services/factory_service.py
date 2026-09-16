@@ -649,6 +649,9 @@ async def dispatch_order(
         AssetStatus.IN_STOCK,
         AssetStatus.PRODUCING,
         reason=f"订单 {order.order_no} 派发工厂生产",
+        # 派单是设备与工单归属关系的**唯一诞生点**：此处按「订单 + IN_STOCK」
+        # 挑选并认领，之后所有工单维度的查询都以 factory_order_id 为准。
+        claim_scope=True,
         request=request,
     )
 
@@ -718,28 +721,51 @@ async def _mark_order_devices(
     target: AssetStatus,
     *,
     reason: str,
+    claim_scope: bool = False,
     request: Request | None = None,
 ) -> int:
-    """把工单对应订单下处于 ``source`` 的设备统一迁到 ``target``。
+    """把本工单名下处于 ``source`` 的设备统一迁到 ``target``。
 
-    为什么按「订单 + 当前状态」筛选，而不是按工单保存一份设备清单？
-    ``factory_orders`` 上**没有设备清单**——工单是「做多少台」的委托，
-    设备归订单所有（``devices.order_id``）。按订单筛既不需要维护第二份清单，
-    也不会出现「工单清单与设备表两套事实不一致」。带状态条件则是为了让
-    重跑与「部分设备被单独冻结」都不误伤：不匹配的设备原样不动。
+    为什么需要 ``claim_scope`` 这个开关
+    ----------------------------------
+    设备与工单的归属（``devices.factory_order_id``）是**事实**，不是
+    「订单 + 状态」的函数：同一个订单下可能有被单独冻结、或已先分配给客户的
+    设备，它们不属于这张工单。于是这里有两种语义，必须显式区分：
+
+    * ``claim_scope=True``（**派单时唯一一次**）：按「订单 + ``source`` 状态」
+      挑选设备，并把它们认领到本工单（写 ``factory_order_id``）。
+      这是归属关系的诞生点，只有这一刻才允许这么挑。
+    * ``claim_scope=False``（烧录 / 出货）：只用
+      ``factory_order_id == 本工单`` 筛选。若仍按状态挑，出货时会把后来
+      被解冻或新导入的同订单设备一起卷进去——那不是这张工单的活。
 
     Returns:
         实际迁移的设备台数（供审计与响应展示）。
     """
-    stmt = scoped(select(Device), Device, auth).where(
+    conditions = [
         Device.order_id == factory_order.order_id,
         Device.asset_status == str(source),
-    )
+    ]
+    if claim_scope:
+        # 认领：按订单 + 状态挑，挑中即写归属
+        pass
+    else:
+        # 已认领过的设备：严格按工单归属筛
+        conditions = [
+            Device.factory_order_id == factory_order.id,
+            Device.asset_status == str(source),
+        ]
+
+    stmt = scoped(select(Device), Device, auth).where(*conditions)
     devices = list((await session.execute(stmt)).scalars().all())
     for device in devices:
+        if claim_scope:
+            device.factory_order_id = factory_order.id
         await device_service.transition_asset(
             session, device, target, reason=reason, actor=auth, request=request
         )
+    if claim_scope and devices:
+        await session.flush()
     return len(devices)
 
 
@@ -768,9 +794,14 @@ async def report_burn(
 
     报满时（``burned_count == quantity``）的动作链：
     工单 ``（按需 PENDING→PRODUCING）→ COMPLETED``；
-    订单下 ``PRODUCING`` 设备 ``→ PRODUCED``；订单 ``PRODUCING →
-    SHIPPED_TO_CLIENT``（订单侧先走一步，因为「烧录完成」对商户就意味着
-    「即将出货」）。未报满时工单按需从 ``PENDING → PRODUCING``。
+    **本工单名下**（``devices.factory_order_id``）``PRODUCING`` 设备
+    ``→ PRODUCED``；订单 ``PRODUCING → SHIPPED_TO_CLIENT``
+    （订单侧先走一步，因为「烧录完成」对商户就意味着「即将出货」）。
+    未报满时工单按需从 ``PENDING → PRODUCING``。
+
+    一台都没被推进时不为空转：``quantity`` 在派单时已等于被认领的设备数，
+    因此「报满」必然对应同样多的设备（不变量由
+    ``tests/integration/test_factory_flow.py`` 钉住）。
 
     Raises:
         AppException: 工单不在本厂（``RESOURCE_NOT_FOUND``）、工单已完成 /
@@ -974,9 +1005,13 @@ async def create_inspection(
 
     SN 必须真实存在且属于本工单：
     * 不存在 → 404 ``DEVICE_NOT_FOUND``（记一条空记录会污染合格率）；
-    * 属于别的订单 → 400 ``VALIDATION_ERROR``（``details.field=sn``）。
-      只校验 ``order_id`` 相等即可，不需要比对设备归属租户——工厂本来就
-      不该知道设备属于哪个租户。
+    * 不属于本工单 → 400 ``VALIDATION_ERROR``（``details.field=sn``）。
+
+    「属于本工单」的判据是 ``devices.factory_order_id``，**不是**
+    ``order_id`` 相等。这一点在 P6 验收时被实测暴露：同一订单下可能有
+    被单独冻结或已先分配给客户的设备，它们没被派工、也不该被这张工单抽检
+    ——只比对 ``order_id`` 会让一台从未进入生产的设备计进合格率。
+    也不需要比对设备归属租户：工厂本来就不该知道设备属于哪个租户。
 
     Raises:
         AppException: 工单不在本厂（``RESOURCE_NOT_FOUND``）、SN 不存在
@@ -989,7 +1024,7 @@ async def create_inspection(
     ).scalar_one_or_none()
     if device is None:
         raise device_not_found(f"设备 {sn} 不存在")
-    if device.order_id != order.order_id:
+    if device.factory_order_id != order.id:
         raise validation_error(f"SN {sn} 不属于本工单", details={"field": "sn"})
 
     inspection = Inspection(
@@ -1223,16 +1258,33 @@ async def stats(session: AsyncSession, auth: AuthContext) -> FactoryStatsRespons
 async def qrcodes_for_factory_order(
     session: AsyncSession, auth: AuthContext, factory_order_id: str
 ) -> list[qrcode_service.QrCodeItem]:
-    """工单对应订单下全部设备的二维码。
+    """本工单**认领**设备的二维码清单（贴码环节）。
 
-    直接复用 :func:`app.services.order_service.qrcodes_for_order`：工厂要打印的
-    是**同一批设备**的二维码，自己再拼一次格式必然会与平台端导出结果不一致
+    只返回 ``devices.factory_order_id == 本工单`` 的设备，而**不是**
+    「订单下的全部设备」：工单委托 3 台、订单里有 5 台（1 台被冻结、1 台已先
+    分配给客户）时，按订单取会让工厂多打 2 张标签——标签一旦贴上就很难挽回，
+    而多打的那两张对应的设备根本不在这一批货里。这条差异由 P6 验收实测发现。
+
+    二维码格式复用 :func:`app.services.order_service.qrcodes_for_order` 的
+    编码器（``qrcode_service.build_qrcodes``）：工厂要打印的是**同一批设备**
+    的二维码，自己再拼一次格式必然会与平台端导出结果不一致
     （两种格式的字段顺序与签名规则见 ``qrcode_service`` 的模块文档）。
 
     可见性先由 :func:`get_factory_order` 收口——工厂只能导自己工单的设备。
     """
     order = await get_factory_order(session, auth, factory_order_id)
-    return await order_service.qrcodes_for_order(session, auth, order.order_id)
+    devices = list(
+        (
+            await session.execute(
+                select(Device)
+                .where(Device.factory_order_id == order.id)
+                .order_by(Device.created_at.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return qrcode_service.build_qrcodes(devices)
 
 
 async def list_factories(session: AsyncSession, auth: AuthContext) -> list[FactoryResponse]:

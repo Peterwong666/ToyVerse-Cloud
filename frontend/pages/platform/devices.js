@@ -42,13 +42,23 @@ import {
 /**
  * 可冻结的资产状态。
  *
- * P5 修正（P4 遗留缺陷）：P4 这里写的是 `GENERATED` / `IN_STOCK`，但后端
- * 已把冻结范围收紧为**只允许 `IN_STOCK`**（见 app/models/enums.py 的
- * `FREEZABLE_ASSET_STATUSES`）。前端集合比后端宽会让「冻结」按钮出现在
- * 一定会被拒绝的设备上，用户点完只能收到 400 —— 这正是 P3 反复强调的
- * 「不要让用户点了才知道不行」。此处与后端 FREEZABLE_ASSET_STATUSES 对齐。
+ * 必须与后端 `FREEZABLE_ASSET_STATUSES`（app/models/enums.py）**逐项一致**：
+ * 前端集合比后端宽，会让「冻结」按钮出现在一定会被拒绝的设备上
+ * （用户点完只收到 409），这正是 P3 反复强调的「不要让用户点了才知道不行」。
+ *
+ * 变更史（两次都踩在同一个坑上，故把理由留在这里）：
+ * * P4 后端收紧为 `{IN_STOCK}`，前端仍写着 `GENERATED`/`IN_STOCK`
+ *   → P5 修正为 `['IN_STOCK']`；
+ * * P6 后端放宽为 `{IN_STOCK, ALLOCATED, BOUND}`（用户决策：要为**已出货
+ *   给商户的设备**提供停服能力），前端又漏改，导致「冻结一台已分配设备」
+ *   在后端可用、在界面上根本点不到——由 P6 浏览器验收实测发现。
+ *
+ * 教训：这对集合**天生会漂移**（后端改语义、前端忘了跟）。P6 起后端把
+ * 冻结范围钉进了 `tests/unit/test_device_state_machine.py`
+ * （断言 `FREEZABLE_ASSET_STATUSES == ASSET_TRANSITIONS[FROZEN]`），
+ * 前端这一份的具体列表由 `make fe-check` 之外的浏览器验收覆盖。
  */
-const FREEZABLE = new Set(['IN_STOCK']);
+const FREEZABLE = new Set(['IN_STOCK', 'ALLOCATED', 'BOUND']);
 
 /** 已知的资产状态 → 主状态列配色 */
 const LABEL_TONE_BY_ASSET = {
@@ -502,8 +512,8 @@ export async function renderDevices(container, ctx) {
         if (!row) return;
         await runWithReason({
           title: `冻结设备 ${row.sn}`,
-          description: '冻结后该设备不可被分配、绑定或激活，用于处理异常与纠纷。',
-          detail: '冻结会记录原因与操作者；解冻后恢复冻结前的资产状态。',
+          description: '冻结后该设备不可被分配、绑定或激活，用于处理异常与纠纷；已分配给商户的设备冻结后即「停服」（欠费、内容违规等场景）。',
+          detail: '冻结会记录原因与操作者；解冻后恢复冻结前的资产状态（已分配的设备会回到「已分配」，不会退成平台库存）。',
           confirmText: '确认冻结',
           reasonLabel: '冻结原因',
           run: (reason) =>

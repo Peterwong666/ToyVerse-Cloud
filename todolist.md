@@ -137,7 +137,7 @@
 
 ## P3 目录域（云服务商 / 模板 / 授权 / 客户产品）★
 
-> **迁移编号说明**：本节原计划使用 `0003` / `0004`，但 P1 落地时实际占用了 `0001`–`0004`，故顺延为 `0005` / `0006`（P4 起顺延为 `0008`–`0010`、P5 `0011`、P9 `0012`；P7 使用 `0007`）。
+> **迁移编号说明**：本节原计划使用 `0003` / `0004`，但 P1 落地时实际占用了 `0001`–`0004`，故顺延为 `0005` / `0006`（P4 起顺延为 `0008`–`0010`、P5 `0011`、P6 `0012`+`0013`；P9 顺延为 `0014`；P7 使用 `0007`）。
 
 - [x] 🔑 Alembic `0005_catalog.py` — `cloud_providers` `product_templates` `product_authorizations`
 - [x] 🔑 Alembic `0006_client_product_miniapp.py` — `client_products` `miniapp_configs`
@@ -224,28 +224,58 @@
 **验收**：移植 `server.js` 全部硬化语义（confirm-token 过期与销毁、冻结校验、授权校验、幂等重放返回同一条）；租户隔离测试全绿。
 👉 实测结论见 `项目进度.md` 的「P5 验收记录」。
 
-**已知局限**：
-1. **冻结范围与绑定链路的交叉限制**：`FREEZABLE_ASSET_STATUSES = {IN_STOCK}`（P4 收紧）与绑定只接受 `ALLOCATED` 互斥，因此「已分配 / 已绑定的设备」**无法被冻结**——「冻结一台已出货给商户的设备」这个能力目前缺失。绑定流程里的冻结校验因此只对「入库时被冻结、尚未分配」的设备生效，属**防御性校验**（语义正确但正常流程下不可达）。若要恢复该能力，需要放宽 `ASSET_TRANSITIONS[FROZEN]` 允许 `FROZEN → ALLOCATED/BOUND`，并同步改 P4 已钉死的 14 条单元断言——留待 P6 一并决策。
-2. **`GENERATED → IN_STOCK`（批次导入设备的「入库」动作）仍无端点**：CSV 批次导入的设备停在 `GENERATED` 且 `tenant_id` 为空，而分配只接受 `IN_STOCK`，所以导入的设备当前无法直接进入分配链路。本阶段用种子里的**平台自有库存**设备（`tenant_id` 空 + `IN_STOCK`）演示分配；该动作归 P6 工厂端的入库环节。
-3. `end_user_id` 只存不建外键（`end_users` 属 P9），与 P7 的 `dialogue_sessions.device_id` 同一处理方式。
-4. 元素截图通道在验收后半段超时（`evaluate` 正常），部分界面修复只有 DOM 证据与一张修复前截图，未逐张留图。
+### 已知局限
+
+1. **「冻结已分配/已绑定设备」的能力缺失** —— **P6 已修复**（用户决策放宽
+   `FREEZABLE_ASSET_STATUSES` 为 `{IN_STOCK, ALLOCATED, BOUND}`，并补齐
+   `ALLOCATED`/`BOUND` → `FROZEN` 的入边；P4 钉死的单测已同步更新）。
+2. **`GENERATED → IN_STOCK`（「入库」动作）仍无端点** —— **P6 已修复**
+   （`POST /platform/devices/stock-in`，按设备列表、逐行判定、幂等重跑，
+   平台端设备页提供行内「入库」与「批量入库」）。
+3. `end_user_id` 只存不建外键（`end_users` 属 P9），与 P7 的
+   `dialogue_sessions.device_id` 同一处理方式。
+4. 元素截图通道在验收后半段超时（`evaluate` 正常），部分界面修复只有 DOM
+   证据与一张修复前截图，未逐张留图。
 
 ---
 
 ## P6 烧录工厂端 ★
 
-- [ ] `app/api/v1/factory.py` — 生产订单 / 烧录上报 / 抽检 / 固件
-- [ ] 🔑 `FactoryOrderSerializer` — **服务端字段白名单脱敏**
-  - 客户名脱敏：首字符 + 中间星号 + 尾字符（`中国移动` → `中**动`；≤2 字则首字 + 星）
+- [x] `app/api/v1/factory.py` — 生产订单 / 烧录上报 / 抽检 / 固件
+- [x] 🔑 `FactoryOrderSerializer` — **服务端字段白名单脱敏**
+  - 客户名脱敏：首个文字字符 + 星号 + 末个文字字符（`中国移动` → `中**动`；≤2 字则首字 + 星）
   - **金额、联系方式、邮箱绝不出现在任何工厂端响应**
-- [ ] 烧录上报：`burned_count ≤ quantity` 校验
-- [ ] 抽检：不存在 SN 报错；抽检记录落库
-- [ ] 固件版本列表与工单二维码清单导出
-- [ ] 🔑 `frontend/factory/index.html` + `frontend/pages/factory/{dashboard,orders,order_detail,burn,inspect,firmware}.js`
-- [ ] `tests/integration/test_factory_desensitize.py` — **断言响应中不含真实客户名 / 金额 / 电话**
-- [ ] `tests/unit/test_mask.py` — 脱敏函数边界（1 字 / 2 字 / 多字 / 英文 / 空值 / None）
+  - 脱敏的是「首个/末个**文字字符**」而不是「第一个/最后一个字符」：`星辰玩具（演示租户）`
+    若按字面首尾会脱敏成 `星********）`（括号占据可见位，看起来像坏数据，还漏出「后面跟着括号备注」）
+- [x] 平台端派单：`POST /platform/orders/{id}/dispatch`（同一订单只能派一次；工单数量 = **实际派工台数**，合同台数另以 `orderQuantity` 下发）
+- [x] 工厂端生产订单列表 / 详情（含烧录记录与抽检统计）
+- [x] 烧录上报：`burned_count ≤ quantity` 校验（`BURN_COUNT_EXCEEDED`，`details` 带 `remaining`）
+- [x] 抽检：不存在 SN 报 404；**不属于本工单**的 SN 报 400（判据是 `devices.factory_order_id`）；抽检记录落库
+- [x] 出货登记：工单 `COMPLETED → SHIPPED`，设备 `PRODUCED → SHIPPED`
+- [x] 固件版本列表（按本厂工单聚合）与工单二维码清单导出（**只含本工单认领的设备**）
+- [x] 🔑 设备四维与订单状态联动：派单 → 烧录满额 → 出货，全部经 `transition_asset` / `transition_order` 唯一入口
+- [x] 🔑 迁移 `0012_factory_account_link`（`user_accounts.factory_id` + JWT `factoryId`）与 `0013_device_factory_order`（`devices.factory_order_id`）
+- [x] 🔑 **P5 遗留②**：`POST /platform/devices/stock-in` 入库端点（逐行判定 + 幂等）
+- [x] 🔑 **P5 遗留①**：放宽冻结范围到「库存 / 已分配 / 已绑定」，前端集合同步
+- [x] 修复历史测试笔误：`_transition_order` 重命名为公开 `transition_order`（工厂环节需在**同一处**校验订单状态机）
+- [x] 🔑 `frontend/pages/factory/{dashboard,orders,order_detail,burn,inspect,firmware}.js`（6 页）+ 平台端 `factory_orders.js`
+- [x] 平台端订单详情「派单给工厂」（仅 `IN_STOCK` 时出现）+ 设备页「入库 / 批量入库」
+- [x] `tests/integration/test_factory_desensitize.py` — **断言响应中不含真实客户名 / 金额 / 电话 / 邮箱**
+- [x] `tests/unit/test_mask.py` — 脱敏函数边界（1 字 / 2 字 / 多字 / 英文 / 空值 / None / 纯符号 / 括号与空格）+ 白名单一致性
+- [x] `tests/integration/test_factory_flow.py` — 派单→烧录→抽检→出货全链路、跨厂隔离矩阵、归属与二维码范围
+- [x] 补齐 P5 欠账测试：`test_allocation.py`、`test_tenant_isolation.py`（全端点参数化矩阵 + 路由元测试）、`test_device_heartbeat.py`
 
-**验收**：工厂端全流程可用；脱敏断言通过；`burned ≤ quantity` 生效；抽检异常 SN 正确报错。
+**验收**（2026-09-17 实测通过）：真实服务端到端接口验收 **71/71 通过**（派单 → 烧录 → 抽检 → 出货 → 入库 → 分配 → 冻结）；工厂端脱敏红线全部命中（真实客户名 / 联系人 / 电话 / 邮箱在响应中出现 0 次，`unitPrice`/`totalAmount`/`applicantPhone` 等字段名不存在）；跨厂隔离全部 404；`make check` 全绿（**737 passed**、mypy 81 文件、契约 88 路径一致）；`make fe-check` 287 处导入匹配；`alembic check` 零漂移。浏览器实测另复验 12 项（见 `项目进度.md` 的 P6 验收记录）。
+
+**本阶段由端到端验收发现并修复的 3 个真缺陷**：① 工单二维码清单返回订单下**全部**设备（含被冻结 / 已分配的），工厂会多打标签 → 新增 `devices.factory_order_id` 落库归属，清单 / 抽检范围一律以它为准；② 抽检只比对 `order_id`，同订单但**未派工**的设备也能被抽检并计入合格率 → 改用 `factory_order_id`；③ 平台端设备页的 `FREEZABLE` 集合仍是 P5 的 `['IN_STOCK']`，导致后端已允许的「冻结已分配设备」在界面上**点不到** → 集合对齐 + 弹窗文案改写。
+另由独立验证代理报出的 1 处口径缺口（工单数量取订单数量导致 `burned_count` 与实际出货设备数对不上）与 1 处不可达错误码（`FACTORY_ORDER_EXISTS` 被状态校验抢先拦下）均已修复。
+
+**已知局限**：
+1. **工厂端「批次查询」页未交付**（菜单项显示「建设中」）：`factory:batch:read` 权限与 `/platform/batches` 端点已存在，但未加 `/factory/batches` 端点与页面。工厂当前不需要批次，留待 P9/P10 一并决策。
+2. **工单与订单是「一对一」**：`dispatch_order` 拒绝同一订单的第二张工单（`FACTORY_ORDER_EXISTS`）。因此「同一订单分批派给两家工厂」不可用，且被冻结设备造成的差额（合同 5 台 / 派工 3 台）无法通过二次派单补齐——那台设备只能解冻后走**分配单**回到客户名下。
+3. **`factory_orders.factory_order_no` 有唯一索引而 `order_id` 没有**：一单一张工单是**服务层**约束而非数据库约束，并发下理论上可能派两次。若要收紧需补一次迁移加 `UNIQUE(order_id)`。
+4. 迁移 `0013` **不回填**历史设备的 `factory_order_id`（回填只能靠「订单 + 状态」反推，而那个推断正是它要消除的不可靠来源）。因此旧数据里的设备抽检会被拒，`make reset-db && make seed` 可回到一致状态。
+5. 工厂端工作台的「最近操作」卡仍显示「随着后续阶段接口交付…」——工厂端没有 `factory:audit:read` 权限与审计查询端点，该文案在共享模块 `shared/app/dashboard.js` 里，属跨阶段问题。
 
 ---
 
@@ -302,7 +332,8 @@
 
 ## P9 AI 配置与运营看板 ★
 
-- [ ] Alembic `0012_ops_metrics_ota.py` — `metrics_daily` `metrics_hourly` `metrics_region` `content_hot_ranking` `ota_packages` `ota_records` `recharge_plans` `recharge_orders` `content_items` `end_users`
+- [ ] Alembic `0014_ops_metrics_ota.py` — `metrics_daily` `metrics_hourly` `metrics_region` `content_hot_ranking` `ota_packages` `ota_records` `recharge_plans` `recharge_orders` `content_items` `end_users`
+  > 编号说明：原计划 `0012`，被 P6 的两个迁移（`0012` 工厂账号归属、`0013` 设备工单归属）占用，按「落库先后顺延」顺延为 `0014`。
 - [ ] 商户端 AI 配置：`/products/{id}/ai-config`、`/prompt`、`/role`（仅 4G）、`/voice`、`/safety`
 - [ ] 知识库 CRUD + 文件上传/删除（走 `STORAGE_BACKEND` 抽象）
 - [ ] 🔑 运营指标聚合：**按 `product_id` 隔离**（修复 P-08），**维度数据真实汇总**而非乘系数（修复 P-07）
@@ -448,3 +479,5 @@
 | ADR-06 | 前端零构建 ES Module | 无需 `npm install`，克隆即可打开；降低作品集使用门槛 |
 | ADR-07 | 未配置密钥的厂商一律 `VENDOR_UNAVAILABLE`，不伪造成功 | 延续参考 MVP 的安全失败语义，避免误导 |
 | ADR-08 | 多租户过滤只在 repository 层收口 | 禁止在 router 手写过滤，从架构上杜绝越权 |
+| ADR-09 | **设备与工单的归属落库**（`devices.factory_order_id`），不靠「订单 + 状态」推断 | 「归属」是事实不是状态的函数：同一订单下可能有被冻结或已先分配给客户的设备，它们不属于任何工单。靠状态推断会让二维码清单多打标签、抽检范围过宽（P6 端到端验收实测到这两个后果）。派单是归属的唯一诞生点，之后所有工单维度查询都以该列为准 |
+| ADR-10 | **可冻结 / 可分配集合按业务能力定义，并与 `ASSET_TRANSITIONS` 严格对称** | 冻结范围 P4 曾收紧为 `{IN_STOCK}`（求对称），却造成「已出货给商户的设备无法停服」的能力缺口；P6 放宽为 `{IN_STOCK, ALLOCATED, BOUND}` 并补齐入边。可分配范围补 `SHIPPED`，接通 P4 就存在却无处使用的 `SHIPPED → ALLOCATED` 边。规则由单测钉成「集合 == 迁移表对应边」，两侧必须同改 |

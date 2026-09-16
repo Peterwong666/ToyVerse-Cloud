@@ -78,6 +78,13 @@ class Device(Base, TimestampMixin):
     batch_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("device_batches.id", ondelete="SET NULL"), index=True
     )
+    #: 生产工单归属（P6 起）。派单时一次写入，此后「这张工单负责哪几台设备」
+    #: 以**本列**为准，而不是「订单下状态为 X 的设备」——后者在派单那一刻正确，
+    #: 之后就会漂移（被冻结/已先分配的设备不该算进工单，二维码清单会多打标签，
+    #: 抽检也无法判断「SN 是否属于本工单」）。语义是事实，不能靠状态推断。
+    factory_order_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("factory_orders.id", ondelete="SET NULL"), index=True
+    )
     cloud_provider_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("cloud_providers.id", ondelete="RESTRICT"), index=True
     )

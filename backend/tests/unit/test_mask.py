@@ -149,23 +149,48 @@ class TestMaskBoundaryTable:
         for leaked in ("(", ")", "中", "国", "c", "m", "e"):
             assert leaked not in masked, f"中间字符「{leaked}」不应出现在脱敏结果里"
 
+    def test_brackets_at_edges_do_not_occupy_the_visible_slots(self) -> None:
+        """★ 首尾的包裹性标点不占据首/尾可见位（P6 验收时发现的问题）。
+
+        客户名带括号备注是常态。若机械地把「第一个字符」当首字符，
+        `星辰玩具（演示租户）` 会脱敏成 `星********）`——括号占据可见位，
+        工厂端看起来像坏数据，还顺带漏出「这个名字后面跟着一段括号备注」。
+        取「首个/末个文字字符」后得到 `星********户`：长度不变（10）、
+        仍然只暴露首尾文字字符、中间全星号。
+        """
+        name = "星辰玩具（演示租户）"
+        masked = mask_customer_name(name)
+        assert masked == "星" + "*" * (len(name) - 2) + "户"
+        assert len(masked) == len(name), "长度必须不变（工厂端列宽与导出依赖它）"
+
+        # 英文名同样处理
+        english = "Acme (中国) Ltd"
+        assert mask_customer_name(english) == "A" + "*" * (len(english) - 2) + "d"
+        assert len(mask_customer_name(english)) == len(english)
+        # 前置连字符 / 空格也不占据可见位（长度含标点，故星号数按原长度算）
+        assert mask_customer_name("-华东-") == "华**东"
+        assert mask_customer_name("  中国移动  ") == "中" + "*" * 6 + "动"
+
     def test_pure_symbols(self) -> None:
-        """纯符号：脱敏与普通文本同规则（不因为「不是名字」就跳过）。"""
+        """纯符号：脱敏与普通文本同规则（不因为「不是名字」就跳过）。
+
+        整串没有文字字符时回落到字面的首/尾字符——既不能返回空串
+        （前端会当成「无数据」），也不能把整串遮成星号（长度就变了）。
+        """
         assert mask_customer_name("!@#") == "!*#"
         assert mask_customer_name("!!!") == "!*!"
 
-    def test_surrounding_whitespace_is_counted_as_characters(self) -> None:
-        """前后空白**不被** strip，按字符参与脱敏。
+    def test_surrounding_whitespace_does_not_leak_into_visible_slots(self) -> None:
+        """前后空白不参与首尾可见位（P6 起；此前会原样顶到首/尾）。
 
-        记录实际行为：``"  中国移动  "``（长 8）→ 首字符是空格、尾字符是空格，
-        中间 6 个星号。这不构成泄漏（中间内容仍全部遮住），
-        但对账时要注意「同一位客户的名字在不同入口可能带不同空白，
-        脱敏后看起来不一样」——因此它记录的是边界而不是缺陷。
+        记录口径变化：旧实现下 `"  中国移动  "` 脱敏后首尾是空格
+        ——「首尾字符用于对账」这个目的就落空了（空格对不认识任何客户）。
+        新实现取首个/末个文字字符，长度仍为 8，中间 6 个星号。
         """
         masked = mask_customer_name("  中国移动  ")
         assert len(masked) == 8
-        assert masked[0] == " "
-        assert masked[-1] == " "
+        assert masked[0] == "中"
+        assert masked[-1] == "动"
         assert set(masked[1:-1]) == {MASK_CHAR}
 
     def test_empty_string_returns_empty(self) -> None:

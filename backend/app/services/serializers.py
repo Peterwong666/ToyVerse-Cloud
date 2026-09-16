@@ -43,20 +43,44 @@ from app.schemas.factory import FactoryOrderDetailResponse, FactoryOrderResponse
 MASK_CHAR = "*"
 
 
+def _first_alnum(text: str) -> str:
+    """取首个「文字字符」（字母或数字）。
+
+    为什么要跳过非文字字符：客户名里带包裹性标点是常态
+    （``星辰玩具（演示租户）`` / ``Acme (中国) Ltd`` / ``-华东-``）。
+    若机械地把「第一个字符」当首字符，脱敏结果会变成
+    ``星********）``——尾部括号占据可见位，工厂端看起来像一串坏数据；
+    更糟的是它把「这个名字后面跟着一段括号备注」这件事漏了出去。
+    取「首个文字字符」后得到 ``星********户``，长度不变、可对账，也不泄漏形态。
+    """
+    return next((char for char in text if char.isalnum()), text[0])
+
+
+def _last_alnum(text: str) -> str:
+    """取末个「文字字符」（见 :func:`_first_alnum` 的说明）。"""
+    return next((char for char in reversed(text) if char.isalnum()), text[-1])
+
+
 def mask_customer_name(name: str | None) -> str:
     """客户名脱敏：首字符 + 星号 + 尾字符。
 
     规则（P6 用户明确要求，中英文一律按**字符**计）：
 
-    * 长度 ≥ 3：``首字符 + "*" * (len - 2) + 尾字符``
+    * 长度 ≥ 3：``首个文字字符 + "*" * (len - 2) + 末个文字字符``
     * 长度 ≤ 2：只留 ``首字符 + "*"``
       （长度 1 时没有任何可遮的中间部分，长度 2 时若按 ``len - 2`` 算
       星号数会是 0，等于没脱敏——必须按这条特例走）
     * 空串 / ``None``：返回 ``""``
 
+    **长度恒等**：``len(masked) == len(name)``（长度 ≥ 3 时）。星号个数始终是
+    ``len - 2``，所以「首尾取哪个字符」只影响可读性，不影响长度——
+    这是工厂端表格列宽与导出格式能依赖它的前提，也是幂等性成立的原因。
+
     Examples:
         >>> mask_customer_name("中国移动")
         '中**动'
+        >>> mask_customer_name("星辰玩具（演示租户）")
+        '星********户'
         >>> mask_customer_name("Acme")
         'A**e'
         >>> mask_customer_name("AB")
@@ -73,7 +97,7 @@ def mask_customer_name(name: str | None) -> str:
         return ""
     if len(name) <= 2:
         return f"{name[0]}{MASK_CHAR}"
-    return f"{name[0]}{MASK_CHAR * (len(name) - 2)}{name[-1]}"
+    return f"{_first_alnum(name)}{MASK_CHAR * (len(name) - 2)}{_last_alnum(name)}"
 
 
 def burn_progress_percent(burned_count: int, quantity: int) -> float:
