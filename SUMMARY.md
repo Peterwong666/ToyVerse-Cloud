@@ -146,6 +146,16 @@ e154859 feat(miniapp): 完成终端用户小程序端——18 个端点、9 屏�
 
 ## 备注
 
-- **master 未被改动**：全部工作提交在 `nightly/20260916` 分支，可用 `git checkout master` 回到运行前状态。
-- 开发库已被交互式验收留下痕迹（工单、批次、终端用户与充值订单、设备绑定）；`make reset-db && make seed` 可回到纯净演示态。
+- **分支处理**：全部工作先提交在 `nightly/20260916`（按夜间任务规则拉的检查点分支），
+  最后用 `git merge --ff-only` **快进合并到 `master`**——纯快进、无 merge commit、
+  完全可逆（`git reset --hard 619091f` 即回到运行前状态）。两个分支现在指向同一个提交 `8eb22a0`，
+  `nightly/20260916` 保留为本次运行的标签。
+- **未执行 `git push`**：仓库当前无 remote（项目既定约定）。
+- 未使用 `git reset --hard` 回退任何步骤：本次所有提交的门禁都是**先全绿再提交**，
+  不存在「提交了失败步骤」需要回退的情形。
+- 开发库已被交互式验收留下痕迹（工单、批次、终端用户与充值订单、设备绑定）；
+  `make reset-db && make seed` 可回到纯净演示态。
 - 服务当前仍在 `127.0.0.1:8000` 运行；停止命令：`pgrep -f "app[.]main:app" | xargs -r kill`。
+- 验收脚本留在 `/tmp`（`p6_acceptance.py` / `p8_acceptance.py`），未入库——它们是**一次性**的
+  真实验收工具，而 `tests/e2e/test_full_loop.py` 才是可重复、纳入 CI 的那一份。
+- 截图留在 `~/toyverse-p6-screenshots/`（P6 工厂端生产订单列表、平台端设备库存）。
