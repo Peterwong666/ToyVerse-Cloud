@@ -177,6 +177,33 @@ class Settings(BaseSettings):
     S3_BUCKET: str = ""
     S3_ACCESS_KEY: str = ""
     S3_SECRET_KEY: str = ""
+
+    # ---------------- 终端用户小程序（P8） ----------------
+    #: 短信通道。
+    #:
+    #: * ``mock`` —— 不真实发短信，**验证码在响应里回显**（响应带 ``mock: true``）。
+    #:   这是作品集项目「无真实厂商密钥也能跑通全流程」的取舍，与 P7 的离线
+    #:   AI 模拟引擎同一思路：能力可演示，但**必须显式标注是模拟的**。
+    #: * ``none`` —— 发送验证码接口直接 503，**安全失败**（ADR-07 口径）。
+    #:
+    #: 生产环境禁止 ``mock``（见 ``validate_security``）：把验证码回显给调用方
+    #: 等于短信验证码形同虚设。
+    MINIAPP_SMS_PROVIDER: Literal["mock", "none"] = "mock"
+    #: 支付通道。``mock`` 时支付接口把订单直接置为已支付并标注 ``mock: true``；
+    #: ``none`` 时 503。生产环境禁止 ``mock``。
+    PAYMENT_PROVIDER: Literal["mock", "none"] = "mock"
+    #: 短信验证码有效期（秒）
+    MINIAPP_LOGIN_CODE_TTL_SECONDS: int = Field(default=300, ge=30)
+    #: 同一手机号连续输错验证码的上限（超过即作废该验证码，需重新获取）
+    MINIAPP_LOGIN_MAX_ATTEMPTS: int = Field(default=5, ge=1)
+    #: 终端用户令牌有效期（分钟）。默认 30 天：家长不会为了给玩具配网而反复登录。
+    END_USER_TOKEN_EXPIRE_MINUTES: int = Field(default=43_200, ge=5)
+    #: 单次对话会话的消息上限（防止一次会话把 messages 表写爆）
+    DIALOGUE_SESSION_MESSAGE_LIMIT: int = Field(default=200, ge=10)
+    #: 内容安全三开关的默认值（商户端可在 P9 按产品覆盖）
+    CONTENT_SAFETY_TEXT: bool = True
+    CONTENT_SAFETY_AUDIO: bool = True
+    CONTENT_SAFETY_VISUAL: bool = False
     S3_PATH_STYLE: bool = True
 
     # ---------------- 可观测性 ----------------
@@ -336,6 +363,22 @@ class Settings(BaseSettings):
                 problems.append("生产环境不得开启 SEED_DEMO_DATA，请设为 false")
             if any("localhost" in o or "127.0.0.1" in o for o in self.cors_origins):
                 problems.append("生产环境 CORS_ALLOWED_ORIGINS 不得包含 localhost")
+
+        # 5) 终端用户小程序的模拟通道不得在生产环境启用
+        #
+        # 这两项与「DEBUG / SEED_DEMO_DATA / localhost CORS」同一性质：
+        # 在开发与验收环境是**必要的可演示性**，在生产环境是**直接的安全漏洞**。
+        # 因此不在代码里悄悄降级，而是让服务在启动期就拒绝起来。
+        if self.is_production:
+            if self.MINIAPP_SMS_PROVIDER == "mock":
+                problems.append(
+                    "生产环境不得使用 MINIAPP_SMS_PROVIDER=mock"
+                    "（验证码会回显在响应里，短信校验形同虚设）"
+                )
+            if self.PAYMENT_PROVIDER == "mock":
+                problems.append(
+                    "生产环境不得使用 PAYMENT_PROVIDER=mock（支付会被直接置为成功）"
+                )
 
         if problems:
             detail = "\n".join(f"  - {item}" for item in problems)

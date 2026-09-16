@@ -33,6 +33,7 @@ from app.models.device import (
 )
 from app.models.factory import BurnReport, FactoryOrder, Inspection
 from app.models.identity import RefreshToken, Role, RolePermission, Tenant, UserAccount
+from app.models.miniapp import EndUser, RechargeOrder, RechargePlan
 from app.models.order import Order
 from app.models.org import Factory, Organization, Position
 
@@ -54,6 +55,7 @@ __all__ = [
     "DeviceEvent",
     "DialogueMessage",
     "DialogueSession",
+    "EndUser",
     "Factory",
     "FactoryOrder",
     "IdempotencyKey",
@@ -67,6 +69,8 @@ __all__ = [
     "Position",
     "ProductAuthorization",
     "ProductTemplate",
+    "RechargeOrder",
+    "RechargePlan",
     "RefreshToken",
     "Role",
     "RolePermission",

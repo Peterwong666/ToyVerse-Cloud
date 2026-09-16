@@ -310,6 +310,7 @@ DEVICE_EVENT_DIMENSIONS: dict[str, str] = {
     "RETIRED": "asset",
     "BOUND": "bind",
     "UNBOUND": "bind",
+    "ACTIVATING": "activation",
     "ACTIVATED": "activation",
     "BIND_FAILED": "activation",
     "HEARTBEAT": "online",
@@ -701,6 +702,13 @@ class AuditAction(StrEnum):
     INSPECT = "INSPECT"
     SHIP_FACTORY_ORDER = "SHIP_FACTORY_ORDER"
     STOCK_IN_DEVICE = "STOCK_IN_DEVICE"
+    #: 终端用户登录（P8）。与后台的 ``LOGIN`` 分开：两者的审计对象与
+    #: 排查路径完全不同（一个查账号权限，一个查设备归属纠纷）。
+    END_USER_LOGIN = "END_USER_LOGIN"
+    #: 终端用户充值下单 / 支付（P8）
+    RECHARGE_ORDER = "RECHARGE_ORDER"
+    #: 内容安全拦截（P8）：命中即写审计，便于运营回溯「被拦了什么」
+    CONTENT_BLOCKED = "CONTENT_BLOCKED"
     OTA_PUSH = "OTA_PUSH"
     PERMISSION_DENIED = "PERMISSION_DENIED"
     VENDOR_CALL_FAILED = "VENDOR_CALL_FAILED"

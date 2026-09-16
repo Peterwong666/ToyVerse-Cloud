@@ -131,6 +131,15 @@ class Device(Base, TimestampMixin):
         UTCDateTime, index=True, doc="最近心跳；与 ONLINE_WINDOW_SECONDS 比较判定在线"
     )
 
+    #: 终端用户可调的设备设置（P8）：音量、儿童模式、唤醒词等。
+    #:
+    #: 为什么用 JSON 而不是给每一项开一列：设置项会随设备型号与固件版本变化
+    #: （4G 机器有流量提醒、Wi-Fi 机器有配网信息），逐项开列意味着每加一个
+    #: 设置就要一次迁移。这里只在**服务层**维护一份键白名单
+    #: （见 ``miniapp_service.DEVICE_SETTING_KEYS``）——白名单收口同样能防止
+    #: 「客户端塞任意键进库」，且不需要为每次产品迭代改表结构。
+    settings: Mapped[dict[str, Any] | None] = mapped_column(JSON, doc="设备设置（键白名单由服务层维护）")
+
     remark: Mapped[str | None] = mapped_column(Text)
 
     @property

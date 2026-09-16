@@ -30,7 +30,7 @@ from app.core.permissions import (
     PLATFORM_ROLE_CODES,
     WILDCARD,
 )
-from app.core.security import decode_access_token
+from app.core.security import decode_access_token, decode_end_user_token
 from app.db.session import get_db
 from app.models.enums import RoleType
 
@@ -254,3 +254,59 @@ async def require_factory(auth: CurrentAuth) -> AuthContext:
 PlatformAuth = Annotated[AuthContext, Depends(require_platform)]
 MerchantAuth = Annotated[AuthContext, Depends(require_merchant)]
 FactoryAuth = Annotated[AuthContext, Depends(require_factory)]
+
+
+# ---------------------------------------------------------------------------
+# 终端用户上下文（P8）
+# ---------------------------------------------------------------------------
+
+
+@dataclass(slots=True)
+class EndUserContext:
+    """终端用户（小程序）的认证上下文。
+
+    与 :class:`AuthContext` **刻意分成两个类型**，而不是「给 AuthContext 加一个
+    ``end_user_id`` 字段」：
+
+    * 终端用户没有角色、没有权限码、没有租户——它只有「我是谁」；
+    * 管理端的每个授权判断（``require_perm`` / ``scoped`` / ``assert_visible``）
+      都建立在「角色 + 租户」之上，给终端用户复用同一结构意味着这些判断会在
+      一个语义不成立的输入上运行。用不同类型把它挡在编译期（mypy strict 会
+      拒绝把 ``EndUserContext`` 传给期望 ``AuthContext`` 的函数）。
+
+    可见范围**由设备决定**：小程序端每个端点先按 SN / 设备 ID 取设备，
+    再校验这台的绑定关系属于当前终端用户（见
+    :func:`app.services.miniapp_service.assert_device_owned`）。
+    收口点是绑定关系，不是租户——一个家长可能买过两个品牌的玩具。
+    """
+
+    user_id: str
+    phone: str
+
+    def __repr__(self) -> str:
+        return f"<EndUserContext {self.phone}>"
+
+
+async def get_end_user_context(
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)],
+) -> EndUserContext:
+    """解析终端用户令牌得到上下文。
+
+    Raises:
+        AppException: 缺少令牌、令牌无效/过期，或拿到的是管理端令牌
+            （``type`` 不符，在解签阶段即被拒）。
+    """
+    if credentials is None or not credentials.credentials:
+        raise unauthenticated("请先登录")
+    if credentials.scheme.lower() != "bearer":
+        raise unauthenticated("不支持的认证方式")
+
+    payload = decode_end_user_token(credentials.credentials)
+    context = EndUserContext(user_id=payload.subject, phone=payload.phone)
+    request.state.end_user = context
+    return context
+
+
+#: 终端用户认证依赖（小程序端专用）
+EndUserAuth = Annotated[EndUserContext, Depends(get_end_user_context)]

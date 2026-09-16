@@ -274,3 +274,84 @@ def mask_secret(value: str | None, *, keep: int = 4) -> str:
     if len(value) <= keep:
         return "*" * len(value)
     return value[:keep] + "*" * 4
+
+
+# ---------------------------------------------------------------------------
+# 终端用户令牌（P8）
+# ---------------------------------------------------------------------------
+
+
+@dataclass(slots=True)
+class EndUserPayload:
+    """终端用户令牌载荷（解码后）。"""
+
+    subject: str  # end_users.id
+    phone: str
+    token_type: Literal["end_user"] = "end_user"
+    issued_at: datetime | None = None
+    expires_at: datetime | None = None
+    jti: str = ""
+
+
+def issue_end_user_token(*, end_user_id: str, phone: str) -> tuple[str, datetime]:
+    """签发终端用户令牌。
+
+    与后台管理端令牌**走同一套签名密钥、但用 ``type`` 区隔**：
+
+    * 后台令牌 ``type="access"``，终端用户令牌 ``type="end_user"``；
+    * :func:`decode_access_token` 拒绝非 ``access``，:func:`decode_end_user_token`
+      拒绝非 ``end_user``。
+
+    因此**两个方向都自动隔离**：小程序令牌拿去调管理端会被 401，
+    管理端令牌拿去调小程序端点同样会被 401。这比「各自维护一份密钥」更不易出错
+    （少一个需要轮换与同步的秘密），也比「只靠作用域检查」更硬
+    （类型不符是在解签阶段就被拒，不依赖任何业务代码记得检查）。
+
+    Returns:
+        ``(token, 过期时间)``
+    """
+    now = _now()
+    expires_at = now + timedelta(minutes=settings.END_USER_TOKEN_EXPIRE_MINUTES)
+    payload: dict[str, Any] = {
+        "sub": end_user_id,
+        "phone": phone,
+        "type": "end_user",
+        "iss": settings.JWT_ISSUER,
+        "iat": int(now.timestamp()),
+        "exp": int(expires_at.timestamp()),
+        "jti": secrets.token_urlsafe(16),
+    }
+    return _encode(payload), expires_at
+
+
+def decode_end_user_token(token: str) -> EndUserPayload:
+    """解码并校验终端用户令牌。
+
+    Raises:
+        AppException: 令牌无效、过期、或类型不是终端用户令牌。
+    """
+    try:
+        raw = jwt.decode(
+            token,
+            settings.JWT_SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM],
+            issuer=settings.JWT_ISSUER,
+            options={"require": ["exp", "iat", "sub"]},
+        )
+    except jwt.ExpiredSignatureError as exc:
+        raise unauthenticated("登录态已过期，请重新登录") from exc
+    except jwt.InvalidTokenError as exc:
+        raise unauthenticated("登录态无效，请重新登录") from exc
+
+    if raw.get("type") != "end_user":
+        # 管理端令牌被拿来调小程序端点时要走到这里（反向由 decode_access_token 拦截）
+        raise unauthenticated("令牌类型不正确")
+
+    return EndUserPayload(
+        subject=raw["sub"],
+        phone=raw.get("phone", ""),
+        token_type="end_user",
+        issued_at=datetime.fromtimestamp(raw["iat"], tz=UTC) if raw.get("iat") else None,
+        expires_at=datetime.fromtimestamp(raw["exp"], tz=UTC) if raw.get("exp") else None,
+        jti=raw.get("jti", ""),
+    )

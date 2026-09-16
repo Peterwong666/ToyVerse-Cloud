@@ -48,6 +48,7 @@ from app.models.enums import (
     UserStatus,
 )
 from app.models.identity import Role, RolePermission, Tenant, UserAccount
+from app.models.miniapp import RechargePlan
 from app.models.order import Order
 from app.models.org import Factory
 
@@ -181,6 +182,89 @@ DEMO_CLIENT_PRODUCTS: tuple[dict[str, Any], ...] = (
         "name": "体验店演示样机",
         "remark": "演示：用于验证租户间产品隔离（t-002 看不到 t-001 的产品）",
     },
+    {
+        # P8 追加：4G 方案的客户产品。没有它，小程序端的「4G 激活」与
+        # 「流量充值」两条链路都无从演示（既有两个客户产品都是 Wi-Fi）。
+        "id": "prod-t001-4g",
+        "tenant_id": "t-001",
+        "template_id": "tpl-4g-storyteller",
+        "code": "CP-T001-4G",
+        "name": "星辰故事机 4G 版",
+        "remark": "演示：4G（集贤方案）客户产品，用于小程序 4G 激活与流量充值",
+    },
+)
+
+
+# ---------------------------------------------------------------------------
+# 终端用户小程序（P8）：流量套餐 + 待激活设备
+# ---------------------------------------------------------------------------
+
+#: 演示流量套餐。按租户配置——流量是租户向运营商采购再零售给终端用户的，
+#: 不同品牌资费不同，因此不存在「平台通用套餐」。
+DEMO_RECHARGE_PLANS: tuple[dict[str, Any], ...] = (
+    {
+        "id": "plan-t001-trial",
+        "tenant_id": "t-001",
+        "code": "TRIAL-1G",
+        "name": "体验包",
+        "description": "1GB · 30 天有效 · 适合偶尔玩",
+        "data_mb": 1024,
+        "valid_days": 30,
+        "price": 9.90,
+        "sort_order": 10,
+        "is_recommended": False,
+    },
+    {
+        "id": "plan-t001-standard",
+        "tenant_id": "t-001",
+        "code": "STANDARD-5G",
+        "name": "标准包",
+        "description": "5GB · 90 天有效 · 最受欢迎",
+        "data_mb": 5120,
+        "valid_days": 90,
+        "price": 29.90,
+        "sort_order": 20,
+        "is_recommended": True,
+    },
+    {
+        "id": "plan-t001-unlimited",
+        "tenant_id": "t-001",
+        "code": "PLAY-20G",
+        "name": "畅玩包",
+        "description": "20GB · 180 天有效 · 天天听故事",
+        "data_mb": 20480,
+        "valid_days": 180,
+        "price": 89.90,
+        "sort_order": 30,
+        "is_recommended": False,
+    },
+)
+
+#: 待激活的演示设备：已分配给租户、未绑定、未激活。
+#:
+#: 为什么要专门补这两台：既有的演示设备（`SN-20260101-DEMO*`）都已走完
+#: 各自的状态链（有的已绑定、有的已冻结），拿它们演示「扫码 → 激活」会直接
+#: 撞上「设备已被绑定」——那是**正确的**拒绝，但演示不出激活流程本身。
+#: 这里保持「已分配待激活」这个恰好可以激活的状态，且 4G / Wi-Fi 各一台，
+#: 让两条激活路径都能走通。
+DEMO_END_USER_DEVICES: tuple[dict[str, Any], ...] = (
+    {
+        "id": "d-demo-4g-01",
+        "sn": "SN-DEMO-4G-001",
+        "imei": "866000000000001",
+        "iccid": "8986000000000000001",
+        "network_type": NetworkType.FOUR_G,
+        "client_product_id": "prod-t001-4g",
+        "vendor_device_id": "jx-demo-device-001",
+    },
+    {
+        "id": "d-demo-wifi-01",
+        "sn": "SN-DEMO-WIFI-001",
+        "mac": "AA:BB:CC:00:01:01",
+        "network_type": NetworkType.WIFI,
+        "client_product_id": "prod-t001-cube",
+        "vendor_device_id": "jd-demo-device-001",
+    },
 )
 
 
@@ -203,6 +287,7 @@ async def seed_demo_data() -> None:
             await _seed_tenant_users(session)
             await _seed_catalog(session)
             await _seed_orders_devices(session)
+            await _seed_miniapp(session)
 
         await session.commit()
 
@@ -780,6 +865,94 @@ async def _seed_orders_devices(session: AsyncSession) -> None:
 
     await session.flush()
     logger.info("订单与设备演示数据初始化完成")
+
+
+# ---------------------------------------------------------------------------
+# 终端用户小程序（P8）
+# ---------------------------------------------------------------------------
+
+
+async def _seed_miniapp(session: AsyncSession) -> None:
+    """写入流量套餐与「待激活」演示设备（幂等）。
+
+    这两批数据的共同点是：**没有它们，P8 的两条链路都不可演示**。
+    套餐为空时小程序充值页只能显示空态；设备都走完状态链时，扫码激活
+    一定会撞上「已被绑定」——那是正确的拒绝，但演示不出流程本身。
+    """
+    existing_plans = set((await session.execute(select(RechargePlan.id))).scalars().all())
+    plan_created = 0
+    for spec in DEMO_RECHARGE_PLANS:
+        if str(spec["id"]) in existing_plans:
+            continue
+        session.add(
+            RechargePlan(
+                id=str(spec["id"]),
+                tenant_id=str(spec["tenant_id"]),
+                code=str(spec["code"]),
+                name=str(spec["name"]),
+                description=spec["description"],
+                data_mb=int(spec["data_mb"]),
+                valid_days=int(spec["valid_days"]),
+                price=float(spec["price"]),
+                sort_order=int(spec["sort_order"]),
+                is_recommended=bool(spec["is_recommended"]),
+                status=EnableStatus.ENABLED,
+                remark="演示套餐",
+            )
+        )
+        plan_created += 1
+
+    existing_devices = set((await session.execute(select(Device.id))).scalars().all())
+    device_created = 0
+    for spec in DEMO_END_USER_DEVICES:
+        if str(spec["id"]) in existing_devices:
+            continue
+        device = Device(
+            id=str(spec["id"]),
+            tenant_id="t-001",  # 已分配给演示租户
+            order_id=None,
+            client_product_id=str(spec["client_product_id"]),
+            cloud_provider_id=(
+                "cloud-jixian-4g"
+                if spec["network_type"] is NetworkType.FOUR_G
+                else "cloud-volcano-hw"
+            ),
+            sn=str(spec["sn"]),
+            imei=spec.get("imei"),
+            iccid=spec.get("iccid"),
+            mac=spec.get("mac"),
+            vendor_device_id=spec.get("vendor_device_id"),
+            network_type=str(spec["network_type"]),
+            firmware_version="1.2.3" if spec["network_type"] is NetworkType.FOUR_G else "1.0.0",
+            # 「已分配待激活」正是可以走完扫码激活链路的状态
+            asset_status=str(AssetStatus.ALLOCATED),
+            activation_status=str(ActivationStatus.NOT_ACTIVATED),
+            online_status=str(OnlineStatus.NEVER_ONLINE),
+            bind_status=str(BindStatus.UNBOUND),
+            generated_at=utcnow(),
+            remark="演示：待终端用户扫码激活",
+        )
+        session.add(device)
+        await session.flush()
+        session.add(
+            DeviceEvent(
+                id=new_id("device_event"),
+                device_id=device.id,
+                tenant_id=device.tenant_id,
+                event_type="ALLOCATED",
+                dimension="asset",
+                from_status=str(AssetStatus.SHIPPED),
+                to_status=str(AssetStatus.ALLOCATED),
+                actor_account="seed",
+                summary="演示数据：分配给演示租户，等待终端用户激活",
+            )
+        )
+        device_created += 1
+
+    if plan_created or device_created:
+        logger.info(
+            "已创建 %d 个流量套餐、%d 台待激活演示设备", plan_created, device_created
+        )
 
 
 # ---------------------------------------------------------------------------
