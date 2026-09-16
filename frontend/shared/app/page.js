@@ -78,12 +78,21 @@ export function createListPage(o = {}) {
 
   clear(container);
 
+  /* ---- 本次渲染专属的根节点 ----
+     为什么不让事件委托直接绑在 container 上：
+     container 是应用壳**长期持有**的元素（切页时只清空子节点，不换元素），
+     把监听器绑在它上面会导致每次进入页面都叠加一层；
+     点击「新建」就会一次弹出 N 个弹窗（N = 进入过该页的次数）。
+     这里新建一个随页面一起被销毁的 root，监听器随之回收。 */
+  const root = h('div', { class: 'page-body' });
+  container.append(root);
+
   /* ---- 页头 ---- */
-  if (title) renderPageHead(container, { title, desc, actions });
+  if (title) renderPageHead(root, { title, desc, actions });
 
   /* ---- 表格容器 ---- */
   const tableHost = h('div');
-  container.append(tableHost);
+  root.append(tableHost);
 
   /* ---- 数据表 ---- */
   const table = new DataTable({
@@ -118,29 +127,31 @@ export function createListPage(o = {}) {
       table.setFilters(readFilters(tableHost));
     }
   };
-  tableHost.addEventListener('click', filterHandler);
+  root.addEventListener('click', filterHandler);
 
   // 行内 / 页头操作：交给页面自定义处理
   const actionHandler = (event) => {
     const target = event.target.closest('[data-action]');
-    if (!target || !container.contains(target)) return;
+    if (!target || !root.contains(target)) return;
     const action = target.dataset.action;
     // 已由表格内部处理的动作不重复分发
     if (['goto-page', 'sort', 'retry-load', 'apply-filter', 'reset-filter'].includes(action)) return;
     onAction?.(action, target, { table, reload: () => table.load() });
   };
-  container.addEventListener('click', actionHandler);
+  root.addEventListener('click', actionHandler);
 
   table.onRendered((host, instance) => onReady?.(host, instance));
 
   const api = {
     table,
+    /** 本次渲染的根节点（页面自定义监听器应绑在它上面，而非 container） */
+    root,
     reload: () => table.load(),
     setFilters: (patch) => table.setFilters(patch),
     destroy: () => {
       unbindTable();
-      tableHost.removeEventListener('click', filterHandler);
-      container.removeEventListener('click', actionHandler);
+      root.removeEventListener('click', filterHandler);
+      root.removeEventListener('click', actionHandler);
     },
   };
 
@@ -164,7 +175,7 @@ export function createListPage(o = {}) {
  * @param {Array} [o.actions]
  * @param {Array<{key:string,label:string,badge?:number}>} [o.tabs]
  * @param {string} [o.activeTab]
- * @returns {{body:HTMLElement, setTab:Function}}
+ * @returns {{body:HTMLElement, head:HTMLElement, setTab:Function, activeTab:string}}
  */
 export function createDetailPage(container, o = {}) {
   const { title = '', desc = '', backPath, router, actions = [], tabs = [], activeTab = '' } = o;
@@ -231,6 +242,10 @@ export function createDetailPage(container, o = {}) {
 
   return {
     body,
+    /** 页头节点（本次渲染新建）。
+     *  页头按钮的事件请绑在它上面，而不是 container ——
+     *  container 由应用壳长期持有，绑在上面会随切页不断叠加监听器。 */
+    head,
     get activeTab() {
       return active;
     },

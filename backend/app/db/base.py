@@ -77,22 +77,43 @@ class Base(DeclarativeBase):
         return f"<{type(self).__name__} id={pk}>"
 
 
+def utcnow() -> datetime:
+    """当前 UTC 时间。
+
+    定义在 :class:`TimestampMixin` 之前：该混入把本函数作为列默认值
+    （``default=utcnow`` / ``onupdate=utcnow``），类体在导入时即求值，
+    因此必须先定义、后引用。
+    """
+    return datetime.now(UTC)
+
+
 class TimestampMixin:
     """创建时间与更新时间。
 
-    ``created_at`` 由数据库默认值填充；``updated_at`` 在每次 UPDATE 时自动刷新。
+    为什么**同时**使用 Python 侧与数据库侧默认值
+    --------------------------------------------
+    * ``default`` / ``onupdate`` 传 Python 可调用对象：ORM 写入时把值算在客户端，
+      因此 UPDATE 之后对象上的 ``updated_at`` **不会**变成过期属性。
+      早期版本只写了 ``server_default`` / ``onupdate=func.now()``（SQL 表达式），
+      SQLAlchemy 会在 UPDATE 后把该列标记为已过期；紧接着序列化 ORM 对象
+      （本项目服务层返回的就是 ORM 实例）就会触发**异步惰性加载**，
+      在 async 会话中抛 ``MissingGreenlet``——这正是 P3 阶段暴露出来的缺陷。
+    * ``server_default`` 传 SQL 表达式：保证**非 ORM 路径**（原生 SQL、
+      外部工具、迁移脚本）写入时，这两列依然有合理默认值。
     """
 
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime,
+        default=utcnow,
         server_default=func.now(),
         nullable=False,
         doc="创建时间（UTC）",
     )
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime,
+        default=utcnow,
+        onupdate=utcnow,
         server_default=func.now(),
-        onupdate=func.now(),
         nullable=False,
         doc="最后更新时间（UTC）",
     )
@@ -108,8 +129,3 @@ class TenantScopedMixin:
     @property
     def is_tenant_scoped(self) -> bool:
         return True
-
-
-def utcnow() -> datetime:
-    """当前 UTC 时间。"""
-    return datetime.now(UTC)

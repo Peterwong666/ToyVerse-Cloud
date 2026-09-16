@@ -37,7 +37,12 @@ class ErrorCode(StrEnum):
     IDEMPOTENCY_CONFLICT = "IDEMPOTENCY_CONFLICT"
 
     # ---- 目录域 ----
+    # 约定：目录域内「编码重复」一律归类为**冲突**（409）而非校验失败（400）——
+    # 请求本身合法，只是与既有资源撞了唯一键；客户端应提示「换一个编码」，
+    # 而不是让用户以为表单填错了。每个主要资源一个码，便于前端精确定位字段。
     PRODUCT_CODE_EXISTS = "PRODUCT_CODE_EXISTS"
+    CLOUD_CODE_EXISTS = "CLOUD_CODE_EXISTS"
+    TEMPLATE_CODE_EXISTS = "TEMPLATE_CODE_EXISTS"
     PRODUCT_NOT_AUTHORIZED = "PRODUCT_NOT_AUTHORIZED"
 
     # ---- 设备与订单 ----
@@ -75,6 +80,8 @@ _STATUS_MAP: dict[ErrorCode, int] = {
     ErrorCode.CASCADE_CONFLICT: 409,
     ErrorCode.IDEMPOTENCY_CONFLICT: 409,
     ErrorCode.PRODUCT_CODE_EXISTS: 409,
+    ErrorCode.CLOUD_CODE_EXISTS: 409,
+    ErrorCode.TEMPLATE_CODE_EXISTS: 409,
     ErrorCode.PRODUCT_NOT_AUTHORIZED: 409,
     ErrorCode.DEVICE_NOT_AVAILABLE: 409,
     ErrorCode.DEVICE_NOT_FOUND: 404,
@@ -104,6 +111,8 @@ _DEFAULT_MESSAGE: dict[ErrorCode, str] = {
     ErrorCode.CASCADE_CONFLICT: "存在关联数据，无法删除",
     ErrorCode.IDEMPOTENCY_CONFLICT: "重复请求，且原请求尚未完成",
     ErrorCode.PRODUCT_CODE_EXISTS: "产品编码已存在",
+    ErrorCode.CLOUD_CODE_EXISTS: "云服务商编码已存在",
+    ErrorCode.TEMPLATE_CODE_EXISTS: "产品模板编码已存在",
     ErrorCode.PRODUCT_NOT_AUTHORIZED: "该产品未授权给此租户",
     ErrorCode.DEVICE_NOT_AVAILABLE: "设备当前状态不可用",
     ErrorCode.DEVICE_NOT_FOUND: "设备不存在",
@@ -216,12 +225,20 @@ def idempotency_conflict(message: str | None = None) -> AppException:
     return AppException(ErrorCode.IDEMPOTENCY_CONFLICT, message)
 
 
-def product_code_exists(message: str | None = None) -> AppException:
-    return AppException(ErrorCode.PRODUCT_CODE_EXISTS, message)
+def product_code_exists(message: str | None = None, *, details: Any = None) -> AppException:
+    return AppException(ErrorCode.PRODUCT_CODE_EXISTS, message, details=details)
 
 
-def product_not_authorized(message: str | None = None) -> AppException:
-    return AppException(ErrorCode.PRODUCT_NOT_AUTHORIZED, message)
+def cloud_code_exists(message: str | None = None, *, details: Any = None) -> AppException:
+    return AppException(ErrorCode.CLOUD_CODE_EXISTS, message, details=details)
+
+
+def template_code_exists(message: str | None = None, *, details: Any = None) -> AppException:
+    return AppException(ErrorCode.TEMPLATE_CODE_EXISTS, message, details=details)
+
+
+def product_not_authorized(message: str | None = None, *, details: Any = None) -> AppException:
+    return AppException(ErrorCode.PRODUCT_NOT_AUTHORIZED, message, details=details)
 
 
 def device_not_available(message: str | None = None) -> AppException:

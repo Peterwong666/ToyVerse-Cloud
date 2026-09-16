@@ -18,7 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Annotated
 
-from fastapi import Depends, Request
+from fastapi import Depends, Request, params
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -179,7 +179,7 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 # ---------------------------------------------------------------------------
 
 
-def require_perm(*codes: str) -> object:
+def require_perm(*codes: str) -> params.Depends:
     """构造一个校验权限码的依赖。
 
     多个权限码为**或**关系：拥有任意一个即可通过。
@@ -194,10 +194,13 @@ def require_perm(*codes: str) -> object:
             raise permission_denied(required=codes[0] if codes else None, )
         return auth
 
-    return Depends(_checker)
+    # 显式标注局部变量：fastapi.Depends 的返回类型在存根里是 Any，
+    # 直接 return 会触发 mypy strict 的 no-any-return。
+    dependency: params.Depends = Depends(_checker)
+    return dependency
 
 
-def require_role(*role_codes: str) -> object:
+def require_role(*role_codes: str) -> params.Depends:
     """构造一个校验角色编码的依赖。"""
 
     async def _checker(auth: CurrentAuth) -> AuthContext:
@@ -205,7 +208,8 @@ def require_role(*role_codes: str) -> object:
             raise permission_denied(f"需要以下角色之一：{'、'.join(role_codes)}")
         return auth
 
-    return Depends(_checker)
+    dependency: params.Depends = Depends(_checker)
+    return dependency
 
 
 async def require_platform(auth: CurrentAuth) -> AuthContext:

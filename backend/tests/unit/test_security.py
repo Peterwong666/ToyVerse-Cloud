@@ -23,6 +23,7 @@ from app.core.security import (
     validate_password_strength,
     verify_password,
 )
+from tests.conftest import TEST_PLATFORM_ACCOUNT
 
 pytestmark = pytest.mark.unit
 
@@ -110,7 +111,7 @@ class TestAccessToken:
     def _issue(**overrides: object) -> tuple[str, datetime]:
         kwargs: dict[str, object] = {
             "user_id": "u-001",
-            "account": "15811805314",
+            "account": TEST_PLATFORM_ACCOUNT,
             "role": "MERCHANT_ADMIN",
             "role_type": "MERCHANT",
             "tenant_id": "t-001",
@@ -126,7 +127,7 @@ class TestAccessToken:
 
         assert isinstance(payload, TokenPayload)
         assert payload.subject == "u-001"
-        assert payload.account == "15811805314"
+        assert payload.account == TEST_PLATFORM_ACCOUNT
         assert payload.role == "MERCHANT_ADMIN"
         assert payload.tenant_id == "t-001"
         assert payload.tenant_code == "DEMO-BRAND"

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import secrets
+import string
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
@@ -65,8 +66,7 @@ def validate_password_strength(password: str) -> None:
 
 
 #: 常见弱口令黑名单（含历史项目中出现过的弱口令）
-_WEAK_PASSWORDS: frozenset[str] = frozenset(
-    {
+_WEAK_PASSWORDS: frozenset[str] = frozenset(    {
         "admin",
         "admin123",
         "admin@2024",
@@ -82,6 +82,34 @@ _WEAK_PASSWORDS: frozenset[str] = frozenset(
         "toyverse",
     }
 )
+
+
+def generate_password(length: int = 16) -> str:
+    """生成强随机初始密码。
+
+    用于「平台代为开通租户账号」与「重置密码」场景：管理员点一下即可
+    得到合规口令，**只在下发时返回一次**，且账号被置为「下次登录必须改密」。
+    这样既不把弱口令写死进代码（附录 B 的硬编码弱口令问题），
+    也不让管理员去手工编造密码。
+
+    Returns:
+        满足 :func:`validate_password_strength` 的随机密码。
+
+    Example:
+        >>> pwd = generate_password()
+        >>> validate_password_strength(pwd)  # 一定通过
+    """
+    alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+    while True:
+        candidate = "".join(secrets.choice(alphabet) for _ in range(max(12, length)))
+        # 保证四类字符都出现，避免「纯数字」或「纯字母」被强度校验拒绝
+        if (
+            any(c.islower() for c in candidate)
+            and any(c.isupper() for c in candidate)
+            and any(c.isdigit() for c in candidate)
+            and any(c in "!@#$%^&*" for c in candidate)
+        ):
+            return candidate
 
 
 # ---------------------------------------------------------------------------

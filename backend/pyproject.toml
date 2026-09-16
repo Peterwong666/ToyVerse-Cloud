@@ -93,6 +93,18 @@ markers = [
 filterwarnings = [
     "error",
     "ignore::DeprecationWarning:passlib.*",
+    # pydantic ≥ 2.13 会对 FastAPI 内部构造的「单值 TypeAdapter + 带 alias 的 FieldInfo」
+    # 发出 UnsupportedFieldAttributeWarning：
+    #   fastapi/_compat.py 的 ModelField 会为请求体模型的**每个字段**
+    #   构造 TypeAdapter(Annotated[ann, field_info])，而 pydantic 认为
+    #   「单值 TypeAdapter 上的 alias 无意义」——对本项目而言这是框架级噪声：
+    #   * 那个 alias 对**模型**是有效的：模型级 alias_generator=to_camel 让接口
+    #     同时接受 camelCase 与 snake_case 请求体（schemas 的 ApiModel 基类）；
+    #   * 只是 FastAPI 那个**内部**单字段 TypeAdapter 用不到它。
+    # 实证：忽略该告警后，P3 全部用例（含断言 camelCase 请求体被接受、
+    # 响应为 camelCase）通过；不忽略时被 error 升级为异常，导致误报 35 条失败。
+    # 若未来 FastAPI 修掉该构造方式，可删除本行。
+    "ignore::pydantic.warnings.UnsupportedFieldAttributeWarning",
 ]
 
 # ============================================================

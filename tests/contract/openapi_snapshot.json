@@ -1,6 +1,502 @@
 {
   "components": {
     "schemas": {
+      "AccountBrief": {
+        "description": "租户下的账号摘要（不含任何密码字段）。",
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lastLoginAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastloginat"
+          },
+          "mustChangePassword": {
+            "default": false,
+            "title": "Mustchangepassword",
+            "type": "boolean"
+          },
+          "nickname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname"
+          },
+          "roleCode": {
+            "title": "Rolecode",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "account",
+          "roleCode",
+          "status"
+        ],
+        "title": "AccountBrief",
+        "type": "object"
+      },
+      "AccountCreateRequest": {
+        "description": "为租户创建登录账号。",
+        "properties": {
+          "account": {
+            "description": "登录账号（建议用手机号）",
+            "maxLength": 64,
+            "minLength": 4,
+            "title": "Account",
+            "type": "string"
+          },
+          "nickname": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "留空则自动生成强随机密码并仅返回一次",
+            "title": "Password"
+          },
+          "roleCode": {
+            "default": "MERCHANT_ADMIN",
+            "maxLength": 64,
+            "title": "Rolecode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "account"
+        ],
+        "title": "AccountCreateRequest",
+        "type": "object"
+      },
+      "AccountCreateResult": {
+        "description": "新建租户账号的结果。\n\n``password`` 为服务端自动生成的初始密码，**只在本次响应中出现一次**；\n若调用方自行指定了密码，则该字段为 ``null``（服务端不回显调用方提供的密码）。",
+        "properties": {
+          "account": {
+            "$ref": "#/components/schemas/AccountBrief"
+          },
+          "generated": {
+            "description": "密码是否由服务端自动生成",
+            "title": "Generated",
+            "type": "boolean"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "自动生成的初始密码（仅返回一次）",
+            "title": "Password"
+          }
+        },
+        "required": [
+          "account",
+          "generated"
+        ],
+        "title": "AccountCreateResult",
+        "type": "object"
+      },
+      "AsrRequest": {
+        "description": "语音识别请求。\n\n``audio_base64`` 承载真实音频；离线环境下可只传 ``hint_text``，\n由 mock 的 ``echo`` 模式复读——这样语音链路在无音频素材时也能联调。",
+        "properties": {
+          "audioBase64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "音频 base64（可省略）",
+            "title": "Audiobase64"
+          },
+          "clientProductId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clientproductid"
+          },
+          "format": {
+            "default": "pcm",
+            "maxLength": 16,
+            "title": "Format",
+            "type": "string"
+          },
+          "hintText": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "模拟输入（echo 模式复读）",
+            "title": "Hinttext"
+          },
+          "providerCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Providercode"
+          },
+          "sampleRate": {
+            "default": 16000,
+            "maximum": 48000.0,
+            "minimum": 8000.0,
+            "title": "Samplerate",
+            "type": "integer"
+          }
+        },
+        "title": "AsrRequest",
+        "type": "object"
+      },
+      "AsrResponse": {
+        "description": "语音识别结果。",
+        "properties": {
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "durationMs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Durationms"
+          },
+          "isFinal": {
+            "default": true,
+            "title": "Isfinal",
+            "type": "boolean"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "providerLayer": {
+            "title": "Providerlayer",
+            "type": "string"
+          },
+          "simulated": {
+            "default": false,
+            "title": "Simulated",
+            "type": "boolean"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "provider",
+          "providerLayer"
+        ],
+        "title": "AsrResponse",
+        "type": "object"
+      },
+      "AuthorizationResponse": {
+        "description": "授权记录。",
+        "properties": {
+          "authorizedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authorizedat"
+          },
+          "authorizedBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authorizedby"
+          },
+          "clientProductCount": {
+            "default": 0,
+            "title": "Clientproductcount",
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "expiresAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expiresat"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "maxDevices": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxdevices"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "templateCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Templatecode"
+          },
+          "templateId": {
+            "title": "Templateid",
+            "type": "string"
+          },
+          "templateName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Templatename"
+          },
+          "tenantCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenantcode"
+          },
+          "tenantId": {
+            "title": "Tenantid",
+            "type": "string"
+          },
+          "tenantName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenantname"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "templateId",
+          "status",
+          "createdAt"
+        ],
+        "title": "AuthorizationResponse",
+        "type": "object"
+      },
+      "AuthorizeRequest": {
+        "description": "授权模板给租户（幂等：已授权的租户会被跳过而非报错）。",
+        "properties": {
+          "expiresAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expiresat"
+          },
+          "maxDevices": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "可创建设备上限，留空不限",
+            "title": "Maxdevices"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "tenantIds": {
+            "description": "目标租户 ID 列表",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Tenantids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tenantIds"
+        ],
+        "title": "AuthorizeRequest",
+        "type": "object"
+      },
+      "AuthorizeResult": {
+        "description": "授权结果。\n\n``skipped`` 为本次已存在（幂等跳过）的租户，\n``denied`` 为不存在的租户——便于前端给出精确反馈，而不是笼统失败。",
+        "properties": {
+          "created": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Created",
+            "type": "array"
+          },
+          "denied": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Denied",
+            "type": "array"
+          },
+          "skipped": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Skipped",
+            "type": "array"
+          },
+          "templateId": {
+            "title": "Templateid",
+            "type": "string"
+          },
+          "totalAuthorized": {
+            "default": 0,
+            "title": "Totalauthorized",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "templateId"
+        ],
+        "title": "AuthorizeResult",
+        "type": "object"
+      },
       "ChangePasswordRequest": {
         "description": "修改密码请求。",
         "properties": {
@@ -23,6 +519,804 @@
         ],
         "title": "ChangePasswordRequest",
         "type": "object"
+      },
+      "ChatRequest": {
+        "description": "发起一次对话。\n\n``stream=True`` 时返回 NDJSON 流；``False`` 时返回整段响应，便于调试台\n与自动化测试直接断言文本。",
+        "properties": {
+          "clientProductId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "客户产品 ID；供应商解析顺序第 1 层的依据",
+            "title": "Clientproductid"
+          },
+          "deviceId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "设备 ID（P8 联动用）",
+            "title": "Deviceid"
+          },
+          "endUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "终端用户 ID（P9 联动用）",
+            "title": "Enduserid"
+          },
+          "message": {
+            "description": "用户输入文本",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "providerCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "显式指定供应商（调试用）",
+            "title": "Providercode"
+          },
+          "rolePreset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "角色预设编码",
+            "title": "Rolepreset"
+          },
+          "sessionId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "续聊时传入；为空则新建会话",
+            "title": "Sessionid"
+          },
+          "stream": {
+            "default": true,
+            "description": "是否流式返回",
+            "title": "Stream",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "ChatRequest",
+        "type": "object"
+      },
+      "ClientProductCreateRequest": {
+        "description": "创建客户产品。\n\n★ P-03 修复点：``tenant_id`` 与 ``template_id`` 均为**必填**，\n且服务层会校验「该租户已获得该模板授权」，否则返回\n``PRODUCT_NOT_AUTHORIZED``。因此不可能再出现「产品未绑定客户」。",
+        "properties": {
+          "code": {
+            "description": "产品编码，全局唯一",
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "Code",
+            "type": "string"
+          },
+          "firmwareVersion": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "留空则沿用模板版本",
+            "title": "Firmwareversion"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "留空则沿用模板名称",
+            "title": "Name"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "status": {
+            "$ref": "#/components/schemas/EnableStatus",
+            "default": "ENABLED"
+          },
+          "templateId": {
+            "minLength": 1,
+            "title": "Templateid",
+            "type": "string"
+          },
+          "tenantId": {
+            "minLength": 1,
+            "title": "Tenantid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenantId",
+          "templateId",
+          "code"
+        ],
+        "title": "ClientProductCreateRequest",
+        "type": "object"
+      },
+      "ClientProductResponse": {
+        "description": "客户产品响应。",
+        "properties": {
+          "aiEnabled": {
+            "default": false,
+            "title": "Aienabled",
+            "type": "boolean"
+          },
+          "cloudProviderId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cloudproviderid"
+          },
+          "cloudProviderName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cloudprovidername"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "firmwareVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firmwareversion"
+          },
+          "hasMiniappConfig": {
+            "default": false,
+            "title": "Hasminiappconfig",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "miniappConfig": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MiniAppConfigResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "networkType": {
+            "title": "Networktype",
+            "type": "string"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "templateCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Templatecode"
+          },
+          "templateId": {
+            "title": "Templateid",
+            "type": "string"
+          },
+          "templateName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Templatename"
+          },
+          "tenantCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenantcode"
+          },
+          "tenantId": {
+            "title": "Tenantid",
+            "type": "string"
+          },
+          "tenantName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenantname"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "tenantId",
+          "templateId",
+          "networkType",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "ClientProductResponse",
+        "type": "object"
+      },
+      "ClientProductUpdateRequest": {
+        "description": "更新客户产品（租户与模板不可变更——它们决定了产品归属与授权依据）。",
+        "properties": {
+          "aiEnabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aienabled"
+          },
+          "firmwareVersion": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firmwareversion"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EnableStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "ClientProductUpdateRequest",
+        "type": "object"
+      },
+      "CloudProviderCreateRequest": {
+        "description": "创建云服务商。\n\n``accessKey`` / ``secretKey`` 为**明文入参**，服务层加密后落库；\n响应中永不回显（只在 ``*Hint`` 中给前 4 位掩码）。",
+        "properties": {
+          "accessKey": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "明文入参，加密存储",
+            "title": "Accesskey"
+          },
+          "apiBase": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apibase"
+          },
+          "code": {
+            "description": "厂商编码，全局唯一",
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "Code",
+            "type": "string"
+          },
+          "extraConfig": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "厂商特有参数",
+            "title": "Extraconfig"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "networkType": {
+            "$ref": "#/components/schemas/NetworkType",
+            "default": "4G"
+          },
+          "otaSupport": {
+            "$ref": "#/components/schemas/OtaSupport",
+            "default": "SUPPORTED"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "secretKey": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "明文入参，加密存储",
+            "title": "Secretkey"
+          },
+          "vendor": {
+            "$ref": "#/components/schemas/CloudVendor",
+            "default": "JIXIAN"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "CloudProviderCreateRequest",
+        "type": "object"
+      },
+      "CloudProviderResponse": {
+        "description": "云服务商响应。**含掩码提示，绝不含密文与明文密钥。**",
+        "properties": {
+          "accessKeyHint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "AccessKey 掩码（前 4 位 + ****）",
+            "title": "Accesskeyhint"
+          },
+          "apiBase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apibase"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "extraConfig": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extraconfig"
+          },
+          "hasCredentials": {
+            "default": false,
+            "title": "Hascredentials",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lastTestMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lasttestmessage"
+          },
+          "lastTestOk": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lasttestok"
+          },
+          "lastTestedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lasttestedat"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "networkType": {
+            "title": "Networktype",
+            "type": "string"
+          },
+          "otaSupport": {
+            "default": "SUPPORTED",
+            "title": "Otasupport",
+            "type": "string"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "secretKeyHint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "SecretKey 掩码（前 4 位 + ****）",
+            "title": "Secretkeyhint"
+          },
+          "status": {
+            "default": "NOT_CONNECTED",
+            "title": "Status",
+            "type": "string"
+          },
+          "templateCount": {
+            "default": 0,
+            "title": "Templatecount",
+            "type": "integer"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          },
+          "vendor": {
+            "title": "Vendor",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "vendor",
+          "networkType",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "CloudProviderResponse",
+        "type": "object"
+      },
+      "CloudProviderUpdateRequest": {
+        "description": "更新云服务商。\n\n密钥字段**留空表示保持原值**（避免「改名字却把密钥清空」这类误操作）。",
+        "properties": {
+          "accessKey": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accesskey"
+          },
+          "apiBase": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apibase"
+          },
+          "extraConfig": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extraconfig"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "otaSupport": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OtaSupport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "secretKey": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secretkey"
+          }
+        },
+        "title": "CloudProviderUpdateRequest",
+        "type": "object"
+      },
+      "CloudTestResponse": {
+        "description": "连通性检测结果。\n\n未配置密钥或接口地址时返回 ``result=NOT_CONFIGURED`` 且 ``ok=false``，\n**绝不伪造成功**（ADR-07）。",
+        "properties": {
+          "latencyMs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latencyms"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "result": {
+            "$ref": "#/components/schemas/TestResult"
+          },
+          "testedAt": {
+            "format": "date-time",
+            "title": "Testedat",
+            "type": "string"
+          },
+          "vendor": {
+            "title": "Vendor",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result",
+          "ok",
+          "message",
+          "vendor",
+          "testedAt"
+        ],
+        "title": "CloudTestResponse",
+        "type": "object"
+      },
+      "CloudVendor": {
+        "description": "云服务商厂商。\n\n决定设备生成方、激活路径与二维码格式（见 ``qrcode_service``，P4 落地）：\n\n* ``JIXIAN`` —— 集贤 4G 方案，二维码 ``JX|{SN}|{IMEI}|{ICCID}|{deviceId}``\n* ``JOYINSIDE`` —— 京东云 JoyInside Wi-Fi 方案，二维码 ``JD|{tenant}|{product}|{sn}|{sign}``\n* ``VOLCANO`` —— **火山引擎智能云 · 硬件对话智能体**（端到端实时语音对话，\n  兼容乐鑫 ESP32-S3 等主流 IoT 芯片；服务端 OpenAPI 以 ``Aibot*`` 系列为主）",
+        "enum": [
+          "JIXIAN",
+          "JOYINSIDE",
+          "VOLCANO",
+          "OTHER"
+        ],
+        "title": "CloudVendor",
+        "type": "string"
       },
       "CurrentUserResponse": {
         "description": "``/me`` 响应。",
@@ -134,6 +1428,15 @@
         "title": "CurrentUserResponse",
         "type": "object"
       },
+      "EnableStatus": {
+        "description": "通用的启用/停用状态。",
+        "enum": [
+          "ENABLED",
+          "DISABLED"
+        ],
+        "title": "EnableStatus",
+        "type": "string"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -147,46 +1450,25 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
-      "HealthResponse": {
-        "description": "健康检查响应。",
+      "ListResult_OptionItem_": {
         "properties": {
-          "app": {
-            "title": "App",
-            "type": "string"
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/OptionItem"
+            },
+            "title": "Records",
+            "type": "array"
           },
-          "database": {
-            "description": "数据库类型",
-            "title": "Database",
-            "type": "string"
-          },
-          "environment": {
-            "title": "Environment",
-            "type": "string"
-          },
-          "status": {
-            "description": "UP / DOWN",
-            "title": "Status",
-            "type": "string"
-          },
-          "time": {
-            "format": "date-time",
-            "title": "Time",
-            "type": "string"
-          },
-          "version": {
-            "title": "Version",
-            "type": "string"
+          "total": {
+            "title": "Total",
+            "type": "integer"
           }
         },
         "required": [
-          "status",
-          "app",
-          "version",
-          "environment",
-          "database",
-          "time"
+          "records",
+          "total"
         ],
-        "title": "HealthResponse",
+        "title": "ListResult[OptionItem]",
         "type": "object"
       },
       "ListResult_TenantOption_": {
@@ -310,6 +1592,723 @@
         "title": "MessageResult",
         "type": "object"
       },
+      "MiniAppConfigRequest": {
+        "description": "创建 / 更新小程序配置（upsert 语义）。\n\n``app_secret`` 为明文入参，留空表示保持原值；响应只回掩码。",
+        "properties": {
+          "appId": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Appid"
+          },
+          "appName": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Appname",
+            "type": "string"
+          },
+          "appSecret": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Appsecret"
+          },
+          "logoUrl": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logourl"
+          },
+          "originalId": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Originalid"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "servicePhone": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Servicephone"
+          },
+          "serviceQrUrl": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serviceqrurl"
+          },
+          "shareDesc": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sharedesc"
+          },
+          "shareTitle": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sharetitle"
+          },
+          "status": {
+            "$ref": "#/components/schemas/EnableStatus",
+            "default": "DISABLED"
+          },
+          "themeColor": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Themecolor"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "appName"
+        ],
+        "title": "MiniAppConfigRequest",
+        "type": "object"
+      },
+      "MiniAppConfigResponse": {
+        "description": "小程序配置响应。**只有掩码，没有 AppSecret。**",
+        "properties": {
+          "appId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Appid"
+          },
+          "appName": {
+            "title": "Appname",
+            "type": "string"
+          },
+          "appSecretHint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "AppSecret 掩码（前 4 位 + ****）",
+            "title": "Appsecrethint"
+          },
+          "clientProductId": {
+            "title": "Clientproductid",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "hasAppSecret": {
+            "default": false,
+            "title": "Hasappsecret",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "logoUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logourl"
+          },
+          "originalId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Originalid"
+          },
+          "publishedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publishedat"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "servicePhone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Servicephone"
+          },
+          "serviceQrUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serviceqrurl"
+          },
+          "shareDesc": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sharedesc"
+          },
+          "shareTitle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sharetitle"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tenantId": {
+            "title": "Tenantid",
+            "type": "string"
+          },
+          "themeColor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Themecolor"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "id",
+          "clientProductId",
+          "tenantId",
+          "appName",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "MiniAppConfigResponse",
+        "type": "object"
+      },
+      "NetworkType": {
+        "description": "设备联网方式。决定设备生成方、激活路径与二维码格式。",
+        "enum": [
+          "4G",
+          "WIFI"
+        ],
+        "title": "NetworkType",
+        "type": "string"
+      },
+      "OptionItem": {
+        "description": "通用下拉选项。",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "OptionItem",
+        "type": "object"
+      },
+      "OtaSupport": {
+        "description": "OTA 支持情况。",
+        "enum": [
+          "SUPPORTED",
+          "UNSUPPORTED"
+        ],
+        "title": "OtaSupport",
+        "type": "string"
+      },
+      "PageResult_AuthorizationResponse_": {
+        "properties": {
+          "page": {
+            "description": "当前页码",
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "description": "每页条数",
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "records": {
+            "description": "当前页记录",
+            "items": {
+              "$ref": "#/components/schemas/AuthorizationResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "description": "总记录数",
+            "title": "Total",
+            "type": "integer"
+          },
+          "totalPages": {
+            "description": "总页数",
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "title": "PageResult[AuthorizationResponse]",
+        "type": "object"
+      },
+      "PageResult_ClientProductResponse_": {
+        "properties": {
+          "page": {
+            "description": "当前页码",
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "description": "每页条数",
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "records": {
+            "description": "当前页记录",
+            "items": {
+              "$ref": "#/components/schemas/ClientProductResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "description": "总记录数",
+            "title": "Total",
+            "type": "integer"
+          },
+          "totalPages": {
+            "description": "总页数",
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "title": "PageResult[ClientProductResponse]",
+        "type": "object"
+      },
+      "PageResult_CloudProviderResponse_": {
+        "properties": {
+          "page": {
+            "description": "当前页码",
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "description": "每页条数",
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "records": {
+            "description": "当前页记录",
+            "items": {
+              "$ref": "#/components/schemas/CloudProviderResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "description": "总记录数",
+            "title": "Total",
+            "type": "integer"
+          },
+          "totalPages": {
+            "description": "总页数",
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "title": "PageResult[CloudProviderResponse]",
+        "type": "object"
+      },
+      "PageResult_TemplateResponse_": {
+        "properties": {
+          "page": {
+            "description": "当前页码",
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "description": "每页条数",
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "records": {
+            "description": "当前页记录",
+            "items": {
+              "$ref": "#/components/schemas/TemplateResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "description": "总记录数",
+            "title": "Total",
+            "type": "integer"
+          },
+          "totalPages": {
+            "description": "总页数",
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "title": "PageResult[TemplateResponse]",
+        "type": "object"
+      },
+      "PageResult_TenantResponse_": {
+        "properties": {
+          "page": {
+            "description": "当前页码",
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "description": "每页条数",
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "records": {
+            "description": "当前页记录",
+            "items": {
+              "$ref": "#/components/schemas/TenantResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "description": "总记录数",
+            "title": "Total",
+            "type": "integer"
+          },
+          "totalPages": {
+            "description": "总页数",
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "title": "PageResult[TenantResponse]",
+        "type": "object"
+      },
+      "PasswordResetResult": {
+        "description": "重置密码结果。\n\n``password`` 只在**本次响应**中出现一次，且账号被置为「下次登录必须改密」。",
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "generated": {
+            "description": "是否由服务端自动生成",
+            "title": "Generated",
+            "type": "boolean"
+          },
+          "mustChangePassword": {
+            "default": true,
+            "title": "Mustchangepassword",
+            "type": "boolean"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "自动生成的新密码（仅返回一次，请立即转交客户）",
+            "title": "Password"
+          }
+        },
+        "required": [
+          "account",
+          "generated"
+        ],
+        "title": "PasswordResetResult",
+        "type": "object"
+      },
+      "ProviderInfo": {
+        "description": "供应商信息（注册表视角 + 平台配置视角的合并）。\n\n``registered`` 与 ``configured`` 是两个不同的事实：\n前者表示「代码里有这个适配器」，后者表示「平台已录入密钥」。\n分开呈现才能让运维区分「没实现」与「没配置」。",
+        "properties": {
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "configured": {
+            "default": false,
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "health": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最近一次探测状态（未探测为 null）",
+            "title": "Health"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "registered": {
+            "default": true,
+            "title": "Registered",
+            "type": "boolean"
+          },
+          "requiresCredentials": {
+            "default": true,
+            "title": "Requirescredentials",
+            "type": "boolean"
+          },
+          "vendor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendor"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "kind"
+        ],
+        "title": "ProviderInfo",
+        "type": "object"
+      },
+      "ProviderListResult": {
+        "description": "供应商列表。",
+        "properties": {
+          "defaultCode": {
+            "description": "平台默认供应商注册键（AI_DEFAULT_PROVIDER）",
+            "title": "Defaultcode",
+            "type": "string"
+          },
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderInfo"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "defaultCode"
+        ],
+        "title": "ProviderListResult",
+        "type": "object"
+      },
       "RefreshRequest": {
         "description": "刷新令牌请求。",
         "properties": {
@@ -355,6 +2354,849 @@
         "title": "RefreshResponse",
         "type": "object"
       },
+      "ResetPasswordRequest": {
+        "description": "重置账号密码。",
+        "properties": {
+          "account": {
+            "maxLength": 64,
+            "minLength": 4,
+            "title": "Account",
+            "type": "string"
+          },
+          "newPassword": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "留空则自动生成强随机密码并仅返回一次",
+            "title": "Newpassword"
+          }
+        },
+        "required": [
+          "account"
+        ],
+        "title": "ResetPasswordRequest",
+        "type": "object"
+      },
+      "RolePresetItem": {
+        "description": "内置角色预设。",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "greeting": {
+            "title": "Greeting",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "greeting"
+        ],
+        "title": "RolePresetItem",
+        "type": "object"
+      },
+      "ScenarioItem": {
+        "description": "一条内置素材。",
+        "properties": {
+          "keywords": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Keywords",
+            "type": "array"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "preview": {
+            "description": "正文前 40 字，用于列表展示",
+            "title": "Preview",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "title",
+          "preview"
+        ],
+        "title": "ScenarioItem",
+        "type": "object"
+      },
+      "ScenarioListResponse": {
+        "description": "``GET /ai/mock/scenarios`` 的响应：把离线引擎的「能力边界」摊开给调试台。",
+        "properties": {
+          "fallbackReplies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fallbackreplies",
+            "type": "array"
+          },
+          "intentKeywords": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Intentkeywords",
+            "type": "object"
+          },
+          "rolePresets": {
+            "items": {
+              "$ref": "#/components/schemas/RolePresetItem"
+            },
+            "title": "Rolepresets",
+            "type": "array"
+          },
+          "safetyKeywords": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Safetykeywords",
+            "type": "array"
+          },
+          "songs": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioItem"
+            },
+            "title": "Songs",
+            "type": "array"
+          },
+          "stories": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioItem"
+            },
+            "title": "Stories",
+            "type": "array"
+          },
+          "weatherReplies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Weatherreplies",
+            "type": "array"
+          }
+        },
+        "title": "ScenarioListResponse",
+        "type": "object"
+      },
+      "TemplateCreateRequest": {
+        "description": "创建产品模板。",
+        "properties": {
+          "aiFeatures": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aifeatures"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "chip": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chip"
+          },
+          "cloudProviderId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "关联的云服务商",
+            "title": "Cloudproviderid"
+          },
+          "code": {
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "Code",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "firmwareVersion": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firmwareversion"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "networkType": {
+            "$ref": "#/components/schemas/NetworkType",
+            "default": "WIFI"
+          },
+          "referencePrice": {
+            "anyOf": [
+              {
+                "maximum": 9999999.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "参考单价（元）",
+            "title": "Referenceprice"
+          },
+          "specs": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Specs"
+          },
+          "status": {
+            "$ref": "#/components/schemas/EnableStatus",
+            "default": "ENABLED"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "TemplateCreateRequest",
+        "type": "object"
+      },
+      "TemplateResponse": {
+        "description": "产品模板响应。",
+        "properties": {
+          "aiFeatures": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aifeatures"
+          },
+          "authorizationCount": {
+            "default": 0,
+            "title": "Authorizationcount",
+            "type": "integer"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "chip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chip"
+          },
+          "clientProductCount": {
+            "default": 0,
+            "title": "Clientproductcount",
+            "type": "integer"
+          },
+          "cloudProviderId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cloudproviderid"
+          },
+          "cloudProviderName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cloudprovidername"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "firmwareVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firmwareversion"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "networkType": {
+            "title": "Networktype",
+            "type": "string"
+          },
+          "referencePrice": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Referenceprice"
+          },
+          "specs": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Specs"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "networkType",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "TemplateResponse",
+        "type": "object"
+      },
+      "TemplateUpdateRequest": {
+        "description": "更新产品模板（编码不可修改）。",
+        "properties": {
+          "aiFeatures": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aifeatures"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "chip": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chip"
+          },
+          "cloudProviderId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cloudproviderid"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "firmwareVersion": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firmwareversion"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "networkType": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NetworkType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "referencePrice": {
+            "anyOf": [
+              {
+                "maximum": 9999999.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Referenceprice"
+          },
+          "specs": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Specs"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EnableStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "TemplateUpdateRequest",
+        "type": "object"
+      },
+      "TenantCounts": {
+        "description": "租户关联数据计数（供详情页展示）。",
+        "properties": {
+          "authorizations": {
+            "default": 0,
+            "title": "Authorizations",
+            "type": "integer"
+          },
+          "clientProducts": {
+            "default": 0,
+            "title": "Clientproducts",
+            "type": "integer"
+          },
+          "users": {
+            "default": 0,
+            "title": "Users",
+            "type": "integer"
+          }
+        },
+        "title": "TenantCounts",
+        "type": "object"
+      },
+      "TenantCreateRequest": {
+        "description": "创建租户。",
+        "properties": {
+          "code": {
+            "description": "租户编码，全局唯一",
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "Code",
+            "type": "string"
+          },
+          "contactName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contactname"
+          },
+          "contactPhone": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "联系电话（兼登录账号）",
+            "title": "Contactphone"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "industry": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Industry"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TenantStatus",
+            "default": "ACTIVE"
+          },
+          "timezone": {
+            "default": "Asia/Shanghai",
+            "maxLength": 64,
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "TenantCreateRequest",
+        "type": "object"
+      },
+      "TenantDetailResponse": {
+        "description": "租户详情：附加计数与关联清单。\n\n修复 P-03 的验收视角——「建后客户详情可见」：\n这里直接返回该租户的授权与客户产品清单。",
+        "properties": {
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/AccountBrief"
+            },
+            "title": "Accounts",
+            "type": "array"
+          },
+          "authorizations": {
+            "items": {
+              "$ref": "#/components/schemas/AuthorizationResponse"
+            },
+            "title": "Authorizations",
+            "type": "array"
+          },
+          "clientProducts": {
+            "items": {
+              "$ref": "#/components/schemas/ClientProductResponse"
+            },
+            "title": "Clientproducts",
+            "type": "array"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "contactName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contactname"
+          },
+          "contactPhone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contactphone"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/TenantCounts"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "industry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Industry"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "status",
+          "timezone",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "TenantDetailResponse",
+        "type": "object"
+      },
       "TenantOption": {
         "description": "登录页的租户下拉项（脱敏：不含联系方式）。",
         "properties": {
@@ -388,6 +3230,361 @@
           "name"
         ],
         "title": "TenantOption",
+        "type": "object"
+      },
+      "TenantResponse": {
+        "description": "租户列表项。",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "contactName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contactname"
+          },
+          "contactPhone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contactphone"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "industry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Industry"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "status",
+          "timezone",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "TenantResponse",
+        "type": "object"
+      },
+      "TenantStatus": {
+        "description": "租户状态。",
+        "enum": [
+          "ACTIVE",
+          "DISABLED"
+        ],
+        "title": "TenantStatus",
+        "type": "string"
+      },
+      "TenantStatusRequest": {
+        "description": "启用 / 禁用租户。",
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TenantStatus"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "TenantStatusRequest",
+        "type": "object"
+      },
+      "TenantUpdateRequest": {
+        "description": "更新租户（编码不可修改——它是登录页与运维排查的稳定标识）。",
+        "properties": {
+          "contactName": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contactname"
+          },
+          "contactPhone": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contactphone"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "industry": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Industry"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone"
+          }
+        },
+        "title": "TenantUpdateRequest",
+        "type": "object"
+      },
+      "TestResult": {
+        "description": "连通性检测结果。",
+        "enum": [
+          "SUCCESS",
+          "FAILED",
+          "NOT_CONFIGURED"
+        ],
+        "title": "TestResult",
+        "type": "string"
+      },
+      "TtsRequest": {
+        "description": "语音合成请求。",
+        "properties": {
+          "clientProductId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clientproductid"
+          },
+          "providerCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Providercode"
+          },
+          "text": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "voiceId": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voiceid"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "TtsRequest",
+        "type": "object"
+      },
+      "TtsResponse": {
+        "description": "语音合成结果。\n\n``audio_base64`` 为空时表示本次未产出音频，调用方应回退为文本播报\n（mock 的 ``text`` 模式的正常行为，不是错误）。",
+        "properties": {
+          "audioBase64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "音频 base64；为空表示未产出音频",
+            "title": "Audiobase64"
+          },
+          "contentType": {
+            "title": "Contenttype",
+            "type": "string"
+          },
+          "durationMs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Durationms"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "providerLayer": {
+            "title": "Providerlayer",
+            "type": "string"
+          },
+          "simulated": {
+            "default": false,
+            "title": "Simulated",
+            "type": "boolean"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "voiceId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voiceid"
+          }
+        },
+        "required": [
+          "text",
+          "contentType",
+          "provider",
+          "providerLayer"
+        ],
+        "title": "TtsResponse",
         "type": "object"
       },
       "UserProfile": {
@@ -515,6 +3712,128 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "app__schemas__ai__HealthResponse": {
+        "description": "健康探测结果。\n\n未配置密钥时 ``status=DOWN``、``ok=false``——**不伪造成功**（ADR-07）。",
+        "properties": {
+          "checkedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkedat"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "latencyMs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latencyms"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "vendor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendor"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "status",
+          "ok",
+          "message"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "app__schemas__auth__HealthResponse": {
+        "description": "健康检查响应。",
+        "properties": {
+          "app": {
+            "title": "App",
+            "type": "string"
+          },
+          "database": {
+            "description": "数据库类型",
+            "title": "Database",
+            "type": "string"
+          },
+          "environment": {
+            "title": "Environment",
+            "type": "string"
+          },
+          "status": {
+            "description": "UP / DOWN",
+            "title": "Status",
+            "type": "string"
+          },
+          "time": {
+            "format": "date-time",
+            "title": "Time",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "app",
+          "version",
+          "environment",
+          "database",
+          "time"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -532,6 +3851,256 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/ai/asr": {
+      "post": {
+        "description": "把音频转成文字。离线环境下可不传音频、只传 ``hintText``，由 mock 的 ``echo`` 模式复读，从而在无音频素材时也能联调语音链路。\n\n**未接入的供应商返回 503 ``VENDOR_UNAVAILABLE`` 并写审计。**",
+        "operationId": "ai_asr_api_v1_ai_asr_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AsrRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsrResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "供应商未接入或不可用"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "语音识别（ASR）",
+        "tags": [
+          "AI 供应商与调试台"
+        ]
+      }
+    },
+    "/api/v1/ai/chat": {
+      "post": {
+        "description": "发起一次对话。``stream=true``（默认）返回 ``application/x-ndjson``，每行一个事件：``session`` → 若干 ``delta`` → ``done``；\n``stream=false`` 返回整段 :class:`ChatResponse`。\n\n会话与消息都会落库（``dialogue_sessions`` / ``dialogue_messages``），包括分块数 ``chunkCount``、耗时 ``latencyMs`` 与安全过滤标记 ``safetyFlag``，为 P8 的 WebSocket 对话与 P9 的运营看板提供数据。\n\n**未接入的供应商返回 503 ``VENDOR_UNAVAILABLE`` 并写审计，绝不伪造成功。**",
+        "operationId": "ai_chat_api_v1_ai_chat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "供应商未接入或不可用"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "AI 对话（默认流式 NDJSON）",
+        "tags": [
+          "AI 供应商与调试台"
+        ]
+      }
+    },
+    "/api/v1/ai/mock/scenarios": {
+      "get": {
+        "description": "返回 mock 引擎内置的故事 / 儿歌 / 天气话术、意图关键词、安全关键词与角色预设。\n\n把离线引擎的**能力边界摊开**给调试台，是为了让「为什么这样回答」可被解释——规则对话的命中依据必须可见，否则它和黑盒模型没有区别。",
+        "operationId": "mock_scenarios_api_v1_ai_mock_scenarios_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "离线模拟引擎素材与规则",
+        "tags": [
+          "AI 供应商与调试台"
+        ]
+      }
+    },
+    "/api/v1/ai/providers": {
+      "get": {
+        "description": "返回已注册的适配器（mock / 集贤 / JoyInside / 火山 / 百度），并附带平台配置行状态与最近一次健康探测结果。\n\n``configured`` 表示**是否已录入密钥**，``registered`` 表示**代码里是否有适配器**——两者分开才能区分「没实现」与「没配置」。响应**不含任何密钥**。",
+        "operationId": "list_providers_api_v1_ai_providers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderListResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "AI 供应商列表",
+        "tags": [
+          "AI 供应商与调试台"
+        ]
+      }
+    },
+    "/api/v1/ai/providers/{code}/health": {
+      "get": {
+        "description": "对单个供应商发起健康探测。\n\n**安全语义（ADR-07）**：未配置密钥时返回 ``status=DOWN``、``ok=false``，**不发起任何真实网络调用**，同时写入 ``VENDOR_CALL_FAILED`` 审计。\n\n为什么这里返回 200 而不是 503？探测接口的职责就是**报告**状态；若探测失败也返回错误状态码，运维就无法区分「厂商不可用」与「探测接口本身坏了」。真正的能力调用（``/ai/chat`` 等）未接入时一律返回 503。",
+        "operationId": "provider_health_api_v1_ai_providers__code__health_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__schemas__ai__HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "供应商健康探测",
+        "tags": [
+          "AI 供应商与调试台"
+        ]
+      }
+    },
+    "/api/v1/ai/tts": {
+      "post": {
+        "description": "把文字转成语音。``MOCK_TTS_MODE=text`` 时 ``audioBase64`` 为空，表示**本次未产出音频**（调用方应回退为文本播报），不是错误；``MOCK_TTS_MODE=wav`` 时返回结构合法的静音 WAV，用于验证音频播放链路。\n\n**未接入的供应商返回 503 ``VENDOR_UNAVAILABLE`` 并写审计。**",
+        "operationId": "ai_tts_api_v1_ai_tts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TtsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TtsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "供应商未接入或不可用"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "语音合成（TTS）",
+        "tags": [
+          "AI 供应商与调试台"
+        ]
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "description": "账号密码登录，返回访问令牌与刷新令牌。\n\n**安全策略**：\n- 连续 5 次密码错误将锁定账号 15 分钟\n- 账号被禁用或所属租户被禁用时拒绝登录\n- 登录失败不区分「账号不存在」与「密码错误」，避免账号枚举",
@@ -707,7 +4276,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HealthResponse"
+                  "$ref": "#/components/schemas/app__schemas__auth__HealthResponse"
                 }
               }
             },
@@ -729,7 +4298,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HealthResponse"
+                  "$ref": "#/components/schemas/app__schemas__auth__HealthResponse"
                 }
               }
             },
@@ -816,6 +4385,2041 @@
         "summary": "修改密码",
         "tags": [
           "认证"
+        ]
+      }
+    },
+    "/api/v1/platform/authorizations/{authorization_id}": {
+      "delete": {
+        "description": "**修复 P-06**：该授权下已有客户产品时拒绝撤销（``CASCADE_CONFLICT``）。",
+        "operationId": "revoke_authorization_api_v1_platform_authorizations__authorization_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "authorization_id",
+            "required": true,
+            "schema": {
+              "title": "Authorization Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "存在关联产品，无法撤销"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "撤销授权",
+        "tags": [
+          "平台端"
+        ]
+      }
+    },
+    "/api/v1/platform/client-products": {
+      "get": {
+        "description": "分页查询客户产品（商户端「我的产品」的平台视角）。",
+        "operationId": "list_client_products_api_v1_platform_client_products_get",
+        "parameters": [
+          {
+            "description": "按租户筛选",
+            "in": "query",
+            "name": "tenantId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按租户筛选",
+              "title": "Tenantid"
+            }
+          },
+          {
+            "description": "按模板筛选",
+            "in": "query",
+            "name": "templateId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按模板筛选",
+              "title": "Templateid"
+            }
+          },
+          {
+            "description": "产品状态",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/EnableStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "产品状态",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "名称 / 编码",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "名称 / 编码",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_ClientProductResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "客户产品列表",
+        "tags": [
+          "平台端"
+        ]
+      },
+      "post": {
+        "description": "为租户创建客户产品（由模板派生）。\n\n**修复 P-03**：``tenantId`` 与 ``templateId`` 均为必填，且服务端会校验「该租户已获得该模板的有效授权」，否则返回 ``PRODUCT_NOT_AUTHORIZED``——因此不会再出现「新建产品未绑定客户」。\n\n联网方式、云服务商、固件版本会从模板**快照**到产品上，模板后续变更不影响已交付产品。",
+        "operationId": "create_client_product_api_v1_platform_client_products_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientProductCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientProductResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "租户或模板不存在"
+          },
+          "409": {
+            "description": "产品编码已存在或该租户未获授权"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "创建客户产品",
+        "tags": [
+          "平台端"
+        ]
+      }
+    },
+    "/api/v1/platform/client-products/{product_id}": {
+      "delete": {
+        "description": "删除客户产品及其小程序配置。\n\n设备关联校验将在 P4 设备表落地后接入——届时若产品下已有设备，同样返回 ``CASCADE_CONFLICT``。",
+        "operationId": "delete_client_product_api_v1_platform_client_products__product_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "删除客户产品",
+        "tags": [
+          "平台端"
+        ]
+      },
+      "get": {
+        "description": "含租户 / 模板 / 云服务商名称、小程序配置（仅有掩码，无 AppSecret）。",
+        "operationId": "get_client_product_api_v1_platform_client_products__product_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientProductResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "客户产品详情",
+        "tags": [
+          "平台端"
+        ]
+      },
+      "put": {
+        "description": "归属租户与模板不可变更（它们决定产品归属与授权依据）。",
+        "operationId": "update_client_product_api_v1_platform_client_products__product_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientProductUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientProductResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "更新客户产品",
+        "tags": [
+          "平台端"
+        ]
+      }
+    },
+    "/api/v1/platform/client-products/{product_id}/miniapp-config": {
+      "get": {
+        "description": "返回该客户产品的小程序配置；**尚未配置时返回 ``null``**（「还没有配置」是正常状态，不是错误）。响应只含 ``appSecretHint`` 掩码。",
+        "operationId": "get_miniapp_config_api_v1_platform_client_products__product_id__miniapp_config_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/MiniAppConfigResponse"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Miniapp Config Api V1 Platform Client Products  Product Id  Miniapp Config Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "查询小程序配置",
+        "tags": [
+          "平台端"
+        ]
+      },
+      "put": {
+        "description": "创建或更新小程序配置（upsert）。``appSecret`` 留空表示保持原值；一旦提供则加密落库并刷新掩码。",
+        "operationId": "save_miniapp_config_api_v1_platform_client_products__product_id__miniapp_config_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MiniAppConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MiniAppConfigResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "保存小程序配置",
+        "tags": [
+          "平台端"
+        ]
+      }
+    },
+    "/api/v1/platform/clouds": {
+      "get": {
+        "description": "分页查询云服务商。响应只含 ``accessKeyHint`` / ``secretKeyHint``（前 4 位 + ****），**绝不含明文或密文密钥**。",
+        "operationId": "list_clouds_api_v1_platform_clouds_get",
+        "parameters": [
+          {
+            "description": "名称 / 编码",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "名称 / 编码",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "厂商",
+            "in": "query",
+            "name": "vendor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/CloudVendor"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "厂商",
+              "title": "Vendor"
+            }
+          },
+          {
+            "description": "接入状态",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "接入状态",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_CloudProviderResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "云服务商列表",
+        "tags": [
+          "平台端"
+        ]
+      },
+      "post": {
+        "description": "新增云服务商。``accessKey`` / ``secretKey`` 为明文入参，服务端**加密后落库**，响应仅回掩码提示。",
+        "operationId": "create_cloud_api_v1_platform_clouds_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloudProviderCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudProviderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "新增云服务商",
+        "tags": [
+          "平台端"
+        ]
+      }
+    },
+    "/api/v1/platform/clouds/{cloud_id}": {
+      "delete": {
+        "description": "**修复 P-06**：被产品模板或客户产品引用时拒绝删除（``CASCADE_CONFLICT``）。",
+        "operationId": "delete_cloud_api_v1_platform_clouds__cloud_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cloud_id",
+            "required": true,
+            "schema": {
+              "title": "Cloud Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "存在关联数据，无法删除"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "删除云服务商",
+        "tags": [
+          "平台端"
+        ]
+      },
+      "get": {
+        "description": "云服务商详情。",
+        "operationId": "get_cloud_api_v1_platform_clouds__cloud_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cloud_id",
+            "required": true,
+            "schema": {
+              "title": "Cloud Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudProviderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "云服务商详情",
+        "tags": [
+          "平台端"
+        ]
+      },
+      "put": {
+        "description": "更新云服务商。密钥字段**留空表示保持原值**；一旦提供新密钥，接入状态会回到「未连接」并要求重新检测。",
+        "operationId": "update_cloud_api_v1_platform_clouds__cloud_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cloud_id",
+            "required": true,
+            "schema": {
+              "title": "Cloud Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloudProviderUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudProviderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "更新云服务商",
+        "tags": [
+          "平台端"
+        ]
+      }
+    },
+    "/api/v1/platform/clouds/{cloud_id}/test": {
+      "post": {
+        "description": "对厂商接口基址发起一次轻量 HTTP 探测并记录结论。\n\n**安全语义（ADR-07）**：\n- 未配置接口地址或密钥 → ``result=NOT_CONFIGURED``、``ok=false``，不发起任何真实调用，绝不伪造成功\n- 连通仅代表**网络可达**，不代表密钥有效；密钥有效性将在真正调用厂商业务接口（P4 生成设备 / P8 激活）时验证\n- 检测结论会回写到云服务商的 ``lastTestOk`` / ``lastTestMessage`` / ``status``",
+        "operationId": "test_cloud_api_v1_platform_clouds__cloud_id__test_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cloud_id",
+            "required": true,
+            "schema": {
+              "title": "Cloud Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudTestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "云服务商连通性检测",
+        "tags": [
+          "平台端"
+        ]
+      }
+    },
+    "/api/v1/platform/templates": {
+      "get": {
+        "description": "分页查询产品模板（附被授权租户数与派生出的客户产品数）。",
+        "operationId": "list_templates_api_v1_platform_templates_get",
+        "parameters": [
+          {
+            "description": "名称 / 编码 / 型号",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "名称 / 编码 / 型号",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "品类",
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "品类",
+              "title": "Category"
+            }
+          },
+          {
+            "description": "联网方式",
+            "in": "query",
+            "name": "networkType",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/NetworkType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "联网方式",
+              "title": "Networktype"
+            }
+          },
+          {
+            "description": "模板状态",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/EnableStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "模板状态",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_TemplateResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "产品模板列表",
+        "tags": [
+          "平台端"
+        ]
+      },
+      "post": {
+        "description": "新增产品模板。",
+        "operationId": "create_template_api_v1_platform_templates_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "新增产品模板",
+        "tags": [
+          "平台端"
+        ]
+      }
+    },
+    "/api/v1/platform/templates/{template_id}": {
+      "delete": {
+        "description": "**修复 P-06**：存在租户授权或客户产品时拒绝删除（``CASCADE_CONFLICT``）。",
+        "operationId": "delete_template_api_v1_platform_templates__template_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "存在关联数据，无法删除"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "删除产品模板",
+        "tags": [
+          "平台端"
+        ]
+      },
+      "get": {
+        "description": "产品模板详情。",
+        "operationId": "get_template_api_v1_platform_templates__template_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "产品模板详情",
+        "tags": [
+          "平台端"
+        ]
+      },
+      "put": {
+        "description": "更新模板。注意：模板变更**不追溯**已创建的客户产品（后者持有快照字段）。",
+        "operationId": "update_template_api_v1_platform_templates__template_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "更新产品模板",
+        "tags": [
+          "平台端"
+        ]
+      }
+    },
+    "/api/v1/platform/templates/{template_id}/authorizations": {
+      "get": {
+        "description": "模板的授权租户列表。",
+        "operationId": "list_template_authorizations_api_v1_platform_templates__template_id__authorizations_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_AuthorizationResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "模板的授权租户列表",
+        "tags": [
+          "平台端"
+        ]
+      }
+    },
+    "/api/v1/platform/templates/{template_id}/authorize": {
+      "post": {
+        "description": "把模板授权给一个或多个租户。**幂等**：已授权的租户计入 ``skipped`` 而非报错，不存在的租户计入 ``denied``，便于前端给出精确反馈。",
+        "operationId": "authorize_template_api_v1_platform_templates__template_id__authorize_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthorizeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizeResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "授权模板给租户",
+        "tags": [
+          "平台端"
+        ]
+      }
+    },
+    "/api/v1/platform/tenant-industries": {
+      "get": {
+        "description": "返回已存在的行业列表，供前端筛选下拉使用。",
+        "operationId": "list_tenant_industries_api_v1_platform_tenant_industries_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResult_OptionItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "租户行业取值",
+        "tags": [
+          "平台端"
+        ]
+      }
+    },
+    "/api/v1/platform/tenants": {
+      "get": {
+        "description": "分页查询租户（客户）。支持按名称 / 编码 / 联系人关键字、状态与行业筛选。",
+        "operationId": "list_tenants_api_v1_platform_tenants_get",
+        "parameters": [
+          {
+            "description": "名称 / 编码 / 联系人 / 电话",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "名称 / 编码 / 联系人 / 电话",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "租户状态",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/TenantStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "租户状态",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "所属行业",
+            "in": "query",
+            "name": "industry",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "所属行业",
+              "title": "Industry"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_TenantResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "租户列表",
+        "tags": [
+          "平台端"
+        ]
+      },
+      "post": {
+        "description": "创建租户（客户开通）。编码全局唯一且统一转为大写。",
+        "operationId": "create_tenant_api_v1_platform_tenants_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TenantCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "租户编码已存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "开通租户",
+        "tags": [
+          "平台端"
+        ]
+      }
+    },
+    "/api/v1/platform/tenants/{tenant_id}": {
+      "delete": {
+        "description": "删除租户。**修复 P-06**：存在登录账号 / 产品授权 / 客户产品任一关联时拒绝删除，返回 ``CASCADE_CONFLICT`` 并在 ``details`` 中给出各项数量。",
+        "operationId": "delete_tenant_api_v1_platform_tenants__tenant_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "存在关联数据，无法删除"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "删除租户",
+        "tags": [
+          "平台端"
+        ]
+      },
+      "get": {
+        "description": "返回租户资料、关联计数（账号 / 授权 / 客户产品）以及**授权与客户产品清单**。\n\n这是 P-03 的验收视角：新建客户产品后，在租户详情即可看到它。",
+        "operationId": "get_tenant_detail_api_v1_platform_tenants__tenant_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "租户详情",
+        "tags": [
+          "平台端"
+        ]
+      },
+      "put": {
+        "description": "更新租户名称、联系方式、行业等。**编码不可修改**。",
+        "operationId": "update_tenant_api_v1_platform_tenants__tenant_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TenantUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "更新租户资料",
+        "tags": [
+          "平台端"
+        ]
+      }
+    },
+    "/api/v1/platform/tenants/{tenant_id}/accounts": {
+      "post": {
+        "description": "为租户开通一个登录账号（商户管理员 / 商户运营）。\n\n未指定密码时由服务端生成强随机密码，**只在本次响应中返回一次**，且账号被置为「下次登录必须改密」——既不写死弱口令，也无需人工编造密码。",
+        "operationId": "create_tenant_account_api_v1_platform_tenants__tenant_id__accounts_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountCreateResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "账号已存在或角色不合法"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "为租户创建登录账号",
+        "tags": [
+          "平台端"
+        ]
+      }
+    },
+    "/api/v1/platform/tenants/{tenant_id}/reset-password": {
+      "post": {
+        "description": "重置指定账号的密码，同时：置为「下次登录必须改密」、清空登录失败计数与锁定、**吊销该账号全部刷新令牌**（在线旧登录态立即失效）。\n\n未指定新密码时由服务端生成，且只在本次响应中返回一次。",
+        "operationId": "reset_tenant_password_api_v1_platform_tenants__tenant_id__reset_password_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordResetResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "账号不存在或不属于该租户"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "重置租户账号密码",
+        "tags": [
+          "平台端"
+        ]
+      }
+    },
+    "/api/v1/platform/tenants/{tenant_id}/status": {
+      "post": {
+        "description": "切换租户状态。禁用后该租户下**所有账号立即无法登录**（登录流程校验租户状态，见 auth_service），但账号本身状态不变，解禁即恢复。",
+        "operationId": "set_tenant_status_api_v1_platform_tenants__tenant_id__status_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TenantStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "启用 / 禁用租户",
+        "tags": [
+          "平台端"
         ]
       }
     }

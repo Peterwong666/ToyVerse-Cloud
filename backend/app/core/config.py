@@ -88,13 +88,26 @@ class Settings(BaseSettings):
     MIN_PASSWORD_LENGTH: int = Field(default=8, ge=6, le=128)
     FORCE_PASSWORD_CHANGE_ON_FIRST_LOGIN: bool = True
 
+    # ---- 外部密钥的落库加密（见 app/core/crypto.py） ----
+    #: 云服务商 SecretKey / 小程序 AppSecret 的对称加密密钥。
+    #: 留空时由 ``JWT_SECRET_KEY`` 派生（历史 .env 无需改动即可启动）；
+    #: 生产环境应显式配置独立密钥。
+    SECRET_ENCRYPTION_KEY: str = ""
+
     MAX_LOGIN_FAILURES: int = Field(default=5, ge=1)
     LOCKOUT_MINUTES: int = Field(default=15, ge=1)
 
     # ---------------- 初始管理员账号 ----------------
-    PLATFORM_ADMIN_ACCOUNT: str = "15811805314"
+    #: 平台超级管理员：``admin``（不使用手机号，也与任何第三方参考站账号无关）
+    PLATFORM_ADMIN_ACCOUNT: str = "admin"
     PLATFORM_ADMIN_PASSWORD: str = ""
     PLATFORM_ADMIN_NICKNAME: str = "平台管理员"
+
+    #: 平台运营：可处理产品 / 订单 / 设备等日常业务，但不能改
+    #: 「客户档案 / 云服务商 / 产品模板」这类平台级配置（权限见 core/permissions.py）
+    PLATFORM_OPERATOR_ACCOUNT: str = ""
+    PLATFORM_OPERATOR_PASSWORD: str = ""
+    PLATFORM_OPERATOR_NICKNAME: str = "平台运营"
 
     MERCHANT_ADMIN_ACCOUNT: str = "15555555555"
     MERCHANT_ADMIN_PASSWORD: str = ""
@@ -276,12 +289,34 @@ class Settings(BaseSettings):
         if any(marker in self.QR_SIGN_SECRET.lower() for marker in weak_markers):
             problems.append("QR_SIGN_SECRET 仍为占位符，请替换为强随机值")
 
+        # 2.5) 外部密钥的落库加密密钥
+        encryption_key = self.SECRET_ENCRYPTION_KEY.strip()
+        if encryption_key:
+            if len(encryption_key.encode()) < 32:
+                problems.append(
+                    f"SECRET_ENCRYPTION_KEY 长度不足 32 字节（当前 {len(encryption_key.encode())} 字节）"
+                )
+            if any(marker in encryption_key.lower() for marker in weak_markers):
+                problems.append("SECRET_ENCRYPTION_KEY 仍为占位符，请替换为强随机值")
+        elif self.is_production:
+            problems.append(
+                "生产环境必须显式配置 SECRET_ENCRYPTION_KEY（留空时由 JWT_SECRET_KEY 派生"
+                "，更换 JWT 密钥会导致已存密钥全部无法解密）"
+            )
+
         # 3) 管理员口令必须显式设置且足够强
         admins = {
             "PLATFORM_ADMIN": (self.PLATFORM_ADMIN_ACCOUNT, self.PLATFORM_ADMIN_PASSWORD),
             "MERCHANT_ADMIN": (self.MERCHANT_ADMIN_ACCOUNT, self.MERCHANT_ADMIN_PASSWORD),
             "FACTORY_ADMIN": (self.FACTORY_ADMIN_ACCOUNT, self.FACTORY_ADMIN_PASSWORD),
         }
+        # 平台运营账号是可选的（不配置则不写入种子数据）；
+        # 一旦配置了账号，就必须同时给它一个合规口令。
+        if self.PLATFORM_OPERATOR_ACCOUNT.strip():
+            admins["PLATFORM_OPERATOR"] = (
+                self.PLATFORM_OPERATOR_ACCOUNT,
+                self.PLATFORM_OPERATOR_PASSWORD,
+            )
         for label, (account, password) in admins.items():
             if not password:
                 problems.append(f"{label}_PASSWORD 未设置（账号 {account}）")

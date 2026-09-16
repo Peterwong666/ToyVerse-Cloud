@@ -137,29 +137,33 @@
 
 ## P3 目录域（云服务商 / 模板 / 授权 / 客户产品）★
 
-- [ ] 🔑 Alembic `0003_catalog.py` — `cloud_providers` `product_templates` `product_authorizations`
-- [ ] 🔑 Alembic `0004_client_product_miniapp.py` — `client_products` `miniapp_configs`
-- [ ] `app/models/catalog.py` + `app/schemas/catalog.py`
-- [ ] `app/services/catalog_service.py`、`app/services/tenant_service.py`
-- [ ] 🔑 密钥加密：`cloud_providers.access_key_enc` / `secret_key_enc` 加密存储，**任何响应不含 SK**
-- [ ] `app/api/v1/platform.py` — 租户 CRUD + `/status` + `/account` + `/reset-password`
-- [ ] 平台端 `clouds` CRUD + `/test`（连通性检测）
-- [ ] 平台端 `templates` CRUD + `/authorize`（授权租户）
-- [ ] 平台端 `client-products` CRUD
-- [ ] 删除级联校验（修复 P-06：`CASCADE_CONFLICT`）
-- [ ] 🔑 `frontend/pages/platform/{tenants,tenant_detail,templates,clouds,client_product_detail}.js`
-- [ ] `tests/integration/test_catalog.py` + `test_tenant_scope.py`
-- [ ] **断言测试：SecretKey 绝不出现在任何响应中**
+> **迁移编号说明**：本节原计划使用 `0003` / `0004`，但 P1 落地时实际占用了 `0001`–`0004`，故顺延为 `0005` / `0006`（P4 起顺延为 `0008`–`0010`、P5 `0011`、P9 `0012`；P7 使用 `0007`）。
 
-**验收**：建租户 → 建云服务商 → 建模板 → 授权 → 建客户产品 闭环跑通；SK 泄漏测试通过；级联删除校验生效。
+- [x] 🔑 Alembic `0005_catalog.py` — `cloud_providers` `product_templates` `product_authorizations`
+- [x] 🔑 Alembic `0006_client_product_miniapp.py` — `client_products` `miniapp_configs`
+- [x] `app/models/catalog.py` + `app/schemas/catalog.py`
+- [x] `app/services/catalog_service.py`、`app/services/tenant_service.py`
+- [x] 🔑 密钥加密：`cloud_providers.access_key_enc` / `secret_key_enc` 加密存储，**任何响应不含 SK**（新增 `app/core/crypto.py`，另含 `*_hint` 掩码字段供列表展示，无需解密）
+- [x] `app/api/v1/platform.py` — 租户 CRUD + `/status` + `/account` + `/reset-password`（实现为 `/tenants/{id}/accounts` 与 `/tenants/{id}/reset-password`）
+- [x] 平台端 `clouds` CRUD + `/test`（连通性检测；未配置密钥时返回 `NOT_CONFIGURED` 且跳过真实调用）
+- [x] 平台端 `templates` CRUD + `/authorize`（授权租户，幂等）
+- [x] 平台端 `client-products` CRUD（+ `/miniapp-config` upsert）
+- [x] 删除级联校验（修复 P-06：`CASCADE_CONFLICT`，并返回各项关联数量）
+- [x] 🔑 `frontend/pages/platform/{tenants,tenant_detail,templates,clouds,client_products,client_product_detail}.js`（较原计划增加 `client_products.js` 列表页）；另新增共用工具 `frontend/pages/platform/common.js`
+- [x] `tests/integration/test_catalog.py` + `test_tenant_scope.py`
+- [x] **断言测试：SecretKey 绝不出现在任何响应中**（递归扫描创建/列表/详情/更新/连通性检测全响应，并校验库内为密文）
+
+**验收**（2026-09-16 实测通过）：建租户 → 建云服务商 → 建模板 → 授权 → 建客户产品 闭环跑通；SK 泄漏测试通过（明文哨兵在响应中出现 0 次）；级联删除校验生效（409 + 数量明细）。浏览器另复验 12 项，含**参数化路由刷新不丢状态**（解除 P2 遗留观察①）、**P-03 客户详情可见产品**、**一次性密码弹窗**、**ADR-07 未配置安全失败**。
+
+**配套统计**：测试 118 → **251**；平台端 17 个端点；`make fe-check` 145 处导入；`alembic check` 零漂移。
 
 ---
 
 ## P4 订单与设备生成 ★
 
-- [ ] 🔑 Alembic `0005_orders.py` — `orders`
-- [ ] 🔑 Alembic `0006_devices_credentials.py` — `devices` `device_credentials` `device_events`
-- [ ] 🔑 Alembic `0007_device_batches.py` — `device_batches` `device_batch_lines` `factory_orders` `burn_reports` `inspections`
+- [ ] 🔑 Alembic `0008_orders.py` — `orders`
+- [ ] 🔑 Alembic `0009_devices_credentials.py` — `devices` `device_credentials` `device_events`
+- [ ] 🔑 Alembic `0010_device_batches.py` — `device_batches` `device_batch_lines` `factory_orders` `burn_reports` `inspections`
 - [ ] `app/models/{order,device,factory}.py` + 对应 schemas
 - [ ] 🔑 `app/services/qrcode_service.py` — **双格式生成与解析**
   - 集贤 4G：`JX|{SN}|{IMEI}|{ICCID}|{deviceId}`
@@ -181,7 +185,7 @@
 
 ## P5 设备 / 分配 / 绑定 ★
 
-- [ ] 🔑 Alembic `0008_allocations_bindings.py` — `allocation_orders` `allocation_items` `device_bindings`
+- [ ] 🔑 Alembic `0011_allocations_bindings.py` — `allocation_orders` `allocation_items` `device_bindings`
 - [ ] 🔑 设备**四维状态**模型与状态迁移服务
   - `asset_status`: `PENDING_GEN → GENERATED → IN_STOCK → PRODUCING → PRODUCED → SHIPPED → ALLOCATED → BOUND → RETIRED`，另有 `IN_STOCK ⇄ FROZEN`（`previous_asset_status` 记录）
   - `activation_status`: `NOT_ACTIVATED → ACTIVATING → ACTIVATED | BIND_FAILED`
@@ -232,16 +236,21 @@
   - 规则对话：`故事` → 内容库取故事；`歌/唱` → 唱歌；`天气` → 天气；其余兜底
   - 支持 `role_preset` 与知识库关键词检索影响回复
   - `MOCK_ASR_MODE=echo|fixed`、`MOCK_TTS_MODE=text|wav`、固定随机种子保证可复现
-- [ ] 🔑 四个真实适配器骨架：`app/ai/{jixian,joyinside,volcano,baidu}.py`
+- [x] 🔑 四个真实适配器骨架：`app/ai/{jixian,joyinside,volcano,baidu}.py`
   - 具备签名、HTTP 客户端、超时、重试、字段映射
   - **未配置密钥时 `health_check → DOWN`，端点返回 `VENDOR_UNAVAILABLE` 并写审计，绝不伪造成功**
-- [ ] Alembic `0010_ai_dialogue.py` — `ai_providers` `ai_configs` `dialogue_sessions` `dialogue_messages` `voice_profiles` `role_presets` `knowledge_bases` `kb_files`
-- [ ] `app/api/v1/ai.py` — `/ai/providers` + `/health`、`/ai/chat`、`/ai/asr`、`/ai/tts`、`/ai/mock/scenarios`
-- [ ] `tests/unit/test_provider_registry.py`
-- [ ] `tests/integration/test_ai_mock.py`
-- [ ] `tests/integration/test_vendor_unavailable.py` — **断言无密钥时安全失败且不伪造成功**
+  - 火山引擎适配器已按官方「硬件对话智能体」文档校对：统一 `POST https://rtc.volcengineapi.com?Action=<Action>&Version=2025-08-01`，`Aibot*` / `IotVoicePrint*` / `TrainTTSVoiceType` 等 Action，以及 `AibotCreate` 的 `Name` / `AccessType(public|private)` / `Config.ASRConfig.*` 结构
+- [x] Alembic `0007_ai_dialogue.py` — `ai_providers` `ai_configs` `dialogue_sessions` `dialogue_messages` `voice_profiles` `role_presets` `knowledge_bases` `kb_files`
+- [x] `app/api/v1/ai.py` — `/ai/providers` + `/health`、`/ai/chat`（流式）、`/ai/asr`、`/ai/tts`、`/ai/mock/scenarios`
+- [x] `tests/unit/test_provider_registry.py`（31 条）
+- [x] `tests/integration/test_ai_mock.py`（11 条）
+- [x] `tests/integration/test_vendor_unavailable.py` — **断言无密钥时安全失败且不伪造成功**（7 条）
 
-**验收**：`AI_DEFAULT_PROVIDER=mock` 下 `/ai/chat` `/ai/tts` `/ai/asr` 全通；真实供应商安全返回 `VENDOR_UNAVAILABLE`；模拟引擎可复现。
+**验收**（2026-09-16 实测通过）：`AI_DEFAULT_PROVIDER=mock` 下 `/ai/chat` `/ai/tts` `/ai/asr` 全通且流式分块 > 1；真实供应商安全返回 `VENDOR_UNAVAILABLE` 并写审计；模拟引擎同种子可复现；`alembic check` 零漂移。共 **42** 条测试通过。
+
+**已知局限（待真实联调消除）**：① 火山引擎**签名算法与签名位置**仍为占位（官方《调用方法》页正文不可读），已收口在 `BaseHttpProvider.sign` 一处并显式标注；② `AibotCreate` 之外的 Body 字段名按 PascalCase 惯例统一、未逐字核对；③ `TTSConfig`/`LLMConfig` 层级为同构推断（仅 `ASRConfig` 逐字来自官方示例）；④ 实时对话真实链路是 RTC/WebSocket 长连接，当前 `chat()` 为「HTTP 取整段 + 本地分块」，联调时替换为帧解析（对外 `AsyncIterator[ChatChunk]` 不变）；⑤ `dialogue_sessions.device_id`/`end_user_id` 刻意未建外键（属 P4/P9），落地后需补一次轻量迁移。
+
+> **本阶段为并行开发产出**：由子代理在主会话推进 P3 的同时完成，迁移编号预先分配为 `0007` 以避免链冲突。
 
 ---
 
@@ -268,7 +277,7 @@
 
 ## P9 AI 配置与运营看板 ★
 
-- [ ] Alembic `0011_ops_metrics_ota.py` — `metrics_daily` `metrics_hourly` `metrics_region` `content_hot_ranking` `ota_packages` `ota_records` `recharge_plans` `recharge_orders` `content_items` `end_users`
+- [ ] Alembic `0012_ops_metrics_ota.py` — `metrics_daily` `metrics_hourly` `metrics_region` `content_hot_ranking` `ota_packages` `ota_records` `recharge_plans` `recharge_orders` `content_items` `end_users`
 - [ ] 商户端 AI 配置：`/products/{id}/ai-config`、`/prompt`、`/role`（仅 4G）、`/voice`、`/safety`
 - [ ] 知识库 CRUD + 文件上传/删除（走 `STORAGE_BACKEND` 抽象）
 - [ ] 🔑 运营指标聚合：**按 `product_id` 隔离**（修复 P-08），**维度数据真实汇总**而非乘系数（修复 P-07）
@@ -322,6 +331,7 @@
 - [ ] `docs/10-AI验证可用性.md` — 验证目标 / 测试环境 / 场景与数据集 / 指标定义（首字延迟 / 端到端延迟 / 意图命中率 / 安全拦截率）/ **基准数据表** / 复现命令 / **结论与局限**（明确说明基于离线引擎，并给出真实联调步骤）
 - [ ] `docs/11-测试与质量保障.md` — 测试金字塔 / 覆盖率 / 租户隔离矩阵 / 契约测试 / CI 流程 / **P-01~P-08 修复对照**
 - [ ] `docs/12-项目复盘.md` — 背景目标 / 三个遗留项目的整合决策 / 架构演进 / 关键问题与解法 / 度量结果 / 不足与路线图 / 经验沉淀
+- [x] `docs/13-火山引擎硬件对话智能体配置说明.md` — **已提前产出**（P7/P8 真实联调的前置资料）：控制台四步配置（产品 / License / 智能体 / SDK）、设备端三条接入路径（官方 Demo 板 / 预编译体验包 / 自行移植）、客户端 API 与回调清单、服务端 `Aibot*` OpenAPI、与本项目数据模型的映射、排错速查与**取证边界声明**
 
 ### P11-B 学习手册（`learning/`，**不上传 GitHub**）
 

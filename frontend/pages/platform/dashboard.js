@@ -43,7 +43,7 @@ export async function renderDashboard(container) {
         unit: '单',
         icon: 'clipboard',
         tone: 'accent',
-        foot: (value) => (typeof value === 'number' ? '含全部状态' : '待后续阶段交付'),
+        foot: (value) => (typeof value === 'number' ? '含全部状态' : 'P4 阶段交付'),
         load: () => countSafe('/platform/orders'),
       },
       {
@@ -51,7 +51,7 @@ export async function renderDashboard(container) {
         unit: '台',
         icon: 'device',
         tone: 'coral',
-        foot: '全部租户合计',
+        foot: (value) => (typeof value === 'number' ? '全部租户合计' : 'P4/P5 阶段交付'),
         load: () => countSafe('/platform/devices'),
       },
     ],
@@ -68,7 +68,7 @@ export async function renderDashboard(container) {
     },
 
     fallbacks: [
-      '当前处于 P2 前端地基阶段：租户、产品、订单、设备等接口将在后续阶段交付。统计项显示「—」表示接口尚未就绪，上线后本页会自动展示真实数据。',
+      'P3 目录域已交付：租户、产品模板、云服务商、客户产品与授权均可在此端管理（统计项「租户总数」「产品模板」已接入真实数据）。订单、设备与操作日志的接口将随 P4/P5 等阶段交付，未就绪的统计项显示「—」而非报错。',
     ],
   });
 }

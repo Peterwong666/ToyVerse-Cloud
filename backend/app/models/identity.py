@@ -46,8 +46,13 @@ class Tenant(Base, TimestampMixin):
     remark: Mapped[str | None] = mapped_column(Text, doc="备注")
 
     # ---- 关系 ----
-    # 注意：跨模块关系（产品授权 / 客户产品 / 设备 / 订单）在对应模型模块落地后
-    # 再行补充，避免在分阶段交付中引入对未实现模块的依赖。
+    # 注意：产品授权 / 客户产品 **刻意不在此建立 ORM 关系**。
+    # 原因有二：
+    #   1. 它们由目录域（app/models/catalog.py）拥有，租户侧只需要「计数」，
+    #      用显式 COUNT 查询比 selectin 预加载整批行更省；
+    #   2. 一旦建立级联关系，「删除租户」会静默级联删除产品，
+    #      掩盖 P-06 要求的「有关联时删除失败」语义。
+    # 关联校验统一由 app/services/tenant_service.py 的 _assert_deletable 负责。
     users: Mapped[list[UserAccount]] = relationship(
         back_populates="tenant", cascade="all, delete-orphan", lazy="selectin"
     )

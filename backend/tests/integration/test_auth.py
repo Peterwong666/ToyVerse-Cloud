@@ -18,6 +18,7 @@ from tests.conftest import (
     API_PREFIX,
     TEST_FACTORY_PASSWORD,
     TEST_MERCHANT_PASSWORD,
+    TEST_PLATFORM_ACCOUNT,
     TEST_PLATFORM_PASSWORD,
 )
 
@@ -35,7 +36,7 @@ class TestLogin:
     async def test_platform_admin_login_succeeds(self, client: AsyncClient) -> None:
         response = await client.post(
             f"{API_PREFIX}/auth/login",
-            json={"account": "15811805314", "password": TEST_PLATFORM_PASSWORD},
+            json={"account": TEST_PLATFORM_ACCOUNT, "password": TEST_PLATFORM_PASSWORD},
         )
         assert response.status_code == 200, response.text
 
@@ -46,7 +47,7 @@ class TestLogin:
         assert body["expiresIn"] > 0
 
         user = body["user"]
-        assert user["account"] == "15811805314"
+        assert user["account"] == TEST_PLATFORM_ACCOUNT
         assert user["role"] == "PLATFORM_ADMIN"
         assert user["roleType"] == "PLATFORM"
         # ADR-01：平台管理员是全局长，不属于任何租户
@@ -89,7 +90,7 @@ class TestLogin:
     async def test_wrong_password_returns_401(self, client: AsyncClient) -> None:
         response = await client.post(
             f"{API_PREFIX}/auth/login",
-            json={"account": "15811805314", "password": "definitely-wrong"},
+            json={"account": TEST_PLATFORM_ACCOUNT, "password": "definitely-wrong"},
         )
         assert response.status_code == 401
         assert response.json()["code"] == "INVALID_CREDENTIALS"
@@ -104,7 +105,7 @@ class TestLogin:
         )
         wrong = await client.post(
             f"{API_PREFIX}/auth/login",
-            json={"account": "15811805314", "password": "definitely-wrong"},
+            json={"account": TEST_PLATFORM_ACCOUNT, "password": "definitely-wrong"},
         )
         assert unknown.status_code == wrong.status_code == 401
         assert unknown.json()["code"] == wrong.json()["code"] == "INVALID_CREDENTIALS"
@@ -112,7 +113,7 @@ class TestLogin:
     async def test_missing_password_field_returns_validation_error(
         self, client: AsyncClient
     ) -> None:
-        response = await client.post(f"{API_PREFIX}/auth/login", json={"account": "15811805314"})
+        response = await client.post(f"{API_PREFIX}/auth/login", json={"account": TEST_PLATFORM_ACCOUNT})
         assert response.status_code == 400
         assert response.json()["code"] == "VALIDATION_ERROR"
         assert response.json()["details"]
@@ -121,7 +122,7 @@ class TestLogin:
         """traceId 必须贯穿响应头，便于与日志、审计串联。"""
         response = await client.post(
             f"{API_PREFIX}/auth/login",
-            json={"account": "15811805314", "password": TEST_PLATFORM_PASSWORD},
+            json={"account": TEST_PLATFORM_ACCOUNT, "password": TEST_PLATFORM_PASSWORD},
         )
         assert response.headers.get("x-trace-id")
 
@@ -299,7 +300,7 @@ class TestTokenRefresh:
     async def test_refresh_returns_new_token_pair(self, client: AsyncClient) -> None:
         login = await client.post(
             f"{API_PREFIX}/auth/login",
-            json={"account": "15811805314", "password": TEST_PLATFORM_PASSWORD},
+            json={"account": TEST_PLATFORM_ACCOUNT, "password": TEST_PLATFORM_PASSWORD},
         )
         original = login.json()
 
@@ -316,7 +317,7 @@ class TestTokenRefresh:
     async def test_old_refresh_token_is_revoked_after_rotation(self, client: AsyncClient) -> None:
         login = await client.post(
             f"{API_PREFIX}/auth/login",
-            json={"account": "15811805314", "password": TEST_PLATFORM_PASSWORD},
+            json={"account": TEST_PLATFORM_ACCOUNT, "password": TEST_PLATFORM_PASSWORD},
         )
         old_refresh = login.json()["refreshToken"]
 
@@ -333,13 +334,13 @@ class TestTokenRefresh:
         first = (
             await client.post(
                 f"{API_PREFIX}/auth/login",
-                json={"account": "15811805314", "password": TEST_PLATFORM_PASSWORD},
+                json={"account": TEST_PLATFORM_ACCOUNT, "password": TEST_PLATFORM_PASSWORD},
             )
         ).json()
         second = (
             await client.post(
                 f"{API_PREFIX}/auth/login",
-                json={"account": "15811805314", "password": TEST_PLATFORM_PASSWORD},
+                json={"account": TEST_PLATFORM_ACCOUNT, "password": TEST_PLATFORM_PASSWORD},
             )
         ).json()
 
@@ -487,7 +488,7 @@ class TestLogout:
         login = (
             await client.post(
                 f"{API_PREFIX}/auth/login",
-                json={"account": "15811805314", "password": TEST_PLATFORM_PASSWORD},
+                json={"account": TEST_PLATFORM_ACCOUNT, "password": TEST_PLATFORM_PASSWORD},
             )
         ).json()
 

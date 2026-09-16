@@ -79,6 +79,45 @@ class OtaSupport(StrEnum):
 
 
 # ---------------------------------------------------------------------------
+# 目录域（云服务商 / 产品模板 / 授权 / 客户产品 / 小程序）
+# ---------------------------------------------------------------------------
+
+
+class CloudVendor(StrEnum):
+    """云服务商厂商。
+
+    决定设备生成方、激活路径与二维码格式（见 ``qrcode_service``，P4 落地）：
+
+    * ``JIXIAN`` —— 集贤 4G 方案，二维码 ``JX|{SN}|{IMEI}|{ICCID}|{deviceId}``
+    * ``JOYINSIDE`` —— 京东云 JoyInside Wi-Fi 方案，二维码 ``JD|{tenant}|{product}|{sn}|{sign}``
+    * ``VOLCANO`` —— **火山引擎智能云 · 硬件对话智能体**（端到端实时语音对话，
+      兼容乐鑫 ESP32-S3 等主流 IoT 芯片；服务端 OpenAPI 以 ``Aibot*`` 系列为主）
+    """
+
+    JIXIAN = "JIXIAN"
+    JOYINSIDE = "JOYINSIDE"
+    VOLCANO = "VOLCANO"
+    OTHER = "OTHER"
+
+
+#: 云服务商厂商 → 中文展示名
+CLOUD_VENDOR_LABELS: dict[CloudVendor, str] = {
+    CloudVendor.JIXIAN: "集贤（4G 设备云）",
+    CloudVendor.JOYINSIDE: "京东云 JoyInside（Wi-Fi）",
+    CloudVendor.VOLCANO: "火山引擎智能云（硬件对话智能体）",
+    CloudVendor.OTHER: "其它厂商",
+}
+
+
+class TestResult(StrEnum):
+    """连通性检测结果。"""
+
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+    NOT_CONFIGURED = "NOT_CONFIGURED"  # 未配置密钥，按 ADR-07 安全失败
+
+
+# ---------------------------------------------------------------------------
 # 订单
 # ---------------------------------------------------------------------------
 
@@ -379,6 +418,42 @@ class ContentItemType(StrEnum):
     STORY = "STORY"
 
 
+# ---- P7 追加：供应商健康与知识库文件状态 ----
+#
+# 为什么单独定义 `ProviderHealth` 而不复用 `AiProviderStatus`？
+# 两者语义正交：`AiProviderStatus` 是**平台侧的启用/停用开关**（人为决策），
+# `ProviderHealth` 是**探测出来的运行时可用性**（客观事实）。把「管理员停用」
+# 和「密钥没配 / 网络不通」混成一个字段，会让运维无法区分「谁关的」。
+class ProviderHealth(StrEnum):
+    """供应商运行时健康状态（探测结果，非人为开关）。"""
+
+    UP = "UP"  # 可达且已配置
+    DEGRADED = "DEGRADED"  # 可达但能力受限（如仅网络通、密钥未验证）
+    DOWN = "DOWN"  # 未配置密钥或不可达，调用将安全失败（ADR-07）
+
+
+class VoiceTrainStatus(StrEnum):
+    """自定义音色训练任务状态（对应火山 `TrainTTSVoiceType` / `BatchListVoiceTrainStatus`）。"""
+
+    PENDING = "PENDING"
+    TRAINING = "TRAINING"
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+
+
+class KbFileStatus(StrEnum):
+    """知识库文件解析状态。
+
+    刻意把「已入库」与「已解析」分开：文件上传成功不代表能被检索命中，
+    运营看板需要区分「传了但没解析成功」这类沉默故障。
+    """
+
+    PENDING = "PENDING"  # 已上传待解析
+    PARSING = "PARSING"
+    PARSED = "PARSED"  # 已切块入检索索引
+    FAILED = "FAILED"
+
+
 # ---------------------------------------------------------------------------
 # 充值
 # ---------------------------------------------------------------------------
@@ -422,6 +497,7 @@ class AuditAction(StrEnum):
     CREATE = "CREATE"
     UPDATE = "UPDATE"
     DELETE = "DELETE"
+    AUTHORIZE = "AUTHORIZE"
     AUDIT_ORDER = "AUDIT_ORDER"
     GENERATE_DEVICES = "GENERATE_DEVICES"
     FREEZE_DEVICE = "FREEZE_DEVICE"

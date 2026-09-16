@@ -26,8 +26,15 @@ from typing import Any
 _TMP_DIR = Path(tempfile.mkdtemp(prefix="toyverse-test-"))
 _TEST_DB = _TMP_DIR / "test.db"
 
+# 测试用账号（与 conftest 下方注入的环境变量保持一致，供断言引用）
+TEST_PLATFORM_ACCOUNT = "admin"
+TEST_PLATFORM_OPERATOR_ACCOUNT = "13812345678"
+TEST_MERCHANT_ACCOUNT = "15555555555"
+TEST_FACTORY_ACCOUNT = "13600000000"
+
 # 测试用管理员口令（满足强度校验，但仅存在于测试进程）
 TEST_PLATFORM_PASSWORD = "Test-Platf0rm#2026"
+TEST_PLATFORM_OPERATOR_PASSWORD = "Test-PlatOps#2026"
 TEST_MERCHANT_PASSWORD = "Test-Merch4nt#2026"
 TEST_FACTORY_PASSWORD = "Test-Fact0ry#2026"
 
@@ -39,14 +46,19 @@ os.environ.update(
         # JWT 密钥：长度 ≥32 字节且不含占位符关键词
         "JWT_SECRET_KEY": "pytest-only-jwt-key-A1b2C3d4E5f6G7h8I9j0K1l2M3n4",
         "QR_SIGN_SECRET": "pytest-only-qr-sign-A1b2C3d4E5f6",
+        # 厂商密钥的落库加密密钥：显式设置，走「专用密钥」分支
+        "SECRET_ENCRYPTION_KEY": "pytest-only-encryption-key-Z9y8X7w6V5u4T3s2",
         "BCRYPT_ROUNDS": "4",
-        "PLATFORM_ADMIN_ACCOUNT": "15811805314",
+        "PLATFORM_ADMIN_ACCOUNT": TEST_PLATFORM_ACCOUNT,
         "PLATFORM_ADMIN_PASSWORD": TEST_PLATFORM_PASSWORD,
         "PLATFORM_ADMIN_NICKNAME": "平台管理员",
-        "MERCHANT_ADMIN_ACCOUNT": "15555555555",
+        "PLATFORM_OPERATOR_ACCOUNT": TEST_PLATFORM_OPERATOR_ACCOUNT,
+        "PLATFORM_OPERATOR_PASSWORD": TEST_PLATFORM_OPERATOR_PASSWORD,
+        "PLATFORM_OPERATOR_NICKNAME": "平台运营",
+        "MERCHANT_ADMIN_ACCOUNT": TEST_MERCHANT_ACCOUNT,
         "MERCHANT_ADMIN_PASSWORD": TEST_MERCHANT_PASSWORD,
         "MERCHANT_ADMIN_NICKNAME": "商户管理员",
-        "FACTORY_ADMIN_ACCOUNT": "13600000000",
+        "FACTORY_ADMIN_ACCOUNT": TEST_FACTORY_ACCOUNT,
         "FACTORY_ADMIN_PASSWORD": TEST_FACTORY_PASSWORD,
         "FACTORY_ADMIN_NICKNAME": "工厂管理员",
         "SEED_DEMO_DATA": "true",
@@ -219,13 +231,20 @@ class AuthHelper:
         return {"Authorization": f"Bearer {token}"}
 
     async def platform_headers(self) -> dict[str, str]:
-        return self.headers(await self.token("15811805314", TEST_PLATFORM_PASSWORD))
+        """平台超级管理员（通配权限）的请求头。"""
+        return self.headers(await self.token(TEST_PLATFORM_ACCOUNT, TEST_PLATFORM_PASSWORD))
+
+    async def platform_operator_headers(self) -> dict[str, str]:
+        """平台运营（只有读权限 + 产品/订单/设备写权限）的请求头。"""
+        return self.headers(
+            await self.token(TEST_PLATFORM_OPERATOR_ACCOUNT, TEST_PLATFORM_OPERATOR_PASSWORD)
+        )
 
     async def merchant_headers(self) -> dict[str, str]:
-        return self.headers(await self.token("15555555555", TEST_MERCHANT_PASSWORD))
+        return self.headers(await self.token(TEST_MERCHANT_ACCOUNT, TEST_MERCHANT_PASSWORD))
 
     async def factory_headers(self) -> dict[str, str]:
-        return self.headers(await self.token("13600000000", TEST_FACTORY_PASSWORD))
+        return self.headers(await self.token(TEST_FACTORY_ACCOUNT, TEST_FACTORY_PASSWORD))
 
 
 @pytest_asyncio.fixture
