@@ -599,12 +599,15 @@ async def record_event(
 def _resolve_thaw_target(device: Device) -> tuple[AssetStatus, str | None]:
     """决定解冻后恢复到哪个资产状态。
 
-    常规路径是「恢复冻结前状态」。由于 ``FREEZABLE_ASSET_STATUSES`` 只允许
-    冻结 ``IN_STOCK``，正常情况下 ``previous_asset_status`` 必然是
-    ``IN_STOCK``，直接原路恢复。
+    常规路径是「恢复冻结前状态」。``FREEZABLE_ASSET_STATUSES``
+    （P6 起为 ``{IN_STOCK, ALLOCATED, BOUND}``）与
+    ``ASSET_TRANSITIONS[FROZEN]`` 的出边严格相等，因此只要是经
+    :func:`transition_asset` 冻结出来的数据，``previous_asset_status``
+    必然落在该集合里，原路恢复一定成立——解冻不会把一台已分配给商户的
+    设备退回 ``IN_STOCK``（那等于把客户资产弄丢）。
 
     下面的「回落 + 调整说明」分支是**防御性代码**：它覆盖
-    「冻结发生在本规则收紧之前」或「有人直接改库」这类脏数据，
+    「冻结发生在规则变更之前」或「有人直接改库」这类脏数据，
     避免因为历史数据而抛异常，同时在事件详情里留下原因。
 
     Returns:

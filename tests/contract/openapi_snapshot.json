@@ -1771,6 +1771,144 @@
         "title": "Body_upload_batch_api_v1_platform_batches_post",
         "type": "object"
       },
+      "BurnReportRequest": {
+        "description": "烧录上报。\n\n``burnedCount`` 必须 ``> 0``：上报 0 台既不改工单进度，也不携带任何\n信息，只会在上报历史里留下一串噪声记录。",
+        "properties": {
+          "burnedCount": {
+            "description": "本次上报的烧录数量（台）",
+            "exclusiveMinimum": 0.0,
+            "title": "Burnedcount",
+            "type": "integer"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "snFrom": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "本次烧录的起始 SN",
+            "title": "Snfrom"
+          },
+          "snTo": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "本次烧录的结束 SN",
+            "title": "Snto"
+          }
+        },
+        "required": [
+          "burnedCount"
+        ],
+        "title": "BurnReportRequest",
+        "type": "object"
+      },
+      "BurnReportResponse": {
+        "description": "烧录上报记录（工厂分批报「这一批烧了多少台」）。",
+        "properties": {
+          "burnedCount": {
+            "title": "Burnedcount",
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "operator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "工厂操作员账号",
+            "title": "Operator"
+          },
+          "reportedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reportedat"
+          },
+          "snFrom": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "本次烧录的起始 SN",
+            "title": "Snfrom"
+          },
+          "snTo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "本次烧录的结束 SN",
+            "title": "Snto"
+          }
+        },
+        "required": [
+          "id",
+          "burnedCount",
+          "createdAt"
+        ],
+        "title": "BurnReportResponse",
+        "type": "object"
+      },
       "ChangePasswordRequest": {
         "description": "修改密码请求。",
         "properties": {
@@ -3419,7 +3557,7 @@
             "type": "string"
           },
           "online": {
-            "description": "按 180 秒窗口派生的在线判据，恒为 true",
+            "description": "按 180 秒窗口派生的在线判据。`simulate-heartbeat` 传 `online=false` 时会为 false（此时 `onlineStatus` 落库为 OFFLINE）",
             "title": "Online",
             "type": "boolean"
           },
@@ -3854,6 +3992,596 @@
         "title": "EnableStatus",
         "type": "string"
       },
+      "FactoryDispatchRequest": {
+        "description": "派单（平台端 → 工厂）。",
+        "properties": {
+          "dueAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "约定交付日（可选）",
+            "title": "Dueat"
+          },
+          "factoryId": {
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Factoryid",
+            "type": "string"
+          },
+          "productionNote": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "生产说明，写入工单备注",
+            "title": "Productionnote"
+          }
+        },
+        "required": [
+          "factoryId"
+        ],
+        "title": "FactoryDispatchRequest",
+        "type": "object"
+      },
+      "FactoryOrderDetailResponse": {
+        "description": "工单详情：生产备注 + 订单侧状态 + 烧录 / 抽检明细。\n\n``orderQuantity`` / ``orderStatus`` 是**订单**那侧的字段（工单数量默认\n等于订单数量，但两张单的状态各自独立）——详情页要能回答「这单在订单侧\n走到哪一步了」，否则工厂发现工单已烧完却迟迟没有下文时无从判断卡在哪。",
+        "properties": {
+          "assignedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "派单时间",
+            "title": "Assignedat"
+          },
+          "burnReports": {
+            "items": {
+              "$ref": "#/components/schemas/BurnReportResponse"
+            },
+            "title": "Burnreports",
+            "type": "array"
+          },
+          "burnedCount": {
+            "default": 0,
+            "title": "Burnedcount",
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "customerNameMasked": {
+            "default": "",
+            "description": "**脱敏后**的客户名（如「中**动」）；真名永不下发",
+            "title": "Customernamemasked",
+            "type": "string"
+          },
+          "dueAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "约定交付日",
+            "title": "Dueat"
+          },
+          "factoryId": {
+            "title": "Factoryid",
+            "type": "string"
+          },
+          "factoryName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Factoryname"
+          },
+          "factoryOrderNo": {
+            "title": "Factoryorderno",
+            "type": "string"
+          },
+          "firmwareVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firmwareversion"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "inspectionSummary": {
+            "$ref": "#/components/schemas/InspectionSummary"
+          },
+          "inspections": {
+            "items": {
+              "$ref": "#/components/schemas/InspectionResponse"
+            },
+            "title": "Inspections",
+            "type": "array"
+          },
+          "orderNo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "来源订单号，供工厂对账",
+            "title": "Orderno"
+          },
+          "orderQuantity": {
+            "default": 0,
+            "title": "Orderquantity",
+            "type": "integer"
+          },
+          "orderStatus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Orderstatus"
+          },
+          "orderStatusLabel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Orderstatuslabel"
+          },
+          "productModel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "型号，如 ESP32-S3",
+            "title": "Productmodel"
+          },
+          "productionNote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "派单时填写的生产说明",
+            "title": "Productionnote"
+          },
+          "progressPercent": {
+            "default": 0.0,
+            "description": "烧录进度百分比（0–100）",
+            "title": "Progresspercent",
+            "type": "number"
+          },
+          "quantity": {
+            "description": "委托生产数量（台）",
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "remaining": {
+            "default": 0,
+            "description": "还需烧录的数量",
+            "title": "Remaining",
+            "type": "integer"
+          },
+          "shippedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shippedat"
+          },
+          "status": {
+            "description": "PENDING / PRODUCING / COMPLETED / SHIPPED",
+            "title": "Status",
+            "type": "string"
+          },
+          "statusLabel": {
+            "default": "",
+            "description": "中文展示名，仅供展示",
+            "title": "Statuslabel",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "factoryOrderNo",
+          "factoryId",
+          "quantity",
+          "status",
+          "createdAt"
+        ],
+        "title": "FactoryOrderDetailResponse",
+        "type": "object"
+      },
+      "FactoryOrderResponse": {
+        "description": "工厂工单列表项（**字段白名单**：只含允许下发的字段）。\n\n字段集合必须与 :attr:`app.services.serializers.FactoryOrderSerializer.ALLOWED_FIELDS`\n完全一致——本模型增删字段时，白名单与序列化器要同步改，单测会拦住漏改。",
+        "properties": {
+          "assignedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "派单时间",
+            "title": "Assignedat"
+          },
+          "burnedCount": {
+            "default": 0,
+            "title": "Burnedcount",
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "customerNameMasked": {
+            "default": "",
+            "description": "**脱敏后**的客户名（如「中**动」）；真名永不下发",
+            "title": "Customernamemasked",
+            "type": "string"
+          },
+          "dueAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "约定交付日",
+            "title": "Dueat"
+          },
+          "factoryId": {
+            "title": "Factoryid",
+            "type": "string"
+          },
+          "factoryName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Factoryname"
+          },
+          "factoryOrderNo": {
+            "title": "Factoryorderno",
+            "type": "string"
+          },
+          "firmwareVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firmwareversion"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "orderNo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "来源订单号，供工厂对账",
+            "title": "Orderno"
+          },
+          "productModel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "型号，如 ESP32-S3",
+            "title": "Productmodel"
+          },
+          "progressPercent": {
+            "default": 0.0,
+            "description": "烧录进度百分比（0–100）",
+            "title": "Progresspercent",
+            "type": "number"
+          },
+          "quantity": {
+            "description": "委托生产数量（台）",
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "remaining": {
+            "default": 0,
+            "description": "还需烧录的数量",
+            "title": "Remaining",
+            "type": "integer"
+          },
+          "shippedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shippedat"
+          },
+          "status": {
+            "description": "PENDING / PRODUCING / COMPLETED / SHIPPED",
+            "title": "Status",
+            "type": "string"
+          },
+          "statusLabel": {
+            "default": "",
+            "description": "中文展示名，仅供展示",
+            "title": "Statuslabel",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "factoryOrderNo",
+          "factoryId",
+          "quantity",
+          "status",
+          "createdAt"
+        ],
+        "title": "FactoryOrderResponse",
+        "type": "object"
+      },
+      "FactoryOrderStatus": {
+        "description": "工厂订单（生产工单）状态。\n\n状态机::\n\n    PENDING   → PRODUCING          (工厂首次烧录上报)\n    PRODUCING → COMPLETED          (累计烧录数达标，需 ``burned_count == quantity``)\n    COMPLETED → SHIPPED            (工厂出货登记)\n\n工厂端的动作只有两个会改状态：**烧录上报**（推进到 ``PRODUCING`` /\n``COMPLETED``）与**出货登记**（推进到 ``SHIPPED``）。\n抽检不改工单状态——抽检是质量动作，抽检不合格应当由人决定返工或降级，\n让抽检自动把工单打回 ``PENDING`` 会掩盖真实问题。",
+        "enum": [
+          "PENDING",
+          "PRODUCING",
+          "COMPLETED",
+          "SHIPPED"
+        ],
+        "title": "FactoryOrderStatus",
+        "type": "string"
+      },
+      "FactoryResponse": {
+        "description": "工厂（派单下拉用）。\n\n含 ``status``：下拉里带上状态，前端可以把已停用的工厂置灰并说明原因，\n比后端静默隐藏更好——隐藏会让人分不清「没建这家厂」与「这家厂被停用了」。",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "contactName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contactname"
+          },
+          "contactPhone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contactphone"
+          },
+          "dailyCapacity": {
+            "default": 0,
+            "description": "日烧录产能（台）",
+            "title": "Dailycapacity",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "isVerified": {
+            "default": false,
+            "description": "是否已通过资质审核",
+            "title": "Isverified",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "status"
+        ],
+        "title": "FactoryResponse",
+        "type": "object"
+      },
+      "FactoryStatsResponse": {
+        "description": "工厂工作台统计（**严格本厂口径**）。\n\n``burnProgressPercent`` 按「累计烧录 / 累计委托」计算，而不是按工单数：\n一张 5000 台的工单与一张 10 台的工单对产能的意义完全不同，\n用工单数平均会让进度看起来比实际乐观得多。",
+        "properties": {
+          "burnProgressPercent": {
+            "default": 0.0,
+            "title": "Burnprogresspercent",
+            "type": "number"
+          },
+          "burnedQuantity": {
+            "default": 0,
+            "title": "Burnedquantity",
+            "type": "integer"
+          },
+          "completedOrders": {
+            "default": 0,
+            "title": "Completedorders",
+            "type": "integer"
+          },
+          "firmwareCount": {
+            "default": 0,
+            "description": "涉及的不同固件版本数",
+            "title": "Firmwarecount",
+            "type": "integer"
+          },
+          "inspectionFail": {
+            "default": 0,
+            "title": "Inspectionfail",
+            "type": "integer"
+          },
+          "inspectionPass": {
+            "default": 0,
+            "title": "Inspectionpass",
+            "type": "integer"
+          },
+          "inspectionTotal": {
+            "default": 0,
+            "title": "Inspectiontotal",
+            "type": "integer"
+          },
+          "pendingOrders": {
+            "default": 0,
+            "title": "Pendingorders",
+            "type": "integer"
+          },
+          "producingOrders": {
+            "default": 0,
+            "title": "Producingorders",
+            "type": "integer"
+          },
+          "shippedOrders": {
+            "default": 0,
+            "title": "Shippedorders",
+            "type": "integer"
+          },
+          "totalOrders": {
+            "default": 0,
+            "title": "Totalorders",
+            "type": "integer"
+          },
+          "totalQuantity": {
+            "default": 0,
+            "title": "Totalquantity",
+            "type": "integer"
+          }
+        },
+        "title": "FactoryStatsResponse",
+        "type": "object"
+      },
+      "FirmwareVersionResponse": {
+        "description": "固件版本聚合项（来自本厂工单，不是固件包台账）。\n\n``firmwareVersion`` 的取值来自工单上非空的 ``firmware_version`` 分组，\n因此这里出现过的版本必然有工单在烧——不会出现「有版本号但没有任务」的空项。",
+        "properties": {
+          "burnedCount": {
+            "default": 0,
+            "title": "Burnedcount",
+            "type": "integer"
+          },
+          "firmwareVersion": {
+            "title": "Firmwareversion",
+            "type": "string"
+          },
+          "orderCount": {
+            "default": 0,
+            "title": "Ordercount",
+            "type": "integer"
+          },
+          "totalQuantity": {
+            "default": 0,
+            "title": "Totalquantity",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "firmwareVersion"
+        ],
+        "title": "FirmwareVersionResponse",
+        "type": "object"
+      },
       "GenerateResult": {
         "description": "设备生成结果。\n\n``vendorMessage`` 承载「非致命的厂商侧信息」：例如 mock 引擎生成的\n设备会明确标注「模拟结果」，或厂商只返回了部分设备 ID。\n若厂商密钥未配置，则不会走到这里——服务层直接抛\n``VENDOR_UNAVAILABLE``（ADR-07：安全失败，绝不伪造成功）。",
         "properties": {
@@ -3915,6 +4643,223 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "InspectionCreateRequest": {
+        "description": "抽检上报。\n\n★ 空白 SN 必须在**入参层**挡掉：P5 的教训是 ``min_length=1`` 拦不住\n``\"   \"``（它长度为 3），会一路落库并污染「抽检合格率」。",
+        "properties": {
+          "defectCode": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "不良代码",
+            "title": "Defectcode"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "result": {
+            "$ref": "#/components/schemas/InspectionResult"
+          },
+          "sn": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Sn",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sn",
+          "result"
+        ],
+        "title": "InspectionCreateRequest",
+        "type": "object"
+      },
+      "InspectionResponse": {
+        "description": "抽检记录。\n\n同一 SN 允许多条记录（抽检是**观测**不是**状态**）：保留历史才能看出\n「第一次不合格、返工后合格」这样的过程。",
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "defectCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "不合格时的不良代码",
+            "title": "Defectcode"
+          },
+          "deviceId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deviceid"
+          },
+          "factoryOrderId": {
+            "title": "Factoryorderid",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "inspectedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inspectedat"
+          },
+          "inspector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inspector"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "result": {
+            "description": "PASS / FAIL",
+            "title": "Result",
+            "type": "string"
+          },
+          "resultLabel": {
+            "default": "",
+            "description": "中文展示名，仅供展示",
+            "title": "Resultlabel",
+            "type": "string"
+          },
+          "sn": {
+            "title": "Sn",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "factoryOrderId",
+          "sn",
+          "result",
+          "createdAt"
+        ],
+        "title": "InspectionResponse",
+        "type": "object"
+      },
+      "InspectionResult": {
+        "description": "抽检结果。\n\n刻意只有「合格 / 不合格」两个取值：抽检是**判定动作**，\n更多的细分（待复检、降级使用）属于处置流程，不该塞进结果枚举里——\n否则「抽检合格率」会因为口径不一变成不可比的数字。",
+        "enum": [
+          "PASS",
+          "FAIL"
+        ],
+        "title": "InspectionResult",
+        "type": "string"
+      },
+      "InspectionSummary": {
+        "description": "抽检汇总（合格 / 不合格 / 合计）。\n\n与 ``inspections`` 数组分开给出：数组有上限（详情不会一次拉回几千条），\n汇总必须是**全量**口径，否则「合格率」会在抽检变多之后悄悄失真。",
+        "properties": {
+          "failCount": {
+            "default": 0,
+            "title": "Failcount",
+            "type": "integer"
+          },
+          "passCount": {
+            "default": 0,
+            "title": "Passcount",
+            "type": "integer"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "InspectionSummary",
+        "type": "object"
+      },
+      "ListResult_FactoryResponse_": {
+        "properties": {
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/FactoryResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total"
+        ],
+        "title": "ListResult[FactoryResponse]",
+        "type": "object"
+      },
+      "ListResult_FirmwareVersionResponse_": {
+        "properties": {
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/FirmwareVersionResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total"
+        ],
+        "title": "ListResult[FirmwareVersionResponse]",
         "type": "object"
       },
       "ListResult_OptionItem_": {
@@ -5472,6 +6417,88 @@
         "title": "PageResult[DeviceResponse]",
         "type": "object"
       },
+      "PageResult_FactoryOrderResponse_": {
+        "properties": {
+          "page": {
+            "description": "当前页码",
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "description": "每页条数",
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "records": {
+            "description": "当前页记录",
+            "items": {
+              "$ref": "#/components/schemas/FactoryOrderResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "description": "总记录数",
+            "title": "Total",
+            "type": "integer"
+          },
+          "totalPages": {
+            "description": "总页数",
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "title": "PageResult[FactoryOrderResponse]",
+        "type": "object"
+      },
+      "PageResult_InspectionResponse_": {
+        "properties": {
+          "page": {
+            "description": "当前页码",
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "description": "每页条数",
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "records": {
+            "description": "当前页记录",
+            "items": {
+              "$ref": "#/components/schemas/InspectionResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "description": "总记录数",
+            "title": "Total",
+            "type": "integer"
+          },
+          "totalPages": {
+            "description": "总页数",
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "title": "PageResult[InspectionResponse]",
+        "type": "object"
+      },
       "PageResult_OrderResponse_": {
         "properties": {
           "page": {
@@ -5956,6 +6983,100 @@
           }
         },
         "title": "ScenarioListResponse",
+        "type": "object"
+      },
+      "StockInFailure": {
+        "description": "一条入库失败明细。\n\n逐条给出原因而不是一句「部分失败」：与批次导入的错误报告同一口径——\n运维要能直接照着列表去处理，而不是自己回头比对哪几台没进去。",
+        "properties": {
+          "code": {
+            "description": "错误码，便于前端分类展示",
+            "title": "Code",
+            "type": "string"
+          },
+          "deviceId": {
+            "title": "Deviceid",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "sn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sn"
+          }
+        },
+        "required": [
+          "deviceId",
+          "code",
+          "message"
+        ],
+        "title": "StockInFailure",
+        "type": "object"
+      },
+      "StockInRequest": {
+        "description": "设备批量入库请求。\n\n★ 为什么需要这个端点：批次导入与厂商生成出来的设备停在 ``GENERATED``\n（见 ``batch_service.import_batch``），必须有人把它推进 ``IN_STOCK`` 才算\n「平台库存」——``ALLOCATABLE_ASSET_STATUSES`` 不含 ``GENERATED``，\n没入库的设备在分配单里永远选不到。",
+        "properties": {
+          "deviceIds": {
+            "description": "设备 ID 列表（最多 500 台）",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Deviceids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "deviceIds"
+        ],
+        "title": "StockInRequest",
+        "type": "object"
+      },
+      "StockInResult": {
+        "description": "批量入库结果（**逐台独立，部分失败不回滚**）。\n\n``skipped`` 是幂等的产物：重复调用只会让 ``skipped`` 增长，\n不会产生第二次状态迁移——这一点与分配单重跑时的 ``skipped`` 语义一致。",
+        "properties": {
+          "failed": {
+            "default": 0,
+            "description": "失败数量",
+            "title": "Failed",
+            "type": "integer"
+          },
+          "failures": {
+            "items": {
+              "$ref": "#/components/schemas/StockInFailure"
+            },
+            "title": "Failures",
+            "type": "array"
+          },
+          "moved": {
+            "default": 0,
+            "description": "本次实际迁移到 IN_STOCK 的数量",
+            "title": "Moved",
+            "type": "integer"
+          },
+          "requested": {
+            "default": 0,
+            "description": "请求入库的设备数",
+            "title": "Requested",
+            "type": "integer"
+          },
+          "skipped": {
+            "default": 0,
+            "description": "已是 IN_STOCK、无需再动的数量",
+            "title": "Skipped",
+            "type": "integer"
+          }
+        },
+        "title": "StockInResult",
         "type": "object"
       },
       "TemplateCreateRequest": {
@@ -7775,6 +8896,637 @@
         "summary": "设备心跳上报",
         "tags": [
           "设备侧"
+        ]
+      }
+    },
+    "/api/v1/factory/firmwares": {
+      "get": {
+        "description": "本厂工单里出现过的固件版本聚合（版本号 / 工单数 / 委托数量 / 已烧录数量），按版本号倒序，不分页。\n\n数据源是工单而不是固件包台账：固件包管理（上传、灰度、OTA 推送）属于后续的 OTA 阶段，本阶段工厂端只需要回答「我要烧哪几个版本、各多少台」。另建一张表会立刻产生一批「有版本号但没有任何固件文件」的空记录。",
+        "operationId": "list_firmwares_api_v1_factory_firmwares_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResult_FirmwareVersionResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "固件版本列表",
+        "tags": [
+          "工厂端 · 生产"
+        ]
+      }
+    },
+    "/api/v1/factory/inspections": {
+      "get": {
+        "description": "分页查询**本厂**抽检记录。`factoryOrderId` 按工单筛选，`sn` 精确匹配某一台的抽检历史，`result` 按合格 / 不合格筛选。\n\n抽检记录表本身没有工厂字段，作用域由「抽检 ⋈ 工单」收口，因此不会查出别家工厂的记录。",
+        "operationId": "list_inspections_api_v1_factory_inspections_get",
+        "parameters": [
+          {
+            "description": "按工单筛选",
+            "in": "query",
+            "name": "factoryOrderId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按工单筛选",
+              "title": "Factoryorderid"
+            }
+          },
+          {
+            "description": "按 SN 精确筛选",
+            "in": "query",
+            "name": "sn",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按 SN 精确筛选",
+              "title": "Sn"
+            }
+          },
+          {
+            "description": "抽检结果",
+            "in": "query",
+            "name": "result",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/InspectionResult"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "抽检结果",
+              "title": "Result"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_InspectionResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "抽检记录列表",
+        "tags": [
+          "工厂端 · 生产"
+        ]
+      }
+    },
+    "/api/v1/factory/orders": {
+      "get": {
+        "description": "分页查询**本厂**工单。`status` 按工单状态筛选，`keyword` 同时匹配工单号与来源订单号（派单通知里给的是订单号，产线看板上贴的是工单号）。\n\n客户名已脱敏（`customerNameMasked`，如「中**动」）：工厂是跨租户角色，只需要知道「这是同一个客户的第几张单」，不需要知道客户是谁。",
+        "operationId": "list_factory_orders_api_v1_factory_orders_get",
+        "parameters": [
+          {
+            "description": "工单状态",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/FactoryOrderStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "工单状态",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "工单号 / 订单号关键字",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "工单号 / 订单号关键字",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_FactoryOrderResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "生产工单列表",
+        "tags": [
+          "工厂端 · 生产"
+        ]
+      }
+    },
+    "/api/v1/factory/orders/{factory_order_id}": {
+      "get": {
+        "description": "含烧录上报历史、抽检记录与抽检汇总，以及订单侧状态（`orderStatus`）——工厂需要知道「这单在订单侧走到哪一步」，否则工单烧完后迟迟没有下文时无从判断卡在哪。\n\n`inspections` 数组有上限（200 条），`inspectionSummary` 是**全量**聚合口径，因此合格率不受截断影响。",
+        "operationId": "get_factory_order_detail_api_v1_factory_orders__factory_order_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_order_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactoryOrderDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "工单不存在或不属于本厂"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "生产工单详情",
+        "tags": [
+          "工厂端 · 生产"
+        ]
+      }
+    },
+    "/api/v1/factory/orders/{factory_order_id}/burn": {
+      "post": {
+        "description": "上报本次烧录数量（可分批）。累计数量达到委托数量时自动完成：\n\n- 工单 `PRODUCING → COMPLETED`（若此前还是 `PENDING`，先补一步 `PENDING → PRODUCING`——状态机只有这一条路径）\n- 该订单下 `PRODUCING` 设备 `→ PRODUCED`\n- 订单 `PRODUCING → SHIPPED_TO_CLIENT`\n\n**不可超报**：超出剩余数量返回 `BURN_COUNT_EXCEEDED`，`details` 带 `remaining` / `quantity` / `burnedCount` / `currentBurnedCount`。\n\n**已完成 / 已出货的工单不再接受上报**（409）。此时数量校验必然也不通过，但「这单已经做完了」才是真正的原因——先报数量错误会让工厂以为是自己数字填错，反复重试而看不到「已完成」这个事实。",
+        "operationId": "report_burn_api_v1_factory_orders__factory_order_id__burn_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_order_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BurnReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactoryOrderDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "上报数量超出剩余数量"
+          },
+          "404": {
+            "description": "工单不存在或不属于本厂"
+          },
+          "409": {
+            "description": "工单已完成 / 已出货"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "烧录上报",
+        "tags": [
+          "工厂端 · 生产"
+        ]
+      }
+    },
+    "/api/v1/factory/orders/{factory_order_id}/inspect": {
+      "post": {
+        "description": "记录一次抽检（针对**具体 SN**）。\n\n**抽检不改工单状态、也不改设备状态**：抽检不合格的真实含义是「需要人决定返工 / 降级 / 让步接收」，自动把工单打回 `PENDING` 会掩盖真实问题（工厂再点一次烧录上报就「恢复」了）。处置是人的决定，系统负责把证据留全。\n\n同一 SN 允许被抽检多次：抽检是**观测**不是**状态**，留存历史才能看出「第一次不合格、返工后合格」这样的过程。\n\nSN 不存在 → 404；SN 属于别的订单 → 400（`details.field=sn`）。",
+        "operationId": "create_inspection_api_v1_factory_orders__factory_order_id__inspect_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_order_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InspectionCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "SN 不属于本工单"
+          },
+          "404": {
+            "description": "工单不存在或设备不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "抽检上报",
+        "tags": [
+          "工厂端 · 生产"
+        ]
+      }
+    },
+    "/api/v1/factory/orders/{factory_order_id}/qrcodes": {
+      "get": {
+        "description": "返回工单对应订单下全部设备的二维码文本（`payload`），前端据此渲染图形。\n\n- 集贤 4G：`JX|{SN}|{IMEI}|{ICCID}|{deviceId}`\n- 京东 Wi-Fi：`JD|{tenantId}|{productId}|{sn}|{sign}`，`sign` 为 HMAC-SHA256\n\n与平台端「导出订单二维码」是**同一套生成逻辑**：工厂要打印的就是同一批设备的二维码，各写一份必然出现两边不一致。",
+        "operationId": "export_factory_order_qrcodes_api_v1_factory_orders__factory_order_id__qrcodes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_order_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResult_QrCodeItemResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "工单不存在或不属于本厂"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "工单二维码清单",
+        "tags": [
+          "工厂端 · 生产"
+        ]
+      }
+    },
+    "/api/v1/factory/orders/{factory_order_id}/ship": {
+      "post": {
+        "description": "工单 `COMPLETED → SHIPPED`，该订单下 `PRODUCED` 设备 `→ SHIPPED`。\n\n为什么设备必须走到 `SHIPPED`？因为可分配的设备状态（`ALLOCATABLE_ASSET_STATUSES`）含 `SHIPPED`——设备出货后才能被分配到客户名下。若停在 `PRODUCED`，分配单会判它「状态不可用」，业务链就断在最后一步。\n\n**仅烧录完成的工单可出货**，否则 409。",
+        "operationId": "register_shipment_api_v1_factory_orders__factory_order_id__ship_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_order_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactoryOrderDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "工单不存在或不属于本厂"
+          },
+          "409": {
+            "description": "工单未完成，不允许出货"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "出货登记",
+        "tags": [
+          "工厂端 · 生产"
+        ]
+      }
+    },
+    "/api/v1/factory/stats": {
+      "get": {
+        "description": "按**本厂**口径聚合工单与抽检数据（跨厂聚合会把别家的产能与在手订单展示给竞争对手，因此不存在该选项）。\n\n`burnProgressPercent` 按累计数量加权（累计烧录 / 累计委托），而不是按工单数平均——一张 5000 台的工单与一张 10 台的工单对产能的意义完全不同。",
+        "operationId": "factory_stats_api_v1_factory_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactoryStatsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "工厂工作台统计",
+        "tags": [
+          "工厂端 · 生产"
         ]
       }
     },
@@ -11193,6 +12945,46 @@
         ]
       }
     },
+    "/api/v1/platform/devices/stock-in": {
+      "post": {
+        "description": "把一批设备推进 `IN_STOCK`（`GENERATED → IN_STOCK`）：批次导入或厂商生成出来的设备停在 `GENERATED`，必须入库才算平台库存，否则分配单永远选不到它们。\n\n**逐台处理，部分失败不整单回滚**：成功的立刻保留，失败只标自己，按 `failures[]` 逐条给出 `{deviceId, sn, code, message}`——整单回滚意味着「几十台白入库一遍」，重试代价随次数累积。\n\n**幂等**：已是 `IN_STOCK` 的设备记为 `skipped`（重复点击不报错、也不会产生第二次迁移）；其余状态记为 `failed`（`DEVICE_NOT_AVAILABLE`，文案带当前状态）；设备不存在记为 `failed`（`RESOURCE_NOT_FOUND`）。\n\n逐台的迁移留痕在设备事件时间线上（`IN_STOCK` 事件），审计只记一条汇总。",
+        "operationId": "stock_in_devices_api_v1_platform_devices_stock_in_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockInRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockInResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "deviceIds 为空或超过 500 台"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "批量入库设备",
+        "tags": [
+          "平台端 · 工厂生产"
+        ]
+      }
+    },
     "/api/v1/platform/devices/{device_id}": {
       "get": {
         "description": "含四维状态派生标签 `label`、归属名称、**凭证掩码**（只有 `secretHint`，永不含明文密钥）与最近事件（时间线）。",
@@ -11416,7 +13208,7 @@
     },
     "/api/v1/platform/devices/{device_id}/freeze": {
       "post": {
-        "description": "冻结设备（原因必填）。仅 `IN_STOCK` 可冻结，冻结时把原状态记入 `previousAssetStatus`，解冻时恢复。",
+        "description": "冻结设备（原因必填）。可冻结 `IN_STOCK` / `ALLOCATED` / `BOUND` （见 `FREEZABLE_ASSET_STATUSES`），冻结时把原状态记入 `previousAssetStatus`，解冻时原路恢复。\n\nP6 起放宽到「已分配 / 已绑定」：**已出货给商户的设备也能被停服**（欠费停机、内容违规停用）。这三类状态都与 `ASSET_TRANSITIONS[FROZEN]` 的出边严格对称，因此解冻必然能恢复原状。",
         "operationId": "freeze_device_api_v1_platform_devices__device_id__freeze_post",
         "parameters": [
           {
@@ -11659,6 +13451,238 @@
         "summary": "解冻设备",
         "tags": [
           "平台端 · 订单与设备"
+        ]
+      }
+    },
+    "/api/v1/platform/factories": {
+      "get": {
+        "description": "派单下拉的取值来源（不分页）。**含已停用工厂**并带上 `status`：前端可将其置灰并说明原因，比后端静默隐藏更好——隐藏会让人分不清「没建这家厂」与「这家厂被停用了」。后端派单时还会再校验一次状态。",
+        "operationId": "list_factories_api_v1_platform_factories_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResult_FactoryResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "工厂列表",
+        "tags": [
+          "平台端 · 工厂生产"
+        ]
+      }
+    },
+    "/api/v1/platform/factory-orders": {
+      "get": {
+        "description": "分页查询全部工厂的工单（平台全局长）。`factoryId` 按工厂筛选，`status` 按工单状态筛选，`keyword` 同时匹配工单号与订单号。\n\n客户名为**脱敏**值（`customerNameMasked`）：本模块与工厂端共用同一套响应模型，工单接口因此不提供客户真名——需要真名走订单接口。",
+        "operationId": "list_factory_orders_api_v1_platform_factory_orders_get",
+        "parameters": [
+          {
+            "description": "按工厂筛选",
+            "in": "query",
+            "name": "factoryId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按工厂筛选",
+              "title": "Factoryid"
+            }
+          },
+          {
+            "description": "工单状态",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/FactoryOrderStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "工单状态",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "工单号 / 订单号关键字",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "工单号 / 订单号关键字",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_FactoryOrderResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "生产工单列表",
+        "tags": [
+          "平台端 · 工厂生产"
+        ]
+      }
+    },
+    "/api/v1/platform/factory-orders/{factory_order_id}": {
+      "get": {
+        "description": "含烧录上报历史、抽检记录与抽检汇总、订单侧状态。平台端与工厂端共用同一响应模型，因此客户名同样是脱敏值。",
+        "operationId": "get_factory_order_detail_api_v1_platform_factory_orders__factory_order_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_order_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactoryOrderDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "工单不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "生产工单详情",
+        "tags": [
+          "平台端 · 工厂生产"
         ]
       }
     },
@@ -11940,6 +13964,70 @@
         "summary": "审核订单",
         "tags": [
           "平台端 · 订单与设备"
+        ]
+      }
+    },
+    "/api/v1/platform/orders/{order_id}/dispatch": {
+      "post": {
+        "description": "把已入库的订单派给工厂生产，创建工单并推着两条状态链一起走：\n\n- 订单 `IN_STOCK → PRODUCING`\n- 该订单下 `IN_STOCK` 设备全部 `→ PRODUCING`（冻结中的设备天然被排除）\n- 工单 `PENDING`（待工厂开始烧录）\n\n工单上的型号取模板 `model → chip → name`，固件版本取**客户产品快照**（模板可能已被改到下一代，拿模板值会让已下单的工单烧错固件）。\n\n**校验顺序**（顺序即出错时的提示优先级）：订单存在 → 订单为 `IN_STOCK` → 订单下至少 1 台 `IN_STOCK` 设备 → 工厂存在且启用 → 同一订单无既有工单。重复派单返回 `FACTORY_ORDER_EXISTS`，`details` 带 `existingFactoryOrderNo`，前端可直接跳转到既有工单。",
+        "operationId": "dispatch_order_api_v1_platform_orders__order_id__dispatch_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FactoryDispatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactoryOrderDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "订单或工厂不存在"
+          },
+          "409": {
+            "description": "订单状态不允许派单 / 工厂已停用 / 重复派单"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "派单给工厂",
+        "tags": [
+          "平台端 · 工厂生产"
         ]
       }
     },

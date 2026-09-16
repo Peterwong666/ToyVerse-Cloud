@@ -242,7 +242,12 @@ class DeviceHeartbeatResponse(ApiModel):
 
     device_id: str
     sn: str
-    online: bool = Field(description="按 180 秒窗口派生的在线判据，恒为 true")
+    online: bool = Field(
+        description=(
+            "按 180 秒窗口派生的在线判据。`simulate-heartbeat` 传 `online=false` "
+            "时会为 false（此时 `onlineStatus` 落库为 OFFLINE）"
+        )
+    )
     online_status: str
     last_heartbeat_at: datetime
     online_window_seconds: int = Field(description="在线判定窗口（ONLINE_WINDOW_SECONDS）")
@@ -283,7 +288,64 @@ class DeviceCredentialIssueResult(ApiModel):
     secret: str = Field(description="明文密钥，仅此一次返回；库内只存 SHA-256 摘要")
 
 
+# ---------------------------------------------------------------------------
+# 批量入库（P6 追加）
+# ---------------------------------------------------------------------------
+
+
+#: 单次批量入库允许的设备数上限。
+#:
+#: 与分配单的 500 台上限同一考虑：一次请求要在一个事务里逐台迁移并写设备事件，
+#: 不设上限时「全库入库」会把请求拖到超时，且失败后无法安全重试（事务过大）。
+#: 500 台足以覆盖真实的分批入库节奏。
+MAX_STOCK_IN_DEVICES = 500
+
+
+class StockInRequest(ApiModel):
+    """设备批量入库请求。
+
+    ★ 为什么需要这个端点：批次导入与厂商生成出来的设备停在 ``GENERATED``
+    （见 ``batch_service.import_batch``），必须有人把它推进 ``IN_STOCK`` 才算
+    「平台库存」——``ALLOCATABLE_ASSET_STATUSES`` 不含 ``GENERATED``，
+    没入库的设备在分配单里永远选不到。
+    """
+
+    device_ids: list[str] = Field(
+        min_length=1,
+        max_length=MAX_STOCK_IN_DEVICES,
+        description=f"设备 ID 列表（最多 {MAX_STOCK_IN_DEVICES} 台）",
+    )
+
+
+class StockInFailure(ApiModel):
+    """一条入库失败明细。
+
+    逐条给出原因而不是一句「部分失败」：与批次导入的错误报告同一口径——
+    运维要能直接照着列表去处理，而不是自己回头比对哪几台没进去。
+    """
+
+    device_id: str
+    sn: str | None = None
+    code: str = Field(description="错误码，便于前端分类展示")
+    message: str
+
+
+class StockInResult(ApiModel):
+    """批量入库结果（**逐台独立，部分失败不回滚**）。
+
+    ``skipped`` 是幂等的产物：重复调用只会让 ``skipped`` 增长，
+    不会产生第二次状态迁移——这一点与分配单重跑时的 ``skipped`` 语义一致。
+    """
+
+    requested: int = Field(default=0, description="请求入库的设备数")
+    moved: int = Field(default=0, description="本次实际迁移到 IN_STOCK 的数量")
+    skipped: int = Field(default=0, description="已是 IN_STOCK、无需再动的数量")
+    failed: int = Field(default=0, description="失败数量")
+    failures: list[StockInFailure] = Field(default_factory=list)
+
+
 __all__ = [
+    "MAX_STOCK_IN_DEVICES",
     "DeviceBrief",
     "DeviceCredentialBrief",
     "DeviceCredentialIssueRequest",
@@ -299,4 +361,7 @@ __all__ = [
     "DeviceStatsResponse",
     "DeviceThawRequest",
     "QrCodeItemResponse",
+    "StockInFailure",
+    "StockInRequest",
+    "StockInResult",
 ]

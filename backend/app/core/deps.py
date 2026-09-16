@@ -52,6 +52,8 @@ class AuthContext:
     role_type: RoleType
     tenant_id: str | None = None
     tenant_code: str | None = None
+    #: 工厂账号所属工厂（P6 起）。非工厂账号恒为 ``None``。
+    factory_id: str | None = None
     permissions: list[str] = field(default_factory=list)
     nickname: str | None = None
 
@@ -95,6 +97,18 @@ class AuthContext:
         if self.tenant_id is None:
             raise permission_denied("当前账号不属于任何租户，无法访问租户级资源")
         return self.tenant_id
+
+    def require_factory_id(self) -> str:
+        """返回强制存在的工厂 ID（工厂作用域的唯一来源）。
+
+        工厂账号若没有绑定工厂，就**什么都看不到**——而不是退化成
+        「看到全部工单」。后者在多工厂场景下等于 A 厂能读到 B 厂的产量与
+        客户脱敏名，是数据越权。宁可在播种阶段就暴露「账号没绑工厂」，
+        也不能让它在生产上默默放宽。
+        """
+        if self.factory_id is None:
+            raise permission_denied("当前工厂账号未绑定工厂，无法访问生产工单")
+        return self.factory_id
 
     def ensure_tenant_matches(self, resource_tenant_id: str | None) -> None:
         """校验资源归属当前租户。
@@ -148,6 +162,7 @@ async def get_auth_context(
         role_type=role_type,
         tenant_id=payload.tenant_id,
         tenant_code=payload.tenant_code,
+        factory_id=payload.factory_id,
         permissions=payload.permissions,
     )
 

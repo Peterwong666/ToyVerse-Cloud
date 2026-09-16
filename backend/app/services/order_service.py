@@ -13,9 +13,14 @@
 * :func:`generate_devices` —— 生成设备（``APPROVED → GENERATING → GENERATED``）
   并随即 :func:`mark_in_stock` 入库（``GENERATED → IN_STOCK``）
 
-所有迁移都经 :func:`_transition_order` 校验，非法迁移抛
+所有迁移都经 :func:`transition_order` 校验，非法迁移抛
 ``INVALID_STATE_TRANSITION`` 且 ``details`` 带 ``current`` / ``target``——
 前端据此能直接显示「当前状态不允许该操作」，而不是一句笼统的失败。
+
+★ ``transition_order`` 是**公开**函数（P6 起）：工厂派单 / 烧录完成 / 出货
+都要驱动订单状态（``IN_STOCK → PRODUCING → SHIPPED_TO_CLIENT``），
+它们必须在**同一处**校验 :data:`app.models.enums.ORDER_TRANSITIONS`——
+在工厂服务里复制一份迁移规则，等于给同一个状态机留了第二个权威。
 
 生成设备为什么按联网方式分两条路
 ================================
@@ -364,7 +369,7 @@ async def qrcodes_for_order(
 # ---------------------------------------------------------------------------
 
 
-def _transition_order(order: Order, target: OrderStatus) -> None:
+def transition_order(order: Order, target: OrderStatus) -> None:
     """订单状态迁移（唯一入口）。
 
     Raises:
@@ -485,7 +490,7 @@ async def audit_order(
     if target is OrderStatus.REJECTED and not (reject_reason or "").strip():
         raise validation_error("驳回订单必须填写驳回原因", details={"field": "rejectReason"})
 
-    _transition_order(order, target)
+    transition_order(order, target)
     order.audited_by = auth.account
     order.audited_at = utcnow()
     order.audit_remark = remark
@@ -633,7 +638,7 @@ async def mark_in_stock(
             target=str(OrderStatus.IN_STOCK),
         )
 
-    _transition_order(order, OrderStatus.IN_STOCK)
+    transition_order(order, OrderStatus.IN_STOCK)
 
     targets = devices
     if targets is None:
@@ -693,7 +698,7 @@ async def generate_devices(
         raise not_found("订单关联的客户产品不存在")
 
     if OrderStatus(order.status) is OrderStatus.APPROVED:
-        _transition_order(order, OrderStatus.GENERATING)
+        transition_order(order, OrderStatus.GENERATING)
         await session.flush()
 
     fmt = qrcode_service.format_of_network(order.network_type)
@@ -710,7 +715,7 @@ async def generate_devices(
             # ADR-07：安全失败。把订单退回 APPROVED（GENERATING → APPROVED 是合法边），
             # 留下失败审计与生成摘要，再抛出——先提交再抛，保证失败证据落库。
             if OrderStatus(order.status) is OrderStatus.GENERATING:
-                _transition_order(order, OrderStatus.APPROVED)
+                transition_order(order, OrderStatus.APPROVED)
             order.generation_detail = {
                 "ok": False,
                 "reason": str(exc.code),
@@ -766,7 +771,7 @@ async def generate_devices(
         "simulated": simulated,
         "deviceIds": [device.id for device in created[:50]],
     }
-    _transition_order(order, OrderStatus.GENERATED)
+    transition_order(order, OrderStatus.GENERATED)
     await session.flush()
 
     # 生成即入库：订单与设备同步迁到 IN_STOCK
@@ -829,4 +834,5 @@ __all__ = [
     "list_orders",
     "mark_in_stock",
     "qrcodes_for_order",
+    "transition_order",
 ]

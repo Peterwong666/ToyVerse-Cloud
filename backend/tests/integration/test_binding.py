@@ -54,7 +54,7 @@ from app.models.enums import (
     OnlineStatus,
     RoleType,
 )
-from app.services import catalog_service, qrcode_service
+from app.services import catalog_service, device_service, qrcode_service
 from tests.conftest import API_PREFIX
 
 pytestmark = pytest.mark.integration
@@ -506,13 +506,18 @@ class TestPrecheck:
     async def test_frozen_device_precheck_is_rejected(
         self, client: AsyncClient, auth: Any, db: AsyncSession, make_tenant: Any, make_user: Any
     ) -> None:
-        """★ 冻结拦截：``IN_STOCK`` 被冻结后尚未解冻的设备 → 409 ``DEVICE_FROZEN``。
+        """★ 冻结拦截：状态为 ``FROZEN`` 的设备 → 409 ``DEVICE_FROZEN``。
 
-        设计背景（``FREEZABLE_ASSET_STATUSES = {IN_STOCK}``）：绑定只接受
-        ``ALLOCATED``，而 ``IN_STOCK`` 与 ``ALLOCATED`` 之间不存在迁移边，
-        因此「已分配 + 已冻结」在现有规则下**不可达**。要观测冻结拦截这条分支，
-        只能用「在 ``IN_STOCK`` 时被冻结、且已经被分配过」的设备——
-        这里直接落库构造（冻结先于分配发生的历史脏数据形态）。
+        P5 时这条分支只能靠**落库构造脏数据**才观测得到：
+        ``FREEZABLE_ASSET_STATUSES`` 当时只含 ``IN_STOCK``，而绑定只接受
+        ``ALLOCATED``，两者之间没有迁移边，「已分配 + 已冻结」不可达，
+        于是冻结校验是「语义正确但正常流程不可达」的防御性代码。
+
+        P6 起冻结范围放宽到 ``{IN_STOCK, ALLOCATED, BOUND}``，这条分支
+        在生产流程里**真的可达**了（见
+        ``test_allocated_device_can_be_frozen_then_precheck_rejected``）。
+        本用例保留不复原的脏数据形态，覆盖「冻结前状态为空」的边界。
+
         冻结检查在「状态是否可绑」之前，故错误码必须是 ``DEVICE_FROZEN``
         而不是 ``DEVICE_NOT_AVAILABLE``。
         """
@@ -572,6 +577,48 @@ class TestPrecheck:
         body = await _precheck_ok(client, merchant, payload)
         assert body["assetStatus"] == str(AssetStatus.ALLOCATED)
         assert body["confirmToken"]
+
+    async def test_allocated_device_can_be_frozen_then_precheck_rejected(
+        self, client: AsyncClient, auth: Any, db: AsyncSession, make_tenant: Any, make_user: Any
+    ) -> None:
+        """★ P5 遗留①的正面验证：**已分配给商户的设备现在真的能被冻结**。
+
+        这条用例在 P5 是**写不出来**的：``FREEZABLE_ASSET_STATUSES`` 当时
+        只含 ``IN_STOCK``，与「绑定只接受 ``ALLOCATED``」交集为空，
+        「已分配 + 已冻结」在数据上不可达，冻结校验只能在脏数据上观测。
+
+        P6 放宽冻结范围后，整条链路可以用**生产接口**走通：
+        分配（``ALLOCATED``）→ 平台冻结（欠费停机）→ 终端扫码被拦。
+        冻结的是已交付到商户手里的设备，这正是「停服」这个运营动作的落点。
+        """
+        tenant = await make_tenant(code="BIND-FRZALLOC", name="停服租户")
+        merchant = await _merchant_headers(auth, make_user, tenant.id, "13200000014")
+        seeded = await _allocated_device(db, tenant.id, suffix="BINDFRZALLOC", sn="SN-FRZALLOC-01")
+        device = seeded["device"]
+        payload = _jd_payload(tenant.id, seeded["product_id"], device.sn)
+
+        # 冻结前：已分配设备可以正常预检（证明拦截确实来自「冻结」）
+        assert (await _precheck_ok(client, merchant, payload))["confirmToken"]
+
+        # 走生产实现冻结（平台超管上下文），而不是直接改库
+        await device_service.freeze_device(
+            db, _platform_ctx(), device, reason="欠费停机（P6 验收）"
+        )
+        assert device.asset_status == str(AssetStatus.FROZEN)
+        assert device.previous_asset_status == str(AssetStatus.ALLOCATED), (
+            "冻结前状态必须被记录，否则解冻无法原路恢复为 ALLOCATED"
+        )
+
+        _assert_error(await _precheck(client, merchant, payload), 409, "DEVICE_FROZEN")
+
+        # 解冻必须回到 ALLOCATED（而不是回落 IN_STOCK）——设备早已分配给商户，
+        # 回落到库存态会让它在商户端消失，等于把客户的资产弄丢了。
+        await device_service.thaw_device(db, _platform_ctx(), device, reason="缴费恢复")
+        assert device.asset_status == str(AssetStatus.ALLOCATED)
+
+        assert (await _precheck_ok(client, merchant, payload))["assetStatus"] == str(
+            AssetStatus.ALLOCATED
+        )
 
     async def test_already_bound_device_precheck_is_rejected(
         self, client: AsyncClient, auth: Any, db: AsyncSession, make_tenant: Any, make_user: Any

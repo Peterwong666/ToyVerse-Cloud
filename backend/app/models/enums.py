@@ -237,26 +237,60 @@ ASSET_TRANSITIONS: dict[AssetStatus, frozenset[AssetStatus]] = {
     AssetStatus.PRODUCING: frozenset({AssetStatus.PRODUCED}),
     AssetStatus.PRODUCED: frozenset({AssetStatus.SHIPPED}),
     AssetStatus.SHIPPED: frozenset({AssetStatus.ALLOCATED}),
-    AssetStatus.ALLOCATED: frozenset({AssetStatus.BOUND, AssetStatus.RETIRED}),
-    AssetStatus.BOUND: frozenset({AssetStatus.ALLOCATED, AssetStatus.RETIRED}),
-    AssetStatus.FROZEN: frozenset({AssetStatus.IN_STOCK}),
+    # 已分配 / 已绑定都要有一条进 FROZEN 的边，否则 FREEZABLE_ASSET_STATUSES
+    # 里写着它们「可冻结」却无路可走——P6 实现时正是这么漏过一次：
+    # 只补了 FROZEN 的出边（解冻能回去），忘了补入边（冻不了），
+    # 由 tests/unit/test_device_state_machine.py 的对称性断言当场抓出。
+    AssetStatus.ALLOCATED: frozenset(
+        {AssetStatus.BOUND, AssetStatus.RETIRED, AssetStatus.FROZEN}
+    ),
+    AssetStatus.BOUND: frozenset(
+        {AssetStatus.ALLOCATED, AssetStatus.RETIRED, AssetStatus.FROZEN}
+    ),
+    # ``FROZEN`` 的出边与 FREEZABLE_ASSET_STATUSES **必须严格对称**：
+    # 冻结时把原状态记入 previous_asset_status，解冻时原路恢复，
+    # 因此「能冻结哪些状态」与「能从 FROZEN 回到哪些状态」是同一件事。
+    AssetStatus.FROZEN: frozenset(
+        {AssetStatus.IN_STOCK, AssetStatus.ALLOCATED, AssetStatus.BOUND}
+    ),
     AssetStatus.RETIRED: frozenset(),
 }
 
 #: 允许被冻结的资产状态
 #:
-#: **只允许冻结 ``IN_STOCK``**，理由是把「冻结 ⇄ 解冻」严格限制在
-#: ``IN_STOCK`` 与 ``FROZEN`` 两个状态之间，与 ``ASSET_TRANSITIONS``
-#: 里 ``FROZEN → {IN_STOCK}`` 保持**对称**（否则解冻时无法原路恢复，
-#: 只能回落到别的状态，语义会变得含糊）。
+#: P4 曾收紧为「只允许 ``IN_STOCK``」，理由是保持与
+#: ``ASSET_TRANSITIONS[FROZEN]`` 的对称。但该收紧留下了能力缺口：
+#: 绑定只接受 ``ALLOCATED``，与「只能冻结 ``IN_STOCK``」交集为空，
+#: 于是**已出货给商户的设备无法被冻结**——欠费停机、内容违规停服
+#: 这类真实运营动作全部缺失，绑定流程里的冻结校验也退化成
+#: 「语义正确但正常流程不可达」的防御性代码。
 #:
-#: 业务上也不需要冻结未入库的设备：``ALLOCATABLE_ASSET_STATUSES`` 只含
-#: ``IN_STOCK``，即「冻结」能提供的保护（防止被分配/使用）对
-#: ``GENERATED`` 设备毫无增量价值——不入库本身就已经阻断了后续流转。
-FREEZABLE_ASSET_STATUSES: frozenset[AssetStatus] = frozenset({AssetStatus.IN_STOCK})
+#: P6 起放宽为「库存 / 已分配 / 已绑定」三类：它们都是**已存在于现场、
+#: 需要被按下暂停键**的状态，也正是冻结真正有意义的场景。
+#: ``previous_asset_status`` 保证解冻能原路恢复，对称性不丢。
+#:
+#: 不含 ``GENERATED``：``ALLOCATABLE_ASSET_STATUSES`` 本就与它无关，
+#: 「冻结」能提供的保护是零增量（不入库本身就阻断了后续流转）。
+FREEZABLE_ASSET_STATUSES: frozenset[AssetStatus] = frozenset(
+    {AssetStatus.IN_STOCK, AssetStatus.ALLOCATED, AssetStatus.BOUND}
+)
 
-#: 可被分配（下单/分配单）的资产状态
-ALLOCATABLE_ASSET_STATUSES: frozenset[AssetStatus] = frozenset({AssetStatus.IN_STOCK})
+#: 可被分配（分配单）的资产状态
+#:
+#: 有两条合法的进入分配链路的路径，对应两种设备来源：
+#:
+#: * ``IN_STOCK`` —— **平台自有库存**（``tenant_id`` 为空）：批次导入并入库的
+#:   设备，或尚未派往工厂的订单设备。P5 阶段唯一的分配来源。
+#: * ``SHIPPED`` —— 已经过工厂烧录、抽检并出货的设备。
+#:   ``ASSET_TRANSITIONS`` 里 ``SHIPPED → ALLOCATED`` 这条边从 P4 起就存在，
+#:   但当时没有工厂环节，P5 把入口限死在 ``IN_STOCK``，两者互相矛盾
+#:   （迁移表允许、服务层拒绝）。P6 补齐 ``SHIPPED``，把这条边接通。
+#:
+#: 不含 ``PRODUCED``：设备必须先「出货登记」，否则等于允许把还在工厂车间里
+#: 的设备划给客户。
+ALLOCATABLE_ASSET_STATUSES: frozenset[AssetStatus] = frozenset(
+    {AssetStatus.IN_STOCK, AssetStatus.SHIPPED}
+)
 
 
 #: 设备事件类型 → 事件所属维度（``device_events.event_type`` → ``dimension``）
@@ -267,6 +301,9 @@ DEVICE_EVENT_DIMENSIONS: dict[str, str] = {
     "GENERATED": "asset",
     "IMPORTED": "asset",
     "IN_STOCK": "asset",
+    "PRODUCING": "asset",
+    "PRODUCED": "asset",
+    "SHIPPED": "asset",
     "ALLOCATED": "asset",
     "FROZEN": "asset",
     "THAWED": "asset",
@@ -459,7 +496,19 @@ class CredentialType(StrEnum):
 
 
 class FactoryOrderStatus(StrEnum):
-    """工厂订单状态。"""
+    """工厂订单（生产工单）状态。
+
+    状态机::
+
+        PENDING   → PRODUCING          (工厂首次烧录上报)
+        PRODUCING → COMPLETED          (累计烧录数达标，需 ``burned_count == quantity``)
+        COMPLETED → SHIPPED            (工厂出货登记)
+
+    工厂端的动作只有两个会改状态：**烧录上报**（推进到 ``PRODUCING`` /
+    ``COMPLETED``）与**出货登记**（推进到 ``SHIPPED``）。
+    抽检不改工单状态——抽检是质量动作，抽检不合格应当由人决定返工或降级，
+    让抽检自动把工单打回 ``PENDING`` 会掩盖真实问题。
+    """
 
     PENDING = "PENDING"  # 待生产
     PRODUCING = "PRODUCING"  # 生产中
@@ -467,11 +516,45 @@ class FactoryOrderStatus(StrEnum):
     SHIPPED = "SHIPPED"  # 已出货
 
 
+#: 工厂工单状态 → 允许迁移到的下一状态
+FACTORY_ORDER_TRANSITIONS: dict[FactoryOrderStatus, frozenset[FactoryOrderStatus]] = {
+    FactoryOrderStatus.PENDING: frozenset({FactoryOrderStatus.PRODUCING}),
+    FactoryOrderStatus.PRODUCING: frozenset({FactoryOrderStatus.COMPLETED}),
+    FactoryOrderStatus.COMPLETED: frozenset({FactoryOrderStatus.SHIPPED}),
+    FactoryOrderStatus.SHIPPED: frozenset(),
+}
+
+#: 工厂工单终态（不可再迁移）
+FACTORY_ORDER_TERMINAL_STATUSES: frozenset[FactoryOrderStatus] = frozenset(
+    {FactoryOrderStatus.SHIPPED}
+)
+
+#: 工厂工单状态 → 中文展示名
+FACTORY_ORDER_STATUS_LABELS: dict[FactoryOrderStatus, str] = {
+    FactoryOrderStatus.PENDING: "待生产",
+    FactoryOrderStatus.PRODUCING: "生产中",
+    FactoryOrderStatus.COMPLETED: "烧录完成",
+    FactoryOrderStatus.SHIPPED: "已出货",
+}
+
+
 class InspectionResult(StrEnum):
-    """抽检结果。"""
+    """抽检结果。
+
+    刻意只有「合格 / 不合格」两个取值：抽检是**判定动作**，
+    更多的细分（待复检、降级使用）属于处置流程，不该塞进结果枚举里——
+    否则「抽检合格率」会因为口径不一变成不可比的数字。
+    """
 
     PASS = "PASS"
     FAIL = "FAIL"
+
+
+#: 抽检结果 → 中文展示名
+INSPECTION_RESULT_LABELS: dict[InspectionResult, str] = {
+    InspectionResult.PASS: "合格",
+    InspectionResult.FAIL: "不合格",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -613,8 +696,11 @@ class AuditAction(StrEnum):
     UNBIND_DEVICE = "UNBIND_DEVICE"
     ACTIVATE_DEVICE = "ACTIVATE_DEVICE"
     SIMULATE_HEARTBEAT = "SIMULATE_HEARTBEAT"
+    DISPATCH_FACTORY_ORDER = "DISPATCH_FACTORY_ORDER"
     BURN_REPORT = "BURN_REPORT"
     INSPECT = "INSPECT"
+    SHIP_FACTORY_ORDER = "SHIP_FACTORY_ORDER"
+    STOCK_IN_DEVICE = "STOCK_IN_DEVICE"
     OTA_PUSH = "OTA_PUSH"
     PERMISSION_DENIED = "PERMISSION_DENIED"
     VENDOR_CALL_FAILED = "VENDOR_CALL_FAILED"

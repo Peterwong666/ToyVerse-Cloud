@@ -11,10 +11,12 @@ from app.api.v1 import (
     ai,
     auth,
     device,
+    factory,
     health,
     merchant,
     platform,
     platform_allocations,
+    platform_factory,
     platform_orders,
 )
 
@@ -49,6 +51,16 @@ api_router.include_router(device.router)
 # ---- AI 供应商与调试台（P7：供应商列表 / 健康探测 / 对话 / ASR / TTS / 离线素材） ----
 api_router.include_router(ai.router)
 
+# ---- 工厂端 · 生产（P6：工单 / 烧录上报 / 抽检 / 出货 / 固件 / 工作台） ----
+# 工厂端既不是平台端也不是商户端：它跨租户，数据保护靠「工厂作用域过滤 +
+# 字段白名单脱敏」两层（见 app/db/scope.py 与 app/services/serializers.py），
+# 因此独占一个模块与独立依赖（FactoryAuth，账号须绑定 factory_id）。
+api_router.include_router(factory.router)
+
+# ---- 平台端 · 工厂生产（P6：工厂下拉 / 工单 / 派单 / 设备批量入库） ----
+# 与 platform_orders.py 拆开，是为了避免与其它并行改动抢同一个大文件；
+# 设备入库端点（POST /platform/devices/stock-in）也放在这里，同理。
+api_router.include_router(platform_factory.router)
+
 # 后续阶段在此追加：
-#   factory    工厂端（生产订单 / 烧录 / 抽检 / 固件）——P6，模块已占位
 #   miniapp    终端用户端（扫码激活 / 对话 / 充值 / 设置）

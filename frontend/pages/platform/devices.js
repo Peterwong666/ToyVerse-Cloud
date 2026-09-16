@@ -18,9 +18,10 @@
 import api from '/shared/core/api.js';
 import auth, { PERM } from '/shared/core/auth.js';
 import { esc, formatDate, fromHtml, h, html, raw } from '/shared/ui/dom.js';
-import { statGrid, statusTag, tag } from '/shared/ui/components.js';
+import { alert, statGrid, statusTag, tag } from '/shared/ui/components.js';
+import { table } from '/shared/ui/table.js';
 import { createListPage } from '/shared/app/page.js';
-import { confirmDialog } from '/shared/ui/modal.js';
+import { confirmDialog, modal } from '/shared/ui/modal.js';
 import { countSafe } from '/shared/app/dashboard.js';
 import toast from '/shared/ui/toast.js';
 import {
@@ -81,6 +82,23 @@ function fourDimTags(row) {
 /** 表格列定义（需要租户 / 产品的名称映射，故用工厂函数生成） */
 function buildColumns({ tenantLabels, productLabels }) {
   return [
+    {
+      // P6：批量入库需要先勾选设备，因此第一列是选择框。
+      // 勾选状态由 renderDevices 的 paintSelection() 在每次重绘后恢复，
+      // 这样翻页/排序后已勾选的设备不会「掉了」。
+      key: 'select',
+      title: '',
+      width: '40px',
+      align: 'center',
+      nowrap: true,
+      render: (row) => html`<input
+        type="checkbox"
+        data-action="select-device"
+        data-id="${esc(row.id)}"
+        aria-label="选择该设备"
+        style="width:16px;height:16px;cursor:pointer;accent-color:var(--brand-600)"
+      />`,
+    },
     {
       key: 'sn',
       title: 'SN / IMEI / MAC',
@@ -160,13 +178,21 @@ function buildColumns({ tenantLabels, productLabels }) {
       key: 'actions',
       title: '操作',
       align: 'right',
-      width: '320px',
+      width: '390px',
       nowrap: true,
       render: (row) => {
         const canWrite = auth.hasPerm(PERM.platform.deviceWrite);
         const buttons = [
           `<button type="button" class="btn btn-sm btn-ghost" data-action="open-device" data-id="${esc(row.id)}">详情</button>`,
         ];
+        // P6 入库：只在「已生成」时出现。
+        // 其余状态点入库必然被后端拒绝（已入库 / 已冻结 / 已报废…），
+        // 渲染出来只会制造「点了才知道不行」的挫败感。
+        if (canWrite && row.assetStatus === 'GENERATED') {
+          buttons.push(
+            `<button type="button" class="btn btn-sm btn-primary" data-action="stock-in-device" data-id="${esc(row.id)}">入库</button>`,
+          );
+        }
         // 模拟心跳是演示用动作（后端响应里 simulated=true），
         // 已报废设备不再产生任何状态流转，因此不提供该按钮。
         if (canWrite && row.assetStatus !== 'RETIRED') {
@@ -221,6 +247,85 @@ async function runWithReason(o) {
   }
 }
 
+/* ------------------------------------------------------------
+   P6：入库
+   ------------------------------------------------------------
+   入库把资产状态从 `GENERATED` 推到 `IN_STOCK`，之后设备才可以被分配
+   或派单给工厂生产（P6 此前无任何入口能完成这一步）。
+
+   工具条里的批量按钮为什么带计数：勾选是逐个点出来的，用户需要
+   即时确认「我到底选了几台」，否则很容易多选/漏选后直接提交。
+   ------------------------------------------------------------ */
+
+/** 工具条右侧的批量入库按钮（计数由 paintSelection 更新） */
+const BATCH_STOCK_IN_BUTTON = html`<button
+  type="button"
+  class="btn btn-sm"
+  data-action="batch-stock-in"
+  disabled
+  title="把勾选的设备批量入库"
+>批量入库 <span data-selected-count>0</span></button>`;
+
+/**
+ * 展示入库结果。
+ *
+ * 与 P5 分配执行结果同一口径：**失败必须可解释**——
+ * 只回一句「3 台失败」等于没说，用户不知道是哪三台、为什么。
+ * 因此失败逐条列出 SN + 错误码 + 原因。
+ */
+function showStockInResult(result) {
+  const requested = result?.requested ?? 0;
+  const moved = result?.moved ?? 0;
+  const skipped = result?.skipped ?? 0;
+  const failed = result?.failed ?? 0;
+  const failures = Array.isArray(result?.failures) ? result.failures : [];
+
+  const summary = `入库完成：请求 ${requested} 台，成功 ${moved} 台，跳过 ${skipped} 台，失败 ${failed} 台`;
+  if (failed) toast.warning(summary);
+  else toast.success(summary);
+
+  if (!failures.length) return;
+
+  const body = h('div');
+  body.append(
+    fromHtml(
+      alert({
+        tone: 'danger',
+        title: `${failures.length} 台设备没有入库成功`,
+        text: '请按下表逐台处理（例如设备状态已被他人变更、设备已冻结等），处理后可再次入库。',
+      }),
+    ),
+  );
+  body.append(
+    fromHtml(
+      table({
+        columns: [
+          {
+            key: 'sn',
+            title: 'SN',
+            render: (row) => html`<span class="mono text-sm">${row.sn || '—'}</span>`,
+          },
+          {
+            key: 'code',
+            title: '错误码',
+            width: '170px',
+            render: (row) => html`<span class="mono text-xs">${row.code || '—'}</span>`,
+          },
+          {
+            key: 'message',
+            title: '失败原因',
+            render: (row) => html`<span class="text-danger">${row.message || '—'}</span>`,
+          },
+        ],
+        rows: failures,
+        emptyText: '无失败明细',
+      }),
+    ),
+  );
+
+  modal({ title: `入库结果（请求 ${requested} 台）`, size: 'lg', body });
+}
+
 /**
  * 渲染设备库存页。
  *
@@ -243,12 +348,64 @@ export async function renderDevices(container, ctx) {
     products.map((item) => [String(item.id), { name: item.name, code: item.code }]),
   );
 
+  /**
+   * 已勾选设备的 id 集合（批量入库用）。
+   * 只存 id 而不是整行对象：入库后列表会重载，缓存的行数据会过期，
+   * 而 id 在重载后仍可用于恢复勾选状态。
+   */
+  const selected = new Set();
+
+  /** 把勾选状态画回 DOM：表格每次重绘（翻页 / 排序 / 筛选）后都要调用 */
+  const paintSelection = (host) => {
+    host.querySelectorAll('[data-action="select-device"]').forEach((box) => {
+      box.checked = selected.has(String(box.dataset.id));
+    });
+    const countEl = host.querySelector('[data-selected-count]');
+    if (countEl) countEl.textContent = String(selected.size);
+    const btn = host.querySelector('[data-action="batch-stock-in"]');
+    if (btn) btn.disabled = selected.size === 0;
+  };
+
+  /** 入库（单台与批量共用同一段逻辑，避免两处提示口径不一致） */
+  const runStockIn = async (deviceIds, { batch, reload }) => {
+    if (!deviceIds.length) {
+      toast.warning('请先勾选要入库的设备');
+      return;
+    }
+
+    const { confirmed } = await confirmDialog({
+      title: batch ? `批量入库（${deviceIds.length} 台）` : '设备入库',
+      description: '入库后资产状态从「已生成」变为「已入库待生产」，之后才能被分配或派单生产。',
+      detail: '不满足入库条件的设备会被跳过，失败原因会逐台列出。',
+      tone: 'warning',
+      confirmText: '确认入库',
+    });
+    if (!confirmed) return;
+
+    const handle = toast.loading('正在入库…');
+    try {
+      const result = await api.post(
+        '/platform/devices/stock-in',
+        { deviceIds },
+        { idempotencyKey: api.newIdempotencyKey() },
+      );
+      handle.close();
+      showStockInResult(result);
+      selected.clear();
+      reload();
+    } catch (error) {
+      handle.close();
+      notifyError(error, '入库失败');
+    }
+  };
+
   const page = createListPage({
     container,
     title: '设备库存',
     desc: '平台自有库存与已分配给租户的设备。状态按「资产 / 激活 / 在线 / 绑定」四个维度分别展示（ADR-03）；「在线」列以 180 秒心跳窗口派生的 online 为准。',
     actions: [{ label: '刷新', icon: 'refresh', action: 'reload-list' }],
     columns: buildColumns({ tenantLabels, productLabels }),
+    tableOptions: { toolbarRight: BATCH_STOCK_IN_BUTTON },
     fetcher: (params) =>
       api.get('/platform/devices', {
         params: {
@@ -276,12 +433,34 @@ export async function renderDevices(container, ctx) {
     onReady: (host, instance) => {
       // 只在「加载完成」时刷新统计，避免 loading 渲染触发无谓的 4 个请求
       if (!instance.state.loading) refreshStats(instance.filters);
+      // 表格已重绘，恢复勾选状态与批量按钮的可用性
+      paintSelection(host);
     },
     onAction: async (action, target, { table: tbl, reload }) => {
       const row = target.dataset.id ? tbl.findRowById(target.dataset.id) : null;
 
       if (action === 'reload-list') {
         tbl.load();
+        return;
+      }
+
+      if (action === 'select-device') {
+        // 复选框自身就是 [data-action]，因此这里拿到的 target 是 input
+        const id = String(target.dataset.id);
+        if (target.checked) selected.add(id);
+        else selected.delete(id);
+        paintSelection(tbl.container);
+        return;
+      }
+
+      if (action === 'stock-in-device') {
+        if (!row) return;
+        await runStockIn([String(row.id)], { batch: false, reload });
+        return;
+      }
+
+      if (action === 'batch-stock-in') {
+        await runStockIn([...selected], { batch: true, reload });
         return;
       }
 

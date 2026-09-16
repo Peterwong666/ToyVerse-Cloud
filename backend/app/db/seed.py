@@ -15,13 +15,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.ids import new_id
 from app.core.logging import get_logger
-from app.core.permissions import ROLE_PERMISSIONS
+from app.core.permissions import FACTORY_ROLE_CODES, ROLE_PERMISSIONS
 from app.core.security import hash_password
 from app.db.base import utcnow
 from app.db.session import SessionLocal
@@ -49,6 +49,7 @@ from app.models.enums import (
 )
 from app.models.identity import Role, RolePermission, Tenant, UserAccount
 from app.models.order import Order
+from app.models.org import Factory
 
 logger = get_logger(__name__)
 
@@ -77,6 +78,25 @@ DEMO_TENANTS: tuple[dict[str, Any], ...] = (
         "email": "li@demo-store.example.com",
         "industry": "零售体验店",
         "remark": "演示用零售租户，用于验证租户数据隔离",
+    },
+)
+
+
+# ---------------------------------------------------------------------------
+# 演示工厂
+# ---------------------------------------------------------------------------
+
+DEMO_FACTORIES: tuple[dict[str, Any], ...] = (
+    {
+        "id": "f-demo-01",
+        "code": "FACTORY-DEMO-01",
+        "name": "星辰智造（演示工厂）",
+        "contact_name": "赵厂长",
+        "contact_phone": "13600000000",
+        "address": "广东省深圳市宝安区演示工业园 1 栋",
+        "daily_capacity": 2000,
+        "is_verified": True,
+        "remark": "演示用烧录工厂；工厂端账号绑定本厂，仅可见本厂工单",
     },
 )
 
@@ -173,6 +193,9 @@ async def seed_demo_data() -> None:
     """初始化基础数据与演示数据。幂等。"""
     async with SessionLocal() as session:
         await _seed_roles(session)
+        # 工厂必须先于工厂账号落库：``user_accounts.factory_id`` 是指向
+        # ``factories`` 的外键，FK 在 SQLite 上也已开启（见 db/session.py）。
+        await _seed_factories(session)
         await _seed_admin_users(session)
 
         if settings.SEED_DEMO_DATA:
@@ -189,6 +212,66 @@ async def seed_demo_data() -> None:
 # ---------------------------------------------------------------------------
 # 角色与权限
 # ---------------------------------------------------------------------------
+
+
+async def _seed_factories(session: AsyncSession) -> None:
+    """写入演示工厂，并把未绑定工厂的工厂账号挂到该厂（幂等）。
+
+    为什么这一份**不受** ``SEED_DEMO_DATA`` 开关控制
+    ------------------------------------------------
+    工厂行不是「演示数据」，而是工厂端角色能存在的前提：没有工厂，
+    工厂账号的 ``factory_id`` 只能为 ``NULL``，而工厂作用域过滤
+    （:func:`app.core.deps.AuthContext.require_factory_id`）会直接 403
+    ——工厂端变成「登录得进去、什么都点不开」，且原因完全不可见。
+    与管理员账号同理（它们同样不受该开关控制），属**启动必需的最小数据**。
+
+    为什么要补绑已有账号
+    --------------------
+    ``_seed_admin_users`` 是幂等的：账号已存在就跳过。因此在 P6 之前
+    建好的库上，``u-factory-admin`` 早就存在、``factory_id`` 仍是 ``NULL``。
+    只播种工厂而不回填，老库的工厂端会一直 403，运维从日志里看不出原因。
+    这里用一条 ``UPDATE`` 把「工厂角色 + 未绑定工厂」的账号补齐归属，
+    本身也是幂等的（第二次执行匹配 0 行）。
+    """
+    existing = set((await session.execute(select(Factory.code))).scalars().all())
+
+    created = 0
+    for spec in DEMO_FACTORIES:
+        if str(spec["code"]) in existing:
+            continue
+        session.add(
+            Factory(
+                id=str(spec["id"]),
+                code=str(spec["code"]),
+                name=str(spec["name"]),
+                contact_name=spec["contact_name"],
+                contact_phone=spec["contact_phone"],
+                address=spec["address"],
+                status=EnableStatus.ENABLED,
+                daily_capacity=int(spec["daily_capacity"]),
+                is_verified=bool(spec["is_verified"]),
+                remark=spec["remark"],
+            )
+        )
+        created += 1
+
+    if created:
+        logger.info("已创建 %d 个演示工厂", created)
+
+    # 先 flush，确保下一条 UPDATE 之前工厂行已经存在（FK 校验）
+    await session.flush()
+
+    default_factory_id = str(DEMO_FACTORIES[0]["id"])
+    result = await session.execute(
+        update(UserAccount)
+        .where(
+            UserAccount.role_code.in_(sorted(FACTORY_ROLE_CODES)),
+            UserAccount.factory_id.is_(None),
+        )
+        .values(factory_id=default_factory_id)
+    )
+    if result.rowcount:  # type: ignore[attr-defined]
+        logger.info("已为 %d 个工厂账号补齐工厂归属", result.rowcount)  # type: ignore[attr-defined]
 
 
 async def _seed_roles(session: AsyncSession) -> None:
@@ -271,6 +354,9 @@ async def _seed_admin_users(session: AsyncSession) -> None:
             "nickname": settings.FACTORY_ADMIN_NICKNAME,
             "role_code": "FACTORY_ADMIN",
             "tenant_id": None,  # 工厂跨租户，不属于任何租户
+            # 工厂账号的作用域来自 factory_id（工厂跨租户，tenant_id 管不了它）。
+            # 指向 _seed_factories 写入的演示工厂；两者在同一次事务里落库。
+            "factory_id": str(DEMO_FACTORIES[0]["id"]),
             "id": "u-factory-admin",
         },
     ]
@@ -307,6 +393,7 @@ async def _seed_admin_users(session: AsyncSession) -> None:
                 nickname=str(admin["nickname"]),
                 role_code=str(admin["role_code"]),
                 tenant_id=admin["tenant_id"],
+                factory_id=admin.get("factory_id"),
                 status=UserStatus.ACTIVE,
                 must_change_password=settings.FORCE_PASSWORD_CHANGE_ON_FIRST_LOGIN,
             )

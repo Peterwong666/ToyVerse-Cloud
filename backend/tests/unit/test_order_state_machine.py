@@ -113,18 +113,18 @@ class TestOrderTransitions:
             OrderStatus.COMPLETED,
         ]
         for target in path:
-            order_service._transition_order(order, target)
+            order_service.transition_order(order, target)
             assert order.status == str(target)
 
     def test_reject_is_allowed_from_pending_audit(self) -> None:
         order = make_order(OrderStatus.PENDING_AUDIT)
-        order_service._transition_order(order, OrderStatus.REJECTED)
+        order_service.transition_order(order, OrderStatus.REJECTED)
         assert order.status == str(OrderStatus.REJECTED)
 
     def test_generating_can_roll_back_to_approved(self) -> None:
         """生成失败（厂商未配置）时要把订单退回 APPROVED，这条边必须存在。"""
         order = make_order(OrderStatus.GENERATING)
-        order_service._transition_order(order, OrderStatus.APPROVED)
+        order_service.transition_order(order, OrderStatus.APPROVED)
         assert order.status == str(OrderStatus.APPROVED)
 
     @pytest.mark.parametrize(
@@ -144,7 +144,7 @@ class TestOrderTransitions:
         order = make_order(current)
 
         with pytest.raises(AppException) as excinfo:
-            order_service._transition_order(order, target)
+            order_service.transition_order(order, target)
 
         assert excinfo.value.code == ErrorCode.INVALID_STATE_TRANSITION
         assert excinfo.value.details == {"current": str(current), "target": str(target)}
@@ -158,7 +158,7 @@ class TestOrderTransitions:
             if target is terminal:
                 continue
             with pytest.raises(AppException) as excinfo:
-                order_service._transition_order(make_order(terminal), target)
+                order_service.transition_order(make_order(terminal), target)
             assert excinfo.value.code == ErrorCode.INVALID_STATE_TRANSITION
 
 

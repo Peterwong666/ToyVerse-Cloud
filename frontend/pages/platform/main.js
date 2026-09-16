@@ -9,8 +9,10 @@
 
    P4 起补上订单 / 订单详情 / 设备库存 / 设备批次四条路由。
    P5 起补上设备详情（`/devices/:id`）与分配管理（`/allocations`）。
+   P6 起补上工厂订单（`/factory-orders`）—— 派单动作在订单详情页，
+   本页只读，用于核对工单的烧录与抽检进展。
 
-   未在此登记的路由（工厂订单 / 组织 / 权限 / 审计 / OTA 等）
+   未在此登记的路由（组织 / 权限 / 审计 / OTA 等）
    由 syncMenusWithRoutes 自动补为「建设中」占位，
    因此菜单不会出现点进去空白的情况。
    ============================================================ */
@@ -30,6 +32,7 @@ import { renderDevices } from './devices.js';
 import { renderDeviceDetail } from './device_detail.js';
 import { renderAllocations } from './allocations.js';
 import { renderBatches } from './batches.js';
+import { renderFactoryOrders } from './factory_orders.js';
 
 bootEnd({
   end: 'platform',
@@ -134,6 +137,15 @@ bootEnd({
       title: '分配管理',
       perm: PERM.platform.allocationRead,
       handler: renderAllocations,
+    },
+
+    /* ---- P6：生产（派单给工厂后的工单视图） ---- */
+    {
+      pattern: '/factory-orders',
+      name: 'factoryOrders',
+      title: '工厂订单',
+      perm: PERM.platform.factoryOrderRead,
+      handler: renderFactoryOrders,
     },
   ],
 });

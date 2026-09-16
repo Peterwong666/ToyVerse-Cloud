@@ -133,6 +133,17 @@ class UserAccount(Base, TimestampMixin):
     tenant_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
+    #: 工厂账号所属的工厂（``role_type=FACTORY`` 时使用）。
+    #:
+    #: 工厂跨租户，因此不能靠 ``tenant_id`` 隔离；但「一家工厂只应看到
+    #: 派给自己的工单」仍是硬要求。P6 之前 ``user_accounts`` 没有任何字段
+    #: 指向 ``factories``，工厂账号根本无法确定自己属于哪家工厂——
+    #: 工厂端要么看不到任何数据，要么被迫看全部工单（多工厂时无隔离）。
+    #: 这个外键把「账号 → 工厂」的归属显式化，工厂端的作用域过滤
+    #: （:func:`app.services.factory_service.assert_factory_visible`）据此收口。
+    factory_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("factories.id", ondelete="SET NULL"), index=True
+    )
     organization_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("organizations.id", ondelete="SET NULL")
     )

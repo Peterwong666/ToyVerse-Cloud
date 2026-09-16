@@ -61,6 +61,16 @@ class ErrorCode(StrEnum):
     QR_EXPIRED = "QR_EXPIRED"
     BIND_FAILED = "BIND_FAILED"
 
+    # ---- 工厂生产 ----
+    #: 同一订单重复派单。与「已存在的工单」冲突，不是参数错误——
+    #: 单看 400 会让运维以为是表单填错，而实际原因是「这单已经派出去了」。
+    #: 前端据此可直接跳转到既有工单，而不是让用户反复重试。
+    FACTORY_ORDER_EXISTS = "FACTORY_ORDER_EXISTS"
+    #: 烧录上报数量超过工单剩余数量。单独开一个码而不是复用
+    #: ``VALIDATION_ERROR``：这是工厂端最高频的误操作（多报了一批），
+    #: 需要能带上 remaining / quantity 这类可执行的结构化信息。
+    BURN_COUNT_EXCEEDED = "BURN_COUNT_EXCEEDED"
+
     # ---- 外部依赖 ----
     VENDOR_UNAVAILABLE = "VENDOR_UNAVAILABLE"
 
@@ -96,6 +106,8 @@ _STATUS_MAP: dict[ErrorCode, int] = {
     ErrorCode.QR_INVALID: 404,
     ErrorCode.QR_EXPIRED: 409,
     ErrorCode.BIND_FAILED: 409,
+    ErrorCode.FACTORY_ORDER_EXISTS: 409,
+    ErrorCode.BURN_COUNT_EXCEEDED: 400,
     ErrorCode.VENDOR_UNAVAILABLE: 503,
     ErrorCode.INTERNAL_ERROR: 500,
 }
@@ -128,6 +140,8 @@ _DEFAULT_MESSAGE: dict[ErrorCode, str] = {
     ErrorCode.QR_INVALID: "二维码无效或不存在",
     ErrorCode.QR_EXPIRED: "确认令牌已过期，请重新扫码",
     ErrorCode.BIND_FAILED: "设备绑定失败",
+    ErrorCode.FACTORY_ORDER_EXISTS: "该订单已派发给工厂，请勿重复派单",
+    ErrorCode.BURN_COUNT_EXCEEDED: "烧录上报数量超过工单剩余数量",
     ErrorCode.VENDOR_UNAVAILABLE: "供应商协议尚未配置，该能力已安全禁用",
     ErrorCode.INTERNAL_ERROR: "服务内部错误",
 }
@@ -248,6 +262,14 @@ def template_code_exists(message: str | None = None, *, details: Any = None) -> 
 
 def product_not_authorized(message: str | None = None, *, details: Any = None) -> AppException:
     return AppException(ErrorCode.PRODUCT_NOT_AUTHORIZED, message, details=details)
+
+
+def factory_order_exists(message: str | None = None, *, details: Any = None) -> AppException:
+    return AppException(ErrorCode.FACTORY_ORDER_EXISTS, message, details=details)
+
+
+def burn_count_exceeded(message: str | None = None, *, details: Any = None) -> AppException:
+    return AppException(ErrorCode.BURN_COUNT_EXCEEDED, message, details=details)
 
 
 def device_not_available(message: str | None = None) -> AppException:

@@ -323,8 +323,12 @@ async def list_device_events(
     response_model=DeviceResponse,
     summary="冻结设备",
     description=(
-        "冻结设备（原因必填）。仅 `IN_STOCK` 可冻结，"
-        "冻结时把原状态记入 `previousAssetStatus`，解冻时恢复。"
+        "冻结设备（原因必填）。可冻结 `IN_STOCK` / `ALLOCATED` / `BOUND` "
+        "（见 `FREEZABLE_ASSET_STATUSES`），冻结时把原状态记入 `previousAssetStatus`，"
+        "解冻时原路恢复。\n\n"
+        "P6 起放宽到「已分配 / 已绑定」：**已出货给商户的设备也能被停服**"
+        "（欠费停机、内容违规停用）。这三类状态都与 `ASSET_TRANSITIONS[FROZEN]` "
+        "的出边严格对称，因此解冻必然能恢复原状。"
     ),
     responses={409: {"description": "当前状态不允许冻结"}},
     dependencies=[require_perm(PlatformPerm.DEVICE_WRITE)],

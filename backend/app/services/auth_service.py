@@ -244,6 +244,9 @@ async def _issue_tokens(
         tenant_id=user.tenant_id,
         tenant_code=tenant.code if tenant else None,
         permissions=permissions,
+        # 工厂账号的归属进 claims：工厂端每个请求都要按它过滤工单，
+        # 回查 user_accounts 会把「无状态鉴权」这个前提悄悄丢掉。
+        factory_id=user.factory_id,
     )
 
     raw_refresh, refresh_expires, refresh_hash = issue_refresh_token()

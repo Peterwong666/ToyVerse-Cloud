@@ -16,7 +16,9 @@
 * ⑦ **平台运营角色边界**：可审核订单（有 ``platform:order:write``），
   不可改租户 / 云服务商 / 产品模板。
 * ⑧ **设备生命周期**：冻结 / 解冻 / 报废 + 事件时间线；
-  ★ **冻结 ``GENERATED`` 必须被拒**（``FREEZABLE_ASSET_STATUSES`` 收紧后的规则）。
+  P6 起可冻结 ``{IN_STOCK, ALLOCATED, BOUND}``（用户决策放宽，见
+  ``FREEZABLE_ASSET_STATUSES``），★ **冻结 ``GENERATED`` 必须被拒**，
+  且三类可冻结状态必须能**原路解冻恢复**。
 * ⑨ **筛选与详情装配**：``GET /platform/devices?orderId=`` 按订单筛设备；
   订单详情与列表的 ``tenantName`` / ``clientProductName`` / ``deviceCount`` 一致；
   设备列表项**刻意不含** ``tenantName``（防止有人「顺手补上」拖慢列表）。
@@ -924,11 +926,14 @@ class TestDeviceLifecycle:
     async def test_freeze_generated_device_is_rejected(
         self, client: AsyncClient, auth: Any, db: AsyncSession
     ) -> None:
-        """★ 冻结白名单收紧后：``GENERATED`` 设备不允许冻结。
+        """★ ``GENERATED`` 设备不允许冻结。
 
-        理由（见 ``FREEZABLE_ASSET_STATUSES``）：冻结 ⇄ 解冻必须严格
-        限定在 ``IN_STOCK`` 之间才能对称恢复；未入库的设备本来就不能被分配，
-        冻结它对流转没有增量保护。
+        理由（见 ``FREEZABLE_ASSET_STATUSES``）：未入库的设备本来就不能被
+        分配，冻结它对流转没有增量保护；而 ``ALLOCATABLE_ASSET_STATUSES``
+        与它无关，冻结能提供的保护是零增量。
+
+        P6 起可冻结集合放宽为 ``{IN_STOCK, ALLOCATED, BOUND}``，
+        但 ``GENERATED`` **仍然不在其中**——本用例把这半边规则钉住。
         """
         platform = await auth.platform_headers()
         device = await _make_device(db, sn="SN-IT-GEN-01", asset_status=str(AssetStatus.GENERATED))
@@ -958,16 +963,19 @@ class TestDeviceLifecycle:
             str(AssetStatus.PRODUCING),
             str(AssetStatus.PRODUCED),
             str(AssetStatus.SHIPPED),
-            str(AssetStatus.ALLOCATED),
-            str(AssetStatus.BOUND),
             str(AssetStatus.RETIRED),
             str(AssetStatus.FROZEN),
         ],
     )
-    async def test_only_in_stock_devices_are_freezable(
+    async def test_non_freezable_statuses_are_rejected(
         self, client: AsyncClient, auth: Any, db: AsyncSession, asset_status: str
     ) -> None:
-        """把「只允许冻结 IN_STOCK」钉成参数化矩阵，防止规则被悄悄放宽。"""
+        """把「哪些状态不可冻结」钉成参数化矩阵。
+
+        P6 起 ``ALLOCATED`` / ``BOUND`` 已**移出**本矩阵——它们被用户明确
+        决策纳入了可冻结范围（欠费停机、内容违规停服）。这里保留的是
+        仍然不可冻结的取值：未入库的（不入库本身已阻断流转）与终态。
+        """
         platform = await auth.platform_headers()
         device = await _make_device(db, sn=f"SN-IT-FRZ-{asset_status}", asset_status=asset_status)
 
@@ -977,9 +985,46 @@ class TestDeviceLifecycle:
         assert response.status_code == 409, f"{asset_status}：{response.text}"
         assert response.json()["code"] == "INVALID_STATE_TRANSITION"
 
+    @pytest.mark.parametrize(
+        "asset_status",
+        [str(AssetStatus.IN_STOCK), str(AssetStatus.ALLOCATED), str(AssetStatus.BOUND)],
+    )
+    async def test_freezable_statuses_are_accepted(
+        self, client: AsyncClient, auth: Any, db: AsyncSession, asset_status: str
+    ) -> None:
+        """可冻结的三类状态都能真的冻结，且原状态被记入 ``previousAssetStatus``。
+
+        这条用例补上了 P5 的能力缺口：在 P4 的收紧规则下，
+        「冻结一台已分配给商户的设备」是不可达的，因此当时只能靠
+        单元断言描述规则，无法端到端验证。
+        """
+        platform = await auth.platform_headers()
+        device = await _make_device(db, sn=f"SN-IT-FRZOK-{asset_status}", asset_status=asset_status)
+
+        response = await client.post(
+            f"{PLATFORM}/devices/{device.id}/freeze",
+            headers=platform,
+            json={"reason": "欠费停机"},
+        )
+        assert response.status_code == 200, f"{asset_status}：{response.text}"
+        body = response.json()
+        assert body["assetStatus"] == str(AssetStatus.FROZEN)
+        assert body["previousAssetStatus"] == asset_status
+
+        # 解冻必须原路恢复（这是「可冻结集合 == FROZEN 出边集合」的直接收益）
+        thawed = await client.post(
+            f"{PLATFORM}/devices/{device.id}/thaw", headers=platform, json={"reason": "缴费恢复"}
+        )
+        assert thawed.status_code == 200, thawed.text
+        assert thawed.json()["assetStatus"] == asset_status
+
     def test_freezable_status_set_is_pinned(self) -> None:
         """契约钉死：冻结白名单是业务决策，不是实现细节。"""
-        assert set(FREEZABLE_ASSET_STATUSES) == {AssetStatus.IN_STOCK}
+        assert set(FREEZABLE_ASSET_STATUSES) == {
+            AssetStatus.IN_STOCK,
+            AssetStatus.ALLOCATED,
+            AssetStatus.BOUND,
+        }
 
     async def test_retire_requires_reason_and_is_terminal(
         self, client: AsyncClient, auth: Any, db: AsyncSession

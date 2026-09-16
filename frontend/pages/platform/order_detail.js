@@ -55,6 +55,7 @@ import {
   ONLINE_STATUS_MAP,
   ORDER_STATUS_MAP,
   confirmThenRun,
+  fetchRecords,
   notifyError,
 } from './common.js';
 
@@ -141,6 +142,16 @@ function renderOverview(host, data, ctx) {
           tone: 'danger',
           title: '本单已被驳回',
           text: data.rejectReason || '未填写驳回原因。',
+        }),
+      ),
+    );
+  } else if (data.status === 'IN_STOCK') {
+    host.append(
+      fromHtml(
+        alert({
+          tone: 'info',
+          title: '已入库，可以派单给工厂了',
+          text: '点击页头「派单给工厂」选择承接工厂、交期与生产要求。同一订单只能派一次单；派单后工厂端即可开始烧录上报。',
         }),
       ),
     );
@@ -495,6 +506,104 @@ async function generateDevices(order) {
   }
 }
 
+/**
+ * 把派单接口的错误翻译成「用户能照做」的话。
+ *
+ * FACTORY_ORDER_EXISTS 的 details 里带着已存在工单号（existingFactoryOrderNo），
+ * 直接丢掉它用户就只能去工厂订单页里翻——必须把它带进提示里，
+ * 否则「该订单已派发给工厂」这句话等于没说清楚是哪一张工单。
+ */
+function explainDispatchError(error) {
+  const code = error?.code;
+  if (code === 'FACTORY_ORDER_EXISTS') {
+    const existing = error?.details?.existingFactoryOrderNo;
+    const wrapped = new Error(
+      existing ? `${error.message}（已存在的工单号：${existing}）` : error.message,
+    );
+    wrapped.traceId = error?.traceId;
+    return wrapped;
+  }
+  if (code === 'INVALID_STATE_TRANSITION') {
+    const wrapped = new Error(`${error.message}（只有「已入库」状态的订单可以派单）`);
+    wrapped.traceId = error?.traceId;
+    return wrapped;
+  }
+  return error;
+}
+
+/**
+ * 派单给工厂（仅 IN_STOCK 可用）。
+ *
+ * 工厂下拉只列 `status === 'ENABLED'` 的工厂：给一个必然被后端拒绝的
+ * 选项，等于把「点了才知道不行」重新引入到流程里。
+ *
+ * @param {object} order 订单详情
+ * @returns {Promise<object|null>} 成功返回新建的工单详情，取消返回 null
+ */
+async function dispatchToFactory(order) {
+  const factories = await fetchRecords('/platform/factories');
+  const enabled = factories.filter((item) => item.status === 'ENABLED');
+
+  if (!enabled.length) {
+    toast.warning('当前没有启用状态的工厂，无法派单。请先到工厂配置里启用工厂。');
+    return null;
+  }
+
+  const dispatched = await formModal({
+    title: `派单给工厂：${order.orderNo || order.id}`,
+    subtitle: '派单后工厂端即可看到这张工单（客户信息脱敏），并开始烧录上报',
+    size: 'md',
+    submitText: '确认派单',
+    fields: [
+      {
+        key: 'factoryId',
+        label: '承接工厂',
+        type: 'select',
+        required: true,
+        span: 2,
+        options: enabled.map((item) => ({
+          value: String(item.id),
+          label: `${item.name}（${item.code}）${item.isVerified ? ' · 已认证' : ''}`,
+        })),
+        hint: '只列出启用状态的工厂；同一订单只能派一次，派单后不可改派。',
+      },
+      {
+        key: 'dueAt',
+        label: '约定交期',
+        type: 'date',
+        span: 1,
+        hint: '可选；工厂端列表与详情都会显示该交期。',
+      },
+      {
+        key: 'productionNote',
+        label: '生产要求',
+        type: 'textarea',
+        span: 2,
+        maxLength: 1000,
+        hint: '可选；工厂端在工单详情与烧录页能看到这段说明（如固件版本、包装要求）。',
+      },
+    ],
+    onSubmit: async (values) => {
+      try {
+        return await api.post(
+          `/platform/orders/${order.id}/dispatch`,
+          {
+            factoryId: values.factoryId,
+            dueAt: values.dueAt || null,
+            productionNote: values.productionNote || null,
+          },
+          { idempotencyKey: api.newIdempotencyKey() },
+        );
+      } catch (error) {
+        // 交给 formModal 统一提示（弹窗保持打开，用户可换工厂重试）
+        throw explainDispatchError(error);
+      }
+    },
+  });
+
+  return dispatched;
+}
+
 /* ------------------------------------------------------------
    页面入口
    ------------------------------------------------------------ */
@@ -551,6 +660,16 @@ export async function renderOrderDetail(container, ctx) {
         variant: 'primary',
         action: 'generate-devices',
         perm: PERM.platform.orderWrite,
+      });
+    }
+    // P6：设备入库后（IN_STOCK）才可以派单给工厂；状态不符时后端会回
+    // INVALID_STATE_TRANSITION，因此这里先按状态决定按钮是否出现
+    if (status === 'IN_STOCK') {
+      list.push({
+        label: '派单给工厂',
+        variant: 'primary',
+        action: 'dispatch-factory',
+        perm: PERM.platform.factoryOrderWrite,
       });
     }
     list.push({ label: '导出二维码', icon: 'download', variant: 'ghost', action: 'export-qrcodes' });
@@ -662,6 +781,17 @@ export async function renderOrderDetail(container, ctx) {
 
     if (action === 'export-qrcodes') {
       await exportQrcodes();
+      return;
+    }
+
+    if (action === 'dispatch-factory') {
+      const created = await dispatchToFactory(data);
+      if (!created) return;
+      toast.success(
+        `已派单：工单号 ${created.factoryOrderNo || '（未返回工单号）'}，工厂 ${created.factoryName || ''}`,
+      );
+      // 派单后订单状态会从「已入库」流转，页头动作必须跟着刷新
+      await reload();
     }
   });
 }

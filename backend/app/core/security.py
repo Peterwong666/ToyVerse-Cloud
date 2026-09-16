@@ -3,8 +3,8 @@
 安全设计
 --------
 * 密码使用 **bcrypt** 哈希，cost 可配置（默认 12）。
-* JWT 为无状态访问令牌，claims 中携带 ``role`` / ``tenantId`` / ``perms``，
-  使租户隔离与权限校验无需回查数据库。
+* JWT 为无状态访问令牌，claims 中携带 ``role`` / ``tenantId`` / ``perms``
+  / ``factoryId``，使租户与工厂作用域过滤、权限校验全部无需回查数据库。
 * 刷新令牌只存 SHA-256 摘要，支持轮换与吊销，能检测令牌重放。
 """
 
@@ -127,6 +127,9 @@ class TokenPayload:
     role_type: str
     tenant_id: str | None
     tenant_code: str | None
+    #: 工厂账号所属工厂（P6 起）。非工厂账号恒为 ``None``。
+    #: 与 ``tenant_id`` 同一处理方式：进 claims，使工厂作用域过滤无需回查数据库。
+    factory_id: str | None = None
     permissions: list[str] = field(default_factory=list)
     token_type: TokenType = "access"
     issued_at: datetime | None = None
@@ -160,8 +163,15 @@ def issue_access_token(
     tenant_id: str | None,
     tenant_code: str | None,
     permissions: list[str],
+    factory_id: str | None = None,
 ) -> tuple[str, datetime]:
     """签发访问令牌。
+
+    Args:
+        factory_id: 工厂账号所属工厂；非工厂账号传 ``None``。
+            放进 claims 而不是每次请求回查 ``user_accounts``，
+            与 ``tenantId`` 同一权衡：换取无状态鉴权，代价是
+            「换绑工厂」需要重新登录才生效（与换租户一致）。
 
     Returns:
         ``(token, 过期时间)``
@@ -175,6 +185,7 @@ def issue_access_token(
         "roleType": role_type,
         "tenantId": tenant_id,
         "tenantCode": tenant_code,
+        "factoryId": factory_id,
         "perms": permissions,
         "type": "access",
         "iss": settings.JWT_ISSUER,
@@ -238,6 +249,9 @@ def decode_access_token(token: str) -> TokenPayload:
         role_type=raw.get("roleType", ""),
         tenant_id=raw.get("tenantId"),
         tenant_code=raw.get("tenantCode"),
+        # 兼容 P6 之前签发的旧令牌：claims 里没有 factoryId 时取 None，
+        # 而不是让整张令牌失效——过期时间本来就会自然淘汰它们。
+        factory_id=raw.get("factoryId"),
         permissions=list(raw.get("perms") or []),
         token_type="access",
         issued_at=datetime.fromtimestamp(raw["iat"], tz=UTC) if raw.get("iat") else None,

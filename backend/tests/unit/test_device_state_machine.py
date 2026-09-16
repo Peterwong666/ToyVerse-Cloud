@@ -28,28 +28,75 @@ pytestmark = pytest.mark.unit
 
 
 class TestFreezeSemantics:
-    """冻结 / 解冻必须是对称的（这是 P4 阶段定下的决策）。"""
+    """冻结 / 解冻必须是对称的。
 
-    def test_only_in_stock_can_be_frozen(self) -> None:
-        """只允许冻结 IN_STOCK。
+    这条规则被改过一次，值得记下原委：P4 曾把 ``FREEZABLE_ASSET_STATUSES``
+    收紧为「只允许 ``IN_STOCK``」，理由是保持与 ``ASSET_TRANSITIONS[FROZEN]``
+    的对称；但收紧后与「绑定只接受 ``ALLOCATED``」交集为空，导致
+    **已出货给商户的设备无法被冻结**——欠费停机、内容违规停服这些真实
+    运营动作全部缺失，绑定流程里的冻结校验也退化成不可达的防御性代码。
 
-        若有人把 GENERATED 加回来，解冻时就无法原路恢复
-        （``ASSET_TRANSITIONS[FROZEN]`` 只含 IN_STOCK），语义会立刻变得含糊。
+    P6 按用户决策放宽为 {IN_STOCK, ALLOCATED, BOUND}。注意这里的测试不再
+    只断言具体取值，而是断言**对称性本身**：只要
+    ``FREEZABLE_ASSET_STATUSES == ASSET_TRANSITIONS[FROZEN]``，
+    解冻原路恢复就成立；具体集合变化时两侧必须同改。
+    """
+
+    def test_freezable_set_equals_frozen_incoming_edges(self) -> None:
+        """能冻结哪些状态，就必须能从 FROZEN 回到哪些状态（对称性）。
+
+        这是「解冻恢复原状」的充要条件：``transition_asset`` 用
+        ``previous_asset_status`` 决定解冻目标，而该状态必然来自这个集合。
         """
-        assert frozenset({AssetStatus.IN_STOCK}) == FREEZABLE_ASSET_STATUSES
+        assert ASSET_TRANSITIONS[AssetStatus.FROZEN] == FREEZABLE_ASSET_STATUSES
+
+    def test_freezable_statuses_are_pinned(self) -> None:
+        """冻结范围被钉死为「库存 / 已分配 / 已绑定」（P6 决策）。"""
+        assert frozenset(
+            {AssetStatus.IN_STOCK, AssetStatus.ALLOCATED, AssetStatus.BOUND}
+        ) == FREEZABLE_ASSET_STATUSES
 
     def test_freeze_and_thaw_are_symmetric(self) -> None:
-        """IN_STOCK ⇄ FROZEN 双向可达，且 FROZEN 只能回到 IN_STOCK。"""
+        """三类状态都能进 FROZEN，且 FROZEN 能回到它们中的任意一个。"""
+        for status in (AssetStatus.IN_STOCK, AssetStatus.ALLOCATED, AssetStatus.BOUND):
+            assert AssetStatus.FROZEN in ASSET_TRANSITIONS[status], f"{status} 应可冻结"
+            assert status in ASSET_TRANSITIONS[AssetStatus.FROZEN], f"{status} 应可解冻恢复"
         assert AssetStatus.FROZEN in ASSET_TRANSITIONS[AssetStatus.IN_STOCK]
-        assert ASSET_TRANSITIONS[AssetStatus.FROZEN] == frozenset({AssetStatus.IN_STOCK})
+
+    def test_generated_cannot_be_frozen(self) -> None:
+        """``GENERATED`` 不可冻结：不入库本身已阻断后续流转，冻结是零增量。"""
+        assert AssetStatus.GENERATED not in FREEZABLE_ASSET_STATUSES
 
     def test_frozen_is_not_allocatable(self) -> None:
         """冻结的设备不能被分配——这正是「冻结」存在的意义。"""
         assert AssetStatus.FROZEN not in ALLOCATABLE_ASSET_STATUSES
 
-    def test_allocatable_is_in_stock_only(self) -> None:
-        """可分配状态只有 IN_STOCK（P5 的分配单依赖此规则）。"""
-        assert frozenset({AssetStatus.IN_STOCK}) == ALLOCATABLE_ASSET_STATUSES
+    def test_allocatable_is_in_stock_or_shipped(self) -> None:
+        """可分配状态为 ``IN_STOCK`` 与 ``SHIPPED``（P6 补齐了后者）。
+
+        * ``IN_STOCK`` —— 平台自有库存（P5 唯一的分配来源，行为未变）；
+        * ``SHIPPED``  —— 经工厂烧录、抽检、出货后的设备。
+          ``ASSET_TRANSITIONS`` 里 ``SHIPPED → ALLOCATED`` 从 P4 就存在，
+          但 P5 把入口限死在 ``IN_STOCK``，形成「迁移表允许、服务层拒绝」
+          的自相矛盾；P6 把这条边接通。
+        """
+        assert frozenset({AssetStatus.IN_STOCK, AssetStatus.SHIPPED}) == ALLOCATABLE_ASSET_STATUSES
+
+    def test_every_allocatable_status_can_reach_allocated(self) -> None:
+        """可分配集合的每个成员都必须在迁移表里真的能走到 ALLOCATED。
+
+        没有这条断言，将来有人往 ``ALLOCATABLE_ASSET_STATUSES`` 里加一个
+        迁移表不支持的取值时，服务层会在运行期抛 ``INVALID_STATE_TRANSITION``
+        ——一个只在生产流量下才暴露的错误。
+        """
+        for status in ALLOCATABLE_ASSET_STATUSES:
+            assert AssetStatus.ALLOCATED in ASSET_TRANSITIONS[status], (
+                f"{status} 不在迁移表里能到达 ALLOCATED"
+            )
+
+    def test_produced_requires_shipping_before_allocation(self) -> None:
+        """``PRODUCED`` 不可直接分配：设备必须先「出货登记」。"""
+        assert AssetStatus.PRODUCED not in ALLOCATABLE_ASSET_STATUSES
 
 
 class TestAssetTransitionMap:
