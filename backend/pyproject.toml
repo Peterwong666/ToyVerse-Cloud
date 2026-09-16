@@ -35,6 +35,10 @@ ignore = [
     "E501",   # 行长度由 formatter 处理
     "B008",   # FastAPI 依赖注入惯用 Depends() 作为默认值
     "N818",   # 异常类命名不强制 Error 后缀
+    # 本项目文档与注释使用中文，全角标点（，。（）等）是有意为之，非笔误
+    "RUF001",
+    "RUF002",
+    "RUF003",
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -66,10 +70,6 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 show_error_codes = true
 exclude = ["alembic/versions"]
-
-[[tool.mypy.overrides]]
-module = ["tests.*"]
-disallow_untyped_defs = false
 
 # ============================================================
 # pytest

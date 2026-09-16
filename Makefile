@@ -156,7 +156,7 @@ typecheck: ## 静态类型检查（mypy）
 	@cd $(BACKEND_DIR) && ../$(PY) -m mypy app
 
 .PHONY: check
-check: lint typecheck test ## 执行全部质量检查
+check: lint typecheck test openapi-check ## 执行全部质量检查
 	@echo "$(C_GREEN)✔ 全部检查通过$(C_RESET)"
 
 # ------------------------------------------------------------
@@ -166,6 +166,10 @@ check: lint typecheck test ## 执行全部质量检查
 .PHONY: openapi
 openapi: ## 导出 OpenAPI 契约快照到 tests/contract/
 	@$(PY) scripts/export_openapi.py
+
+.PHONY: openapi-check
+openapi-check: ## 校验 API 契约与快照是否一致（有差异则失败）
+	@$(PY) scripts/export_openapi.py --check
 
 .PHONY: smoke
 smoke: ## 对运行中的服务执行冒烟测试

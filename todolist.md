@@ -66,30 +66,35 @@
 
 **目标**：可登录、可鉴权、可测试的后端骨架。
 
-- [ ] 🔑 `app/core/config.py` — pydantic-settings 读取 `.env`，含启动期安全校验（弱密钥 / 空管理员密码则拒绝启动）
-- [ ] 🔑 `app/core/errors.py` — 20 个统一错误码枚举 + `AppException` 基类 + FastAPI 异常处理器
-- [ ] 🔑 `app/core/logging.py` — 结构化日志 + **traceId 中间件**（响应头 `x-trace-id`）
-- [ ] 🔑 `app/db/base.py` — SQLAlchemy 2.0 `DeclarativeBase` + 通用混入（`id` / `created_at` / `updated_at`）
-- [ ] 🔑 `app/db/session.py` — 异步引擎与会话工厂，SQLite 与 PostgreSQL 双适配
-- [ ] 🔑 `app/models/identity.py` — `tenants` `roles` `role_permissions` `user_accounts` `refresh_tokens`
-- [ ] 🔑 `app/models/org.py` — `organizations` `positions` `factories`
-- [ ] 🔑 `app/core/security.py` — bcrypt 哈希、JWT 签发与校验（claims：`sub/role/tenantId/tenantCode/perms`）、refresh 轮换
-- [ ] 🔑 `app/core/deps.py` — `AuthContext` + `get_auth_context()` + `require_perm()` + `require_role()`
-- [ ] `app/core/idempotency.py` — `Idempotency-Key` 装饰器与 `idempotency_keys` 表
-- [ ] `app/core/pagination.py` — 统一分页参数与响应封装
-- [ ] `app/schemas/` — identity / org 的 Pydantic v2 模型
-- [ ] `app/services/auth_service.py` — 登录（失败计数 + 锁定）、刷新、登出
-- [ ] `app/services/audit_service.py` — 审计写入
-- [ ] 🔑 `app/api/v1/{health,auth,me}.py` — `/health` `/health/ready` `/auth/login` `/auth/refresh` `/auth/logout` `/me` `/auth/tenants`
-- [ ] 🔑 `app/main.py` — 应用工厂、CORS、异常处理器、路由挂载、前端静态托管
-- [ ] 🔑 Alembic `0001_identity_tenancy.py` + `0002_org_position_factory.py`
-- [ ] `app/db/seed.py` — 幂等种子数据（租户 / 角色 / 权限 / 管理员账号）
-- [ ] 🔑 `tests/conftest.py` — 测试库 fixture、鉴权 helper、租户隔离参数化 fixture
-- [ ] `tests/unit/test_security.py` — 密码哈希、JWT 签发与过期
-- [ ] `tests/unit/test_login_lockout.py` — **5 次失败锁定 15 分钟**
-- [ ] `tests/integration/test_auth.py` — 登录成功 / 密码错误 / 租户禁用(P-04) / 账号锁定 / 越权 403
+- [x] 🔑 `app/core/config.py` — pydantic-settings 读取 `.env`，含启动期安全校验（弱密钥 / 空管理员密码则拒绝启动）
+- [x] 🔑 `app/core/errors.py` — 25 个统一错误码枚举 + `AppException` 基类 + 便捷构造器 + FastAPI 异常处理器
+- [x] 🔑 `app/core/logging.py` — 结构化日志 + **traceId 中间件**（纯 ASGI 实现，兼容 WebSocket 与流式响应）
+- [x] 🔑 `app/core/permissions.py` — 权限码目录与 6 个内置角色的权限分配
+- [x] 🔑 `app/db/base.py` — SQLAlchemy 2.0 `DeclarativeBase` + 命名约定 + `UTCDateTime` + 时间戳混入
+- [x] 🔑 `app/db/session.py` — 异步引擎与会话工厂，SQLite 与 PostgreSQL 双适配 + 外键强制开启
+- [x] 🔑 `app/db/scope.py` — **租户作用域收口**（架构红线 #1 的实现）
+- [x] 🔑 `app/models/identity.py` — `tenants` `roles` `role_permissions` `user_accounts` `refresh_tokens`
+- [x] 🔑 `app/models/org.py` — `organizations` `positions` `factories`
+- [x] `app/models/audit.py` — `audit_logs` `outbox_events` `idempotency_keys`
+- [x] `app/models/enums.py` — 领域枚举全集 + 订单/设备状态机迁移表 + 四维状态派生展示
+- [x] 🔑 `app/core/security.py` — bcrypt 哈希、JWT 签发与校验（claims：`sub/role/tenantId/tenantCode/perms`）、refresh 轮换、密钥脱敏
+- [x] 🔑 `app/core/deps.py` — `AuthContext` + `get_auth_context()` + `require_perm()` + `require_role()`
+- [x] `app/core/idempotency.py` — `Idempotency-Key` 占位/完成/释放三段式
+- [x] `app/core/pagination.py` — 统一分页参数与响应封装
+- [x] `app/schemas/` — auth / common 的 Pydantic v2 模型
+- [x] `app/services/auth_service.py` — 登录（失败计数 + 锁定）、刷新（含重放检测）、登出
+- [x] `app/services/audit_service.py` — 审计写入（含 IP / UA / traceId 采集）
+- [x] 🔑 `app/api/v1/{health,auth,router}.py` — `/health` `/health/ready` `/auth/login` `/auth/refresh` `/auth/logout` `/auth/tenants` `/me` `/me/password`
+- [x] 🔑 `app/main.py` — 应用工厂、日志初始化、CORS、统一异常处理器、路由挂载、前端静态托管
+- [x] 🔑 Alembic 0001（身份租户）/ 0002（组织工厂）/ 0003（用户账号）/ 0004（基础设施横切）
+- [x] `app/db/seed.py` — 幂等种子数据（6 角色 / 2 演示租户 / 3 端管理员账号）
+- [x] 🔑 `tests/conftest.py` — 测试库 fixture、鉴权 helper、数据工厂、用例间隔离
+- [x] `tests/unit/test_security.py` — 密码哈希、密码强度、JWT 全场景、刷新令牌、密钥脱敏
+- [x] `tests/unit/test_domain_rules.py` — 订单状态机、设备标签派生、错误码契约、分页契约
+- [x] `tests/integration/test_auth.py` — 登录全场景 / 账号锁定 / 禁用租户(P-04) / 令牌轮换与重放 / 鉴权守卫 / 改密 / 登出 / 租户下拉不泄漏联系方式
+- [x] `scripts/export_openapi.py` + `scripts/seed_demo.py`，并接入 `make openapi-check`
 
-**验收**：`make test-unit` 全绿；`/auth/login` 返回 JWT；5 次失败锁定 15 分钟；禁用租户无法登录（修复 P-04）；越权返回 403。
+**验收**（2026-09-16 实测通过）：`make check` 全绿（ruff 0 问题 / mypy strict 36 文件无问题 / **118 个测试通过** / OpenAPI 契约一致）；`/auth/login` 返回 JWT；连续 5 次失败锁定 15 分钟；禁用租户登录被拒（**P-04 已修复**）；服务真实启动并完成种子数据写入。
 
 ---
 

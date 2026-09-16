@@ -1,0 +1,823 @@
+{
+  "components": {
+    "schemas": {
+      "ChangePasswordRequest": {
+        "description": "修改密码请求。",
+        "properties": {
+          "newPassword": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Newpassword",
+            "type": "string"
+          },
+          "oldPassword": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Oldpassword",
+            "type": "string"
+          }
+        },
+        "required": [
+          "oldPassword",
+          "newPassword"
+        ],
+        "title": "ChangePasswordRequest",
+        "type": "object"
+      },
+      "CurrentUserResponse": {
+        "description": "``/me`` 响应。",
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "avatar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar"
+          },
+          "lastLoginAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastloginat"
+          },
+          "mustChangePassword": {
+            "default": false,
+            "title": "Mustchangepassword",
+            "type": "boolean"
+          },
+          "nickname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "array"
+          },
+          "role": {
+            "description": "角色编码",
+            "title": "Role",
+            "type": "string"
+          },
+          "roleType": {
+            "description": "角色类型：PLATFORM / MERCHANT / FACTORY",
+            "title": "Roletype",
+            "type": "string"
+          },
+          "tenantCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenantcode"
+          },
+          "tenantId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenantid"
+          },
+          "tenantName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenantname"
+          },
+          "userId": {
+            "title": "Userid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "account",
+          "role",
+          "roleType"
+        ],
+        "title": "CurrentUserResponse",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "description": "健康检查响应。",
+        "properties": {
+          "app": {
+            "title": "App",
+            "type": "string"
+          },
+          "database": {
+            "description": "数据库类型",
+            "title": "Database",
+            "type": "string"
+          },
+          "environment": {
+            "title": "Environment",
+            "type": "string"
+          },
+          "status": {
+            "description": "UP / DOWN",
+            "title": "Status",
+            "type": "string"
+          },
+          "time": {
+            "format": "date-time",
+            "title": "Time",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "app",
+          "version",
+          "environment",
+          "database",
+          "time"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "ListResult_TenantOption_": {
+        "properties": {
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/TenantOption"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total"
+        ],
+        "title": "ListResult[TenantOption]",
+        "type": "object"
+      },
+      "LoginRequest": {
+        "description": "登录请求。",
+        "properties": {
+          "account": {
+            "description": "账号（手机号）",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Account",
+            "type": "string"
+          },
+          "password": {
+            "description": "密码",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "account",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
+      "LoginResponse": {
+        "description": "登录响应。",
+        "properties": {
+          "accessToken": {
+            "title": "Accesstoken",
+            "type": "string"
+          },
+          "expiresIn": {
+            "description": "访问令牌有效期（秒）",
+            "title": "Expiresin",
+            "type": "integer"
+          },
+          "mustChangePassword": {
+            "default": false,
+            "title": "Mustchangepassword",
+            "type": "boolean"
+          },
+          "refreshToken": {
+            "title": "Refreshtoken",
+            "type": "string"
+          },
+          "tokenType": {
+            "default": "Bearer",
+            "title": "Tokentype",
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserProfile"
+          }
+        },
+        "required": [
+          "accessToken",
+          "refreshToken",
+          "expiresIn",
+          "user"
+        ],
+        "title": "LoginResponse",
+        "type": "object"
+      },
+      "LogoutRequest": {
+        "description": "登出请求。",
+        "properties": {
+          "refreshToken": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "留空则吊销该用户全部登录态",
+            "title": "Refreshtoken"
+          }
+        },
+        "title": "LogoutRequest",
+        "type": "object"
+      },
+      "MessageResult": {
+        "description": "仅返回提示信息的响应。",
+        "properties": {
+          "message": {
+            "default": "操作成功",
+            "title": "Message",
+            "type": "string"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "title": "MessageResult",
+        "type": "object"
+      },
+      "RefreshRequest": {
+        "description": "刷新令牌请求。",
+        "properties": {
+          "refreshToken": {
+            "description": "刷新令牌",
+            "minLength": 1,
+            "title": "Refreshtoken",
+            "type": "string"
+          }
+        },
+        "required": [
+          "refreshToken"
+        ],
+        "title": "RefreshRequest",
+        "type": "object"
+      },
+      "RefreshResponse": {
+        "description": "刷新响应。",
+        "properties": {
+          "accessToken": {
+            "title": "Accesstoken",
+            "type": "string"
+          },
+          "expiresIn": {
+            "title": "Expiresin",
+            "type": "integer"
+          },
+          "refreshToken": {
+            "title": "Refreshtoken",
+            "type": "string"
+          },
+          "tokenType": {
+            "default": "Bearer",
+            "title": "Tokentype",
+            "type": "string"
+          }
+        },
+        "required": [
+          "accessToken",
+          "refreshToken",
+          "expiresIn"
+        ],
+        "title": "RefreshResponse",
+        "type": "object"
+      },
+      "TenantOption": {
+        "description": "登录页的租户下拉项（脱敏：不含联系方式）。",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "industry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Industry"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name"
+        ],
+        "title": "TenantOption",
+        "type": "object"
+      },
+      "UserProfile": {
+        "description": "登录响应中的用户信息。",
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "avatar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar"
+          },
+          "nickname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "array"
+          },
+          "role": {
+            "description": "角色编码",
+            "title": "Role",
+            "type": "string"
+          },
+          "roleType": {
+            "description": "角色类型：PLATFORM / MERCHANT / FACTORY",
+            "title": "Roletype",
+            "type": "string"
+          },
+          "tenantCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenantcode"
+          },
+          "tenantId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenantid"
+          },
+          "tenantName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenantname"
+          },
+          "userId": {
+            "title": "Userid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "account",
+          "role",
+          "roleType"
+        ],
+        "title": "UserProfile",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "description": "JWT 访问令牌",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "description": "多租户 AI 智能玩具 SaaS 平台 API。\n\n覆盖客户开通、产品配置、下单、设备生成、工厂烧录、终端激活与 AI 运营的完整闭环。\n\n**统一错误响应**：`{code, message, traceId, details?}`，可通过响应头 `x-trace-id` 关联日志。",
+    "title": "ToyVerse Cloud",
+    "version": "stable"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "description": "账号密码登录，返回访问令牌与刷新令牌。\n\n**安全策略**：\n- 连续 5 次密码错误将锁定账号 15 分钟\n- 账号被禁用或所属租户被禁用时拒绝登录\n- 登录失败不区分「账号不存在」与「密码错误」，避免账号枚举",
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "账号或密码错误"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "账号密码登录",
+        "tags": [
+          "认证"
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "description": "吊销刷新令牌。未提供 ``refreshToken`` 时吊销该用户全部登录态。",
+        "operationId": "logout_api_v1_auth_logout_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/LogoutRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "登出",
+        "tags": [
+          "认证"
+        ]
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "description": "用刷新令牌换取新的访问令牌，同时**轮换**刷新令牌。\n\n若已吊销或已轮换的令牌被再次使用，判定为令牌重放，将吊销该用户全部登录态并强制重新登录。",
+        "operationId": "refresh_api_v1_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefreshResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "刷新令牌无效或已过期"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "刷新访问令牌",
+        "tags": [
+          "认证"
+        ]
+      }
+    },
+    "/api/v1/auth/tenants": {
+      "get": {
+        "description": "仅返回启用中的租户，且**不含联系方式等敏感字段**。",
+        "operationId": "login_tenants_api_v1_auth_tenants_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResult_TenantOption_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "登录页租户下拉",
+        "tags": [
+          "认证"
+        ]
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "description": "进程存活即返回 UP，不检查下游依赖。",
+        "operationId": "health_api_v1_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "存活探针",
+        "tags": [
+          "健康检查"
+        ]
+      }
+    },
+    "/api/v1/health/ready": {
+      "get": {
+        "description": "探测数据库连通性；不可用时返回 DOWN 且状态码 503。",
+        "operationId": "readiness_api_v1_health_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "503": {
+            "description": "依赖不可用"
+          }
+        },
+        "summary": "就绪探针",
+        "tags": [
+          "健康检查"
+        ]
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "description": "返回当前令牌对应的用户信息与权限码集合，供前端做菜单与按钮级权限控制。",
+        "operationId": "current_user_api_v1_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentUserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "当前登录用户",
+        "tags": [
+          "认证"
+        ]
+      }
+    },
+    "/api/v1/me/password": {
+      "post": {
+        "description": "校验旧密码后设置新密码，并清除「首次登录需改密」标记。",
+        "operationId": "change_password_api_v1_me_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "修改密码",
+        "tags": [
+          "认证"
+        ]
+      }
+    }
+  }
+}
