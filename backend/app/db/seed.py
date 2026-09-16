@@ -1218,9 +1218,17 @@ async def _seed_ops(session: AsyncSession) -> None:
         for product_id, device_ids, days, per_day, rounds in DEMO_DIALOGUE_PLAN:
             for day_offset in range(days):
                 for slot in range(per_day):
+                    hour = 9 + (slot * 5 + day_offset * 2) % 12
+                    if day_offset == 0 and hour >= now.hour:
+                        # 「今天」这一档必须落在**已经过去**的时刻：
+                        # 否则演示数据带未来时间戳，按日期/小时聚合时会出现
+                        # 「今天的会话在 9 点，而现在才 5 点」这种自相矛盾的数据，
+                        # 依赖 `created_at <= now` 的聚合会把它排除掉，
+                        # 于是「今天」在图表上恒为零（本次实现时实测到）。
+                        hour = max(0, now.hour - 1 - slot)
                     started = (now - timedelta(days=day_offset)).replace(
                         # 小时刻意错开：24 小时热力图才有多峰形态
-                        hour=9 + (slot * 5 + day_offset * 2) % 12,
+                        hour=hour,
                         minute=(slot * 17 + day_offset * 7) % 60,
                         second=0,
                         microsecond=0,

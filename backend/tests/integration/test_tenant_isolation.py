@@ -42,6 +42,7 @@ from app.core.deps import AuthContext
 from app.core.ids import new_id
 from app.db.base import utcnow
 from app.main import app as fastapi_app
+from app.models.ai import KbFile, KnowledgeBase
 from app.models.allocation import AllocationItem, AllocationOrder, DeviceBinding
 from app.models.device import Device
 from app.models.enums import (
@@ -51,10 +52,13 @@ from app.models.enums import (
     AssetStatus,
     BindingRecordStatus,
     BindStatus,
+    EnableStatus,
+    KbFileStatus,
     OnlineStatus,
     OrderStatus,
     RoleType,
 )
+from app.models.ops import ContentItem
 from app.models.order import Order
 from app.services import catalog_service, qrcode_service
 from tests.conftest import API_PREFIX
@@ -105,6 +109,40 @@ MERCHANT_ROUTE_COVERAGE: dict[tuple[str, str], str] = {
     ("POST", f"{MERCHANT}/devices/{{device_id}}/bind"): "TestCrossTenantReadIs404（B 的设备确认绑定 → 404）",
     ("POST", f"{MERCHANT}/devices/{{device_id}}/unbind"): "TestCrossTenantReadIs404（B 的设备解绑 → 404）",
     ("GET", f"{MERCHANT}/bindings"): "TestMerchantListIsolation（列表只返回本租户）",
+    # ---- P9：我的产品 ----
+    # 注：`/merchant/products` 与 `/merchant/products/{product_id}` 的登记在文件上方
+    # （P9 起这两个端点的**实现**迁到了 merchant_ops.py 并富化了响应字段，
+    #  但路径未变，因此矩阵里的键也不变——重复登记会被 ruff F601 拦下）。
+    # ---- P9：AI 配置（按产品维度收口；查询参数形态见 TestP9EndpointsIsolation） ----
+    ("GET", f"{MERCHANT}/products/{{product_id}}/ai-config"): "TestCrossTenantReadIs404（B 的 AI 配置 → 404）",
+    ("PUT", f"{MERCHANT}/products/{{product_id}}/ai-config"): "TestCrossTenantReadIs404（越权写 B 的配置 → 404）",
+    ("PUT", f"{MERCHANT}/products/{{product_id}}/ai-config/prompt"): "TestCrossTenantReadIs404（越权写提示词 → 404）",
+    ("PUT", f"{MERCHANT}/products/{{product_id}}/ai-config/role"): "TestCrossTenantReadIs404（越权写角色 → 404）",
+    ("PUT", f"{MERCHANT}/products/{{product_id}}/ai-config/voice"): "TestCrossTenantReadIs404（越权写音色 → 404）",
+    ("PUT", f"{MERCHANT}/products/{{product_id}}/ai-config/safety"): "TestCrossTenantReadIs404（越权写安全开关 → 404）",
+    ("GET", f"{MERCHANT}/ai/providers"): "TestP9EndpointsIsolation（清单不含他人租户资源）",
+    ("GET", f"{MERCHANT}/role-presets"): "TestP9EndpointsIsolation（只含平台内置 + 本租户）",
+    ("GET", f"{MERCHANT}/voice-profiles"): "TestP9EndpointsIsolation（只含本租户）",
+    # ---- P9：知识库 ----
+    ("GET", f"{MERCHANT}/knowledge-bases"): "TestP9EndpointsIsolation（只返回本租户）",
+    ("POST", f"{MERCHANT}/knowledge-bases"): "TestP9EndpointsIsolation（正向：本租户建成且不串台）",
+    ("GET", f"{MERCHANT}/knowledge-bases/{{kb_id}}"): "TestCrossTenantReadIs404（B 的知识库 → 404）",
+    ("PUT", f"{MERCHANT}/knowledge-bases/{{kb_id}}"): "TestCrossTenantReadIs404（越权改名 → 404）",
+    ("DELETE", f"{MERCHANT}/knowledge-bases/{{kb_id}}"): "TestCrossTenantReadIs404（越权删除 → 404）",
+    ("GET", f"{MERCHANT}/knowledge-bases/{{kb_id}}/files"): "TestCrossTenantReadIs404（B 的文件列表 → 404）",
+    ("POST", f"{MERCHANT}/knowledge-bases/{{kb_id}}/files"): "TestP9EndpointsIsolation（往他人知识库上传 → 404）",
+    ("DELETE", f"{MERCHANT}/knowledge-bases/{{kb_id}}/files/{{file_id}}"): "TestP9EndpointsIsolation（删他人文件 → 404）",
+    ("POST", f"{MERCHANT}/knowledge-bases/{{kb_id}}/files/{{file_id}}/parse"): "TestP9EndpointsIsolation（解析他人文件 → 404）",
+    # ---- P9：内容库（只读） ----
+    ("GET", f"{MERCHANT}/content-items"): "TestP9EndpointsIsolation（平台公共 ∨ 本租户，不含他人）",
+    # ---- P9：运营指标（productId 是**查询参数**，越权形态与路径参数不同） ----
+    ("GET", f"{MERCHANT}/metrics/overview"): "TestP9EndpointsIsolation（传他人 productId → 404）",
+    ("GET", f"{MERCHANT}/metrics/trend"): "TestP9EndpointsIsolation（传他人 productId → 404）",
+    ("GET", f"{MERCHANT}/metrics/hourly"): "TestP9EndpointsIsolation（传他人 productId → 404）",
+    ("GET", f"{MERCHANT}/metrics/regions"): "TestP9EndpointsIsolation（传他人 productId → 404）",
+    ("GET", f"{MERCHANT}/metrics/contents"): "TestP9EndpointsIsolation（传他人 productId → 404）",
+    ("GET", f"{MERCHANT}/metrics/retention"): "TestP9EndpointsIsolation（传他人 productId → 404）",
+    ("POST", f"{MERCHANT}/metrics/rebuild"): "TestP9EndpointsIsolation（重建他人产品的快照 → 404）",
 }
 
 
@@ -243,6 +281,61 @@ async def _make_allocation(
     return order
 
 
+async def _make_knowledge_base(
+    db: AsyncSession, *, tenant_id: str, product_id: str | None, suffix: str
+) -> KnowledgeBase:
+    """建一个租户级知识库（P9 越权断言的目标资源）。"""
+    kb = KnowledgeBase(
+        id=new_id("knowledge_base"),
+        tenant_id=tenant_id,
+        client_product_id=product_id,
+        name=f"{suffix} 知识库",
+        status=str(EnableStatus.ENABLED),
+        doc_count=0,
+        chunk_count=0,
+    )
+    db.add(kb)
+    await db.flush()
+    return kb
+
+
+async def _make_kb_file(
+    db: AsyncSession, *, kb: KnowledgeBase, tenant_id: str, filename: str
+) -> KbFile:
+    """建一个知识库文件（状态 PARSED，代表「已解析」这个独立事实）。"""
+    item = KbFile(
+        id=new_id("kb_file"),
+        knowledge_base_id=kb.id,
+        tenant_id=tenant_id,
+        filename=filename,
+        content_type="text/plain",
+        size_bytes=32,
+        storage_path=f"kb/{tenant_id}/{new_id('kb_file')}.txt",
+        checksum=new_id("kb_file"),
+        status=str(KbFileStatus.PARSED),
+        chunk_count=2,
+    )
+    db.add(item)
+    await db.flush()
+    return item
+
+
+async def _make_content_item(db: AsyncSession, *, tenant_id: str, suffix: str) -> ContentItem:
+    """建一条**租户级**内容库条目（用于验证内容库列表的并集范围不漏他人租户的内容）。"""
+    item = ContentItem(
+        id=new_id("content_item"),
+        tenant_id=tenant_id,
+        type="STORY",
+        title=f"{suffix} 的故事",
+        status=str(EnableStatus.ENABLED),
+        sort_order=0,
+        hit_count=0,
+    )
+    db.add(item)
+    await db.flush()
+    return item
+
+
 async def _make_binding(
     db: AsyncSession,
     *,
@@ -359,6 +452,19 @@ async def world(
         product_id=catalog_b["product_id"],
     )
 
+    # P9 资源：两个租户各一份知识库（含文件）与一条租户级内容。
+    # 「有 B 的资源」是越权断言的前提——没有资源可指，404 就无从验证。
+    kb_a = await _make_knowledge_base(
+        db, tenant_id=tenant_a.id, product_id=catalog_a["product_id"], suffix="ISOA"
+    )
+    kb_b = await _make_knowledge_base(
+        db, tenant_id=tenant_b.id, product_id=catalog_b["product_id"], suffix="ISOB"
+    )
+    kb_file_a = await _make_kb_file(db, kb=kb_a, tenant_id=tenant_a.id, filename="a-notes.txt")
+    kb_file_b = await _make_kb_file(db, kb=kb_b, tenant_id=tenant_b.id, filename="b-notes.txt")
+    content_a = await _make_content_item(db, tenant_id=tenant_a.id, suffix="ISOA")
+    content_b = await _make_content_item(db, tenant_id=tenant_b.id, suffix="ISOB")
+
     merchant_a = await _merchant_headers(auth, make_user, tenant_a.id, "13220000001")
     merchant_b = await _merchant_headers(auth, make_user, tenant_b.id, "13220000002")
 
@@ -375,6 +481,12 @@ async def world(
         "allocation_b": allocation_b,
         "binding_a": binding_a,
         "binding_b": binding_b,
+        "kb_a": kb_a,
+        "kb_b": kb_b,
+        "kb_file_a": kb_file_a,
+        "kb_file_b": kb_file_b,
+        "content_a": content_a,
+        "content_b": content_b,
         "merchant_a": merchant_a,
         "merchant_b": merchant_b,
     }
@@ -405,6 +517,48 @@ _CROSS_TENANT_404_CASES: list[tuple[str, str, str, str, dict[str, Any] | None]] 
         "device_b",
         {"reason": "越权解绑尝试"},
     ),
+    # ---- P9：AI 配置（按**产品**维度收口） ----
+    ("AI 配置读取", "GET", f"{MERCHANT}/products/{{resource}}/ai-config", "product_b", None),
+    (
+        "AI 配置更新",
+        "PUT",
+        f"{MERCHANT}/products/{{resource}}/ai-config",
+        "product_b",
+        {"greeting": "越权写入"},
+    ),
+    (
+        "提示词更新",
+        "PUT",
+        f"{MERCHANT}/products/{{resource}}/ai-config/prompt",
+        "product_b",
+        {"greeting": "越权写入"},
+    ),
+    (
+        "角色更新",
+        "PUT",
+        f"{MERCHANT}/products/{{resource}}/ai-config/role",
+        "product_b",
+        {"rolePresetCode": None},
+    ),
+    (
+        "音色更新",
+        "PUT",
+        f"{MERCHANT}/products/{{resource}}/ai-config/voice",
+        "product_b",
+        {"voiceProfileId": None},
+    ),
+    (
+        "安全开关更新",
+        "PUT",
+        f"{MERCHANT}/products/{{resource}}/ai-config/safety",
+        "product_b",
+        {"enabled": False},
+    ),
+    # ---- P9：知识库 ----
+    ("知识库详情", "GET", f"{MERCHANT}/knowledge-bases/{{resource}}", "kb_b", None),
+    ("知识库更新", "PUT", f"{MERCHANT}/knowledge-bases/{{resource}}", "kb_b", {"name": "越权改名"}),
+    ("知识库删除", "DELETE", f"{MERCHANT}/knowledge-bases/{{resource}}", "kb_b", None),
+    ("知识库文件列表", "GET", f"{MERCHANT}/knowledge-bases/{{resource}}/files", "kb_b", None),
 ]
 
 
@@ -526,6 +680,8 @@ def _resolve_resource_id(world: dict[str, Any], key: str) -> str:
         "order_b": world["order_b"].id,
         "device_b": world["device_b"].id,
         "allocation_b": world["allocation_b"].id,
+        "kb_b": world["kb_b"].id,
+        "content_b": world["content_b"].id,
     }
     assert key in mapping, f"未登记的资源键：{key}"
     return str(mapping[key])
@@ -852,6 +1008,163 @@ class TestPlatformTokenOnMerchantEndpoints:
 # ===========================================================================
 # 六、★ 矩阵自身不腐化：路由覆盖元测试
 # ===========================================================================
+
+
+class TestP9EndpointsIsolation:
+    """P9 新增端点的隔离口径（AI 配置 / 知识库 / 内容库 / 运营指标）。
+
+    为什么单独一类而不是并进上面的越权矩阵：P9 这组端点有两种**不同的越权
+    形态**——按**资源 ID**（`products/{id}`、`knowledge-bases/{id}`，属于
+    「带上别人的 ID」）与按**查询参数**（运营指标必填 `productId`，
+    属于「用别人的 ID 当筛选条件」）。后者不会被前者覆盖：查询参数不走路径
+    匹配，很容易在实现里被当成「纯筛选」而漏掉归属校验。
+    """
+
+    async def test_knowledge_base_list_is_scoped_to_own_tenant(
+        self, client: AsyncClient, world: dict[str, Any]
+    ) -> None:
+        """★ 知识库列表只含本租户：B 的知识库不得出现。"""
+        body = await _page(client, world["merchant_a"], f"{MERCHANT}/knowledge-bases")
+        ids = {record["id"] for record in body["records"]}
+        assert world["kb_a"].id in ids, "本租户的知识库必须在列表里（否则断言无判别力）"
+        assert world["kb_b"].id not in ids, "泄漏了 B 的知识库"
+
+    async def test_content_items_list_hides_other_tenant_content(
+        self, client: AsyncClient, world: dict[str, Any]
+    ) -> None:
+        """★ 内容库是「平台公共 ∨ 本租户」的并集——**不含**他人租户的内容。
+
+        并集范围最容易写错：`scoped()` 只按租户过滤，会连平台公共内容一起
+        挡掉；改为 `or_(tenant_id IS NULL, tenant_id = 自己)` 时，又极易漏掉
+        「自己」而把范围写成全表。两个方向都要断言。
+        """
+        body = await _page(client, world["merchant_a"], f"{MERCHANT}/content-items")
+        ids = {record["id"] for record in body["records"]}
+        assert world["content_a"].id in ids, "本租户的内容必须在列表里"
+        assert world["content_b"].id not in ids, "泄漏了 B 租户的内容"
+
+    async def test_provider_and_preset_lists_have_no_foreign_tenant_data(
+        self, client: AsyncClient, world: dict[str, Any]
+    ) -> None:
+        """供应商 / 角色预设 / 音色三个清单：不得出现他人租户的资源。
+
+        供应商是平台级清单（各租户可见的是同一份），因此这里断言的核心是
+        **音色列表**按租户过滤；角色预设则必须只含「平台内置 + 本租户」。
+        """
+        headers = world["merchant_a"]
+        providers = await _page(client, headers, f"{MERCHANT}/ai/providers")
+        assert isinstance(providers["records"], list)
+
+        presets = await _page(client, headers, f"{MERCHANT}/role-presets")
+        assert all(
+            record.get("isBuiltin") or record["tenantId"] == world["tenant_a"].id
+            for record in presets["records"]
+            if "tenantId" in record
+        ), "角色预设清单里出现了他人租户的自定义角色"
+
+        voices = await _page(client, headers, f"{MERCHANT}/voice-profiles")
+        assert isinstance(voices["records"], list)
+
+    async def test_knowledge_base_create_is_scoped_to_own_tenant(
+        self, client: AsyncClient, world: dict[str, Any]
+    ) -> None:
+        """正向反证：A 建知识库必须真的建成（201），且只出现在 A 的列表里。
+
+        没有这条，「知识库列表只返回本租户」用一个「永远返回空列表」的实现
+        也能通过。
+        """
+        created = await client.post(
+            f"{MERCHANT}/knowledge-bases",
+            headers=world["merchant_a"],
+            json={"name": "A 的新知识库"},
+        )
+        assert created.status_code == 201, created.text
+        new_id_value = created.json()["id"]
+
+        ids_a = {
+            record["id"]
+            for record in (await _page(client, world["merchant_a"], f"{MERCHANT}/knowledge-bases"))[
+                "records"
+            ]
+        }
+        ids_b = {
+            record["id"]
+            for record in (await _page(client, world["merchant_b"], f"{MERCHANT}/knowledge-bases"))[
+                "records"
+            ]
+        }
+        assert new_id_value in ids_a
+        assert new_id_value not in ids_b, "A 新建的知识库出现在了 B 的列表里"
+
+    async def test_kb_file_upload_on_foreign_kb_is_404(
+        self, client: AsyncClient, world: dict[str, Any]
+    ) -> None:
+        """★ 往**别人的**知识库上传文件 → 404（不是 403、不是 201）。"""
+        response = await client.post(
+            f"{MERCHANT}/knowledge-bases/{world['kb_b'].id}/files",
+            headers=world["merchant_a"],
+            files={"file": ("notes.txt", b"hello knowledge base", "text/plain")},
+        )
+        _assert_error(response, 404, "RESOURCE_NOT_FOUND")
+
+    async def test_kb_file_delete_and_parse_on_foreign_kb_is_404(
+        self, client: AsyncClient, world: dict[str, Any]
+    ) -> None:
+        """★ 删除 / 解析**别人的**知识库文件 → 404（两个端点各一次）。"""
+        headers = world["merchant_a"]
+        foreign_file = world["kb_file_b"].id
+        foreign_kb = world["kb_b"].id
+
+        deleted = await client.delete(
+            f"{MERCHANT}/knowledge-bases/{foreign_kb}/files/{foreign_file}", headers=headers
+        )
+        _assert_error(deleted, 404, "RESOURCE_NOT_FOUND")
+
+        parsed = await client.post(
+            f"{MERCHANT}/knowledge-bases/{foreign_kb}/files/{foreign_file}/parse", headers=headers
+        )
+        _assert_error(parsed, 404, "RESOURCE_NOT_FOUND")
+
+    @pytest.mark.parametrize(
+        ("case", "path"),
+        [
+            ("运营概览", f"{MERCHANT}/metrics/overview"),
+            ("日趋势", f"{MERCHANT}/metrics/trend"),
+            ("24 小时热力", f"{MERCHANT}/metrics/hourly"),
+            ("地域分布", f"{MERCHANT}/metrics/regions"),
+            ("内容热度榜", f"{MERCHANT}/metrics/contents"),
+            ("留存", f"{MERCHANT}/metrics/retention"),
+        ],
+        ids=["概览", "趋势", "热力", "地域", "内容", "留存"],
+    )
+    async def test_metrics_endpoints_reject_foreign_product(
+        self, client: AsyncClient, world: dict[str, Any], case: str, path: str
+    ) -> None:
+        """★ 运营指标用**别人的 `productId`** 当筛选条件 → 404。
+
+        这是 P-08「运营数据全局共享」在 P9 的守卫：如果实现把 `productId`
+        当成一个普通筛选项而不校验归属，A 就能通过传 B 的 `productId`
+        读到 B 的完整运营数据——这是本条用例要挡住的事。
+        """
+        response = await client.get(
+            path, headers=world["merchant_a"], params={"productId": world["catalog_b"]["product_id"]}
+        )
+        _assert_error(response, 404, "RESOURCE_NOT_FOUND")
+
+    async def test_metrics_rebuild_rejects_foreign_product(
+        self, client: AsyncClient, world: dict[str, Any]
+    ) -> None:
+        """★ 重建**别人产品的**运营快照 → 404（写路径同样要收口）。"""
+        response = await client.post(
+            f"{MERCHANT}/metrics/rebuild",
+            headers=world["merchant_a"],
+            json={
+                "productId": world["catalog_b"]["product_id"],
+                "dateFrom": "2026-09-01",
+                "dateTo": "2026-09-07",
+            },
+        )
+        _assert_error(response, 404, "RESOURCE_NOT_FOUND")
 
 
 class TestRouteMatrixIsComplete:

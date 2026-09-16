@@ -49,38 +49,63 @@ P8 需要的供应商解析与安全失败验真（``ensure_vendor_capability``�
 * ``CONTENT_SAFETY_VISUAL`` —— P8 的帧协议里**没有图像通道**
   （只有 ``user.text`` / ``user.audio``），因此本阶段读取但未使用，
   留给 P9 的视觉能力。
+
+P9 接线（两处，刻意控制在本模块内）
+==================================
+P9 给对话链路补了两条「让运营看板与知识库真的工作」的接线，改动都收在
+:func:`stream_turn` 里，不动 P8 已验收的帧协议与安全逻辑：
+
+1. **内容归属回填**：mock 引擎在流式分块里声明 ``ChatChunk.content_title``
+   （见 :class:`app.ai.base.ChatChunk`），本模块取第一个非空值，在
+   「平台公共 + 本租户」有效内容里按 **title 精确匹配且 ``status=ENABLED``**
+   查一次，命中才把 assistant 消息的 ``content_item_id`` 写上。
+   **未命中留空**：文本嗅探（「回复里出现了《某某》」）会被用户自己说出的
+   书名污染，宁可有缺口也不错记——内容热度榜的全部可信度都建立在这条上。
+2. **知识库真正生效**：读该客户产品的 ``ai_configs.knowledge_base_id``，
+   把该库中 ``status=PARSED`` 的文件的文本块作为 ``context["knowledge"]``
+   传给 ``provider.chat(...)``（mock 引擎据此做关键词检索并引用）。
+
+   上限（避免一次读入过多文本）：最多 ``KB_MAX_FILES`` 个文件、
+   ``KB_MAX_CHUNKS`` 个文本块。**读不到文件就跳过并记 warning**，
+   绝不让一个被清理掉的对象让整轮对话失败——知识库是增强，不是依赖。
+   找不到配置 / 知识库时行为与 P8 完全一致（不报错、不降级）。
 """
 
 from __future__ import annotations
 
+import re
 from collections.abc import AsyncIterator
 from typing import Any
 
 from fastapi import Request
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import registry
 from app.ai.base import CAP_ASR, CAP_DIALOGUE, CAP_TTS, ChatMessage, chunk_text, provider_unavailable_error
-from app.ai.mock.scenarios import detect_safety, safety_reply
+from app.ai.mock.scenarios import ContentSnippet, detect_safety, safety_reply
 from app.ai.registry import ResolvedProvider
 from app.core.config import settings
 from app.core.deps import EndUserContext
 from app.core.errors import AppException, ErrorCode, not_found, validation_error
 from app.core.ids import new_id
 from app.core.logging import get_logger, get_trace_id
+from app.core.storage import get_storage
 from app.db.base import utcnow
-from app.models.ai import DialogueMessage, DialogueSession
+from app.models.ai import AiConfig, DialogueMessage, DialogueSession, KbFile, KnowledgeBase
 from app.models.device import Device
 from app.models.enums import (
     AuditAction,
     DialogueSessionStatus,
+    EnableStatus,
+    KbFileStatus,
     MessageContentType,
     MessageRole,
 )
+from app.models.ops import ContentItem
 from app.schemas.ai import encode_audio
 from app.schemas.miniapp import SAFETY_FLAG_KEYWORD, ChatFrameType
-from app.services import audit_service, miniapp_service
+from app.services import ai_config_service, audit_service, miniapp_service
 
 logger = get_logger(__name__)
 
@@ -93,6 +118,138 @@ SAFETY_RECHUNK_SIZE = 24
 
 #: 会话因达到消息上限而自动关闭时写入的关闭原因
 CLOSE_REASON_LIMIT = "达到会话消息上限"
+
+#: 单轮对话最多读入的知识库文件数。
+#:
+#: 取 5 的理由：知识库是「增强」，不是「依赖」。把整库读进来会让每轮对话的
+#: 前置耗时随知识库增长而线性上升，而玩具对话对首字延迟极其敏感。
+#: 真实检索（向量 / 全文索引）落地后再替换这段，接口保持不变。
+KB_MAX_FILES = 5
+
+#: 单轮对话最多读入的文本块数（跨文件累计）。
+KB_MAX_CHUNKS = 20
+
+#: 知识库文本块的切分粒度：沿用服务层的「空行/段落」口径，
+#: 保证「上传时算出的 chunk_count」与「检索时实际使用的块」是同一批块。
+_KB_TITLE_SPLIT = re.compile(r"[\s,，。、;；:：/|]+")
+
+
+# ---------------------------------------------------------------------------
+# P9 接线：知识库素材 / 内容归属
+# ---------------------------------------------------------------------------
+
+
+def _knowledge_keywords(title: str) -> tuple[str, ...]:
+    """由文本块首行派生检索关键词。
+
+    mock 引擎的检索是**子串命中**（``keyword in 用户输入``），因此关键词必须
+    是用户可能原样说出的短词。这里把首行整体与它的分词都收进来（标题通常
+    就是这条知识的主语，如「恐龙」），最多 5 个，顺序去重后保持稳定。
+    """
+    tokens = [token for token in _KB_TITLE_SPLIT.split(title) if token]
+    unique = list(dict.fromkeys([title, *tokens]))
+    return tuple(unique[:5])
+
+
+async def _load_knowledge(
+    session: AsyncSession, client_product_id: str | None
+) -> list[ContentSnippet]:
+    """读取该客户产品知识库中**已解析**文件的文本块。
+
+    任何一步失败（没有配置 / 知识库被删 / 文件对象被清理 / 编码异常）都只
+    记 warning 并跳过，**不让对话整体失败**——知识库是增强，不是依赖。
+    """
+    if not client_product_id:
+        return []
+    try:
+        config = (
+            await session.execute(
+                select(AiConfig).where(AiConfig.client_product_id == client_product_id)
+            )
+        ).scalar_one_or_none()
+        if config is None or not config.knowledge_base_id:
+            return []
+        knowledge_base = (
+            await session.execute(
+                select(KnowledgeBase).where(KnowledgeBase.id == config.knowledge_base_id)
+            )
+        ).scalar_one_or_none()
+        if knowledge_base is None or knowledge_base.status != str(EnableStatus.ENABLED):
+            return []
+
+        files = list(
+            (
+                await session.execute(
+                    select(KbFile)
+                    .where(
+                        KbFile.knowledge_base_id == knowledge_base.id,
+                        KbFile.status == str(KbFileStatus.PARSED),
+                    )
+                    .order_by(KbFile.created_at.asc())
+                    .limit(KB_MAX_FILES)
+                )
+            )
+            .scalars()
+            .all()
+        )
+    except Exception as exc:  # 读知识库失败不该让对话中断
+        logger.warning("读取知识库配置失败，本轮不注入知识：%s", exc)
+        return []
+
+    storage = get_storage()
+    snippets: list[ContentSnippet] = []
+    for item in files:
+        if len(snippets) >= KB_MAX_CHUNKS:
+            break
+        if not item.storage_path:
+            continue
+        try:
+            raw = storage.read(item.storage_path)
+        except AppException as exc:
+            # 对象被清理 / 存储不可用：跳过该文件，继续处理其余文件
+            logger.warning("知识库文件读取失败（已跳过）：%s err=%s", item.filename, exc.message)
+            continue
+        text = raw.decode("utf-8", errors="replace")
+        for block in ai_config_service.split_text_blocks(text):
+            if len(snippets) >= KB_MAX_CHUNKS:
+                break
+            title = ai_config_service._first_line(block)  # 复用同一套切块口径
+            snippets.append(
+                ContentSnippet(
+                    title=title,
+                    keywords=_knowledge_keywords(title),
+                    body=block,
+                    # kind 用 knowledge 而不是 story/song：mock 引擎据此选择
+                    # 「我记得《X》里说过」这类引用文案，而不是把知识库内容
+                    # 冒充成内置故事。
+                    kind="knowledge",
+                )
+            )
+    if snippets:
+        logger.info("本轮对话注入知识库素材 %d 块（产品 %s）", len(snippets), client_product_id)
+    return snippets
+
+
+async def _resolve_content_item(
+    session: AsyncSession, tenant_id: str, title: str
+) -> str | None:
+    """按标题在「平台公共 + 本租户」的有效内容里查归属 ID。
+
+    精确匹配 + ``status=ENABLED`` + 只取一条（``limit(1)``）：
+    同名内容宁可取第一条，也不要模糊匹配——热度榜的价值在于归属**准确**，
+    一条错记会污染整张榜的排序（且很难被发现）。
+    """
+    stmt = (
+        select(ContentItem.id)
+        .where(
+            ContentItem.title == title,
+            ContentItem.status == str(EnableStatus.ENABLED),
+            or_(ContentItem.tenant_id.is_(None), ContentItem.tenant_id == tenant_id),
+        )
+        .limit(1)
+    )
+    value = (await session.execute(stmt)).scalar_one_or_none()
+    return str(value) if value is not None else None
 
 
 # ---------------------------------------------------------------------------
@@ -537,22 +694,28 @@ async def stream_turn(
     safety_on = (
         settings.CONTENT_SAFETY_AUDIO if is_audio else settings.CONTENT_SAFETY_TEXT
     )
+    # P9：把该产品知识库中已解析的文本块注入 context（找不到就是空列表，行为与 P8 一致）
+    knowledge = await _load_knowledge(session, device.client_product_id)
     started = utcnow()
     parts: list[str] = []
     emitted_chunks = 0
     first_delta_ms: int | None = None
     finish_reason: str | None = None
     vendor_message_id: str | None = None
+    #: 供应商声明的素材归属标题（取第一个非空值，见模块 docstring 的 P9 接线）
+    content_title: str | None = None
 
     try:
         async for chunk in provider.chat(
             session_id=dialogue.id,
             message=ChatMessage(content=user_text, role=str(MessageRole.USER)),
             role_preset=dialogue.role_preset_code,
-            context={"device_id": device.id},
+            context={"device_id": device.id, "knowledge": knowledge},
         ):
             if first_delta_ms is None and chunk.delta:
                 first_delta_ms = int((utcnow() - started).total_seconds() * 1000)
+            if content_title is None and chunk.content_title:
+                content_title = chunk.content_title
             parts.append(chunk.delta)
             if chunk.is_final:
                 finish_reason = chunk.finish_reason
@@ -634,6 +797,13 @@ async def stream_turn(
         chunk_count=emitted_chunks,
         safety_flag=safety_flag,
     )
+    # P9：回填内容归属（未命中留空——热度榜宁可有缺口也不错记）
+    if content_title:
+        content_item_id = await _resolve_content_item(
+            session, dialogue.tenant_id, content_title
+        )
+        if content_item_id is not None:
+            assistant.content_item_id = content_item_id
     await session.commit()
 
     yield frame_done(

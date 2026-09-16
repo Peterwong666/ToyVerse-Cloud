@@ -267,9 +267,12 @@ class OtaPackage(Base, TimestampMixin):
     """固件包（平台级）。
 
     **推送能力取决于云服务商，而不是取决于本表**：``cloud_providers.ota_support``
-    是权威字段（集贤 4G = ``SUPPORTED``、京东 JoyInside Wi-Fi = ``UNSUPPORTED``，
-    后者只能端侧升级）。推送时按设备所属客户产品的云服务商判定，
-    因此「Wi-Fi 产品推送被拒绝」是**数据驱动的**，不是写死的 if。
+    是权威字段——集贤 4G 为 ``SUPPORTED``；Wi-Fi 方案（京东 JoyInside 与火山引擎）
+    都是 ``UNSUPPORTED``，固件只能在端侧升级，平台不推送。
+    推送时按设备所属客户产品的云服务商判定，因此「Wi-Fi 产品推送被拒绝」是
+    **数据驱动的**，不是写死的 ``if vendor == 'joyinside'``：
+    将来接入一家支持 OTA 的 Wi-Fi 厂商时，只要它的 ``ota_support`` 是
+    ``SUPPORTED``，行为就自动跟着变。
 
     ``tenant_id`` 为空表示面向所有使用该型号的租户；非空则限定租户专用固件
     （品牌定制版）。

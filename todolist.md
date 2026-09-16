@@ -347,21 +347,46 @@
 
 ## P9 AI 配置与运营看板 ★
 
-- [ ] Alembic `0015_ops_metrics_ota.py` — `metrics_daily` `metrics_hourly` `metrics_region` `content_hot_ranking` `ota_packages` `ota_records` `content_items`
-  > 编号说明：原计划 `0012`，被 P6 的 `0012`（工厂账号归属）/ `0013`（设备工单归属）与 **P8 的 `0014`**（`end_users` / `recharge_plans` / `recharge_orders` —— P8 的登录与充值直接依赖它们，故先落）占用，按「落库先后顺延」顺延为 `0015`；`recharge_*` 与 `end_users` **不再由本阶段建表**，本阶段只扩展它们的运营字段（如需）。
-- [ ] 商户端 AI 配置：`/products/{id}/ai-config`、`/prompt`、`/role`（仅 4G）、`/voice`、`/safety`
-- [ ] 知识库 CRUD + 文件上传/删除（走 `STORAGE_BACKEND` 抽象）
-- [ ] 🔑 运营指标聚合：**按 `product_id` 隔离**（修复 P-08），**维度数据真实汇总**而非乘系数（修复 P-07）
+- [x] Alembic `0015_ops_metrics_ota.py` — `metrics_daily` `metrics_hourly` `metrics_region` `content_hot_ranking` `content_items` `ota_packages` `ota_records`（+ `devices.region`、`dialogue_messages.content_item_id`）
+  > 编号说明：原计划 `0012`，被 P6 的 `0012`（工厂账号归属）/ `0013`（设备工单归属）与 **P8 的 `0014`**（`end_users` / `recharge_plans` / `recharge_orders`）占用，按「落库先后顺延」为 `0015`；`recharge_*` 与 `end_users` **不由本阶段建表**。
+- [x] 商户端 AI 配置：`/products/{id}/ai-config`、`/prompt`、`/role`（**仅 4G**）、`/voice`、`/safety`
+  - `/role` 对 Wi-Fi 产品返回 409 并给出**厂商中立**的原因（「对话角色由厂商侧智能体配置」）——不点名某一家厂商，否则换供应商后文案变误导
+  - 供应商清单**只回「是否已配置」的布尔，绝不含密钥或片段**；Temperature 在库里是 ×100 整数、出入参换算为 0–2 小数
+- [x] 知识库 CRUD + 文件上传/删除（走新的 `app/core/storage.py` 抽象：local 实现 + s3 显式安全失败）
+  - 解析**诚实实现**：文本类按段落切块并统计块数；pdf/docx 返回 `FAILED` + 「文本抽取尚未实现」，**绝不假装解析成功**
+  - 删除知识库前校验是否被 `ai_configs` 引用（`CASCADE_CONFLICT` + 列出引用它的产品）
+  - 知识库**真的影响对话**：`dialogue_service` 把 `PARSED` 文件的文本块作为 `context["knowledge"]` 传给供应商
+- [x] 🔑 运营指标聚合：**按 `product_id` 隔离**（修复 P-08），**维度数据真实汇总**而非乘系数（修复 P-07）
+  - 四张指标表都把 `client_product_id` 做进**唯一键**，让「漏掉产品维度」在表结构上不成立
+  - 概览（当前口径）**实时聚合** / 趋势、24 小时、地域、内容榜**读快照**；两者在响应里用 `source: live|snapshot` 显式标注
   - 热度：新增激活、DAU 设备、总交互、人均交互、Top 内容、24 小时热力、地域分布
-  - 留存：D1/D3/D7/D30、流失设备、回访率、平均间隔
-- [ ] OTA：固件包管理 + 推送记录（**仅平台端可见**；Wi-Fi 方案显示「不支持（端侧升级）」）
-- [ ] 🔑 `frontend/pages/merchant/{ai_config,product_detail,metrics}.js`
-- [ ] `frontend/pages/platform/{client_product_detail 运营Tab, ota}.js`
-- [ ] `frontend/shared/ui/chart.js` 补全热力图 / 环形 / 折线
-- [ ] `tests/integration/test_metrics_isolation.py` — **断言两产品的运营数据互不串台（P-07/P-08）**
-- [ ] `tests/integration/test_ota.py` — 断言 Wi-Fi 产品推送被拒绝
+  - 留存：D1/D3/D7/D30、流失设备、回访率、平均间隔；**分母为 0 时比率为 `null` 而不是 0**（不把「未知」伪装成「零」）
+  - 内容榜的归属来自 `dialogue_messages.content_item_id`（供应商在 `ChatChunk` 里**声明**素材标题），不做「回复文本里出现《标题》」式嗅探
+- [x] OTA：固件包管理 + 推送记录（**仅平台端可见**；Wi-Fi 方案显示「不支持（端侧升级）」）
+  - 推送能力判定读 `cloud_providers.ota_support`（**数据驱动**，不是写死的厂商 if）：Wi-Fi → 409 `OTA_NOT_SUPPORTED`，`details` 带 `{otaSupport, cloudVendor, cloudProviderName}`
+  - 逐台写 `ota_records`（`PENDING → PUSHING → SUCCESS|FAILED`）；成功才更新设备固件版本；已是最新版本计 `skipped`（幂等）
+  - **无文件的固件包逐台 FAILED 并说明原因**（ADR-07：不伪造成功）
+- [x] 🔑 `frontend/pages/merchant/{products,product_detail,ai_config,knowledge,metrics}.js`（较原计划增加 `products.js` —— 菜单 `/products` 此前一直是「建设中」）
+- [x] `frontend/pages/platform/ota.js` + `client_product_detail.js` 追加「运营」Tab
+- [x] `frontend/shared/ui/chart.js` —— **P2 已交付**（柱 / 折线 / 环形 / 热力 / 迷你趋势 / 堆叠条 + 悬浮提示），本阶段直接复用，未重复实现
+- [x] `tests/integration/test_metrics_isolation.py`（9 条）— **断言两产品的运营数据互不串台（P-07/P-08）**
+  - 核心断言：`trend`（快照之和）**必须等于** `overview`（实时聚合）——用系数摊派的实现过不了这一关
+  - 另断言：24 小时分布**不能是平的**（种子小时刻意错开）、地域设备数之和 = 该产品地域已知设备数、重建只写被请求的产品且幂等
+- [x] `tests/integration/test_ota.py`（14 条）— 断言 Wi-Fi 产品推送被拒绝，且**被拒绝时不留任何推送记录**
+- [x] `tests/integration/test_tenant_isolation.py` — 租户隔离矩阵**扩到 26 条 P9 商户路由**（含两类不同越权形态：路径资源 ID 与**查询参数** `productId`）
 
-**验收**：P-07 与 P-08 的断言测试通过；OTA 仅平台可见且 Wi-Fi 正确提示不支持。
+**验收**（2026-09-17 实测通过）：P-07 与 P-08 的断言测试通过（9 + 14 条）；OTA 仅平台可见（商户 403）且 Wi-Fi 正确提示不支持；`make check` 全绿（**804 passed**、mypy 95 文件、契约一致）；`make fe-check` 399 处导入匹配；`alembic check` 零漂移。浏览器实测 6 项（AI 配置分区与开关保存、角色 4G/Wi-Fi 差异、运营看板实时聚合 + 快照重建 168 行、OTA 的 Wi-Fi 拒绝与 4G 诚实失败）。
+
+**本阶段发现并修复的 3 个真缺陷**：① **小时分布聚合错误**（用 `COUNT` 基座叠加行级列 → `SELECT count(*), created_at` 无 `GROUP BY`，SQLite 只返回 1 行，每小时恒记 1 条）；② **同一路径两个处理函数**（P4 与 P9 都定义 `/merchant/products`，生效取决于 include 顺序）；③ **演示数据时间戳落在未来**（种子把「今天」的会话放在 09:00/14:00，凌晨运行时按 `created_at <= now` 的聚合会排除它们，「今天」恒为空）。另修 3 处**写死厂商名的文案**（角色不支持原因、OTA 弹窗两处）改为厂商中立。
+
+**已知局限**：
+1. **快照按 UTC 日期归档**，而商户在中国的本地日期可能差一天（凌晨 8 点前尤其明显）。`tenants.timezone` 字段已存在但未参与聚合——完整方案是按租户时区归档，留待 P10。
+2. **内容库只读**（本阶段只做了列表端点）：内容审核流程不在 P9 范围，写能力待后续；`content_items` 的演示数据由种子提供。
+3. **知识库解析不做向量化**：只按段落切块并统计块数，检索仍是关键词级（无 embedding 服务）；`KnowledgeBase.embedding_model` 字段保留未用。
+4. `dialogue_service` 注入知识库有上限（5 文件 / 20 块），未做分页或增量。
+5. `metrics_daily` 等表的行主键用 `new_uuid()`（`app/core/ids.py` 没有为指标表登记前缀）——与其他表的「前缀 + 随机」风格不一致，但对外不可见。
+6. 平台端「客户产品详情 → 运营」Tab 只能展示平台端能拿到的摘要（商户端指标端点对平台 token 返回 403），详细指标需在商户端查看——已在页面文案里说明，未为了填满 Tab 而编数据。
+7. 演示数据在开发库留下痕迹（AI 配置的安全开关被改为开启大模型审核、7 天快照、一次 409 推送与一次失败推送记录）；`make reset-db && make seed` 可回到纯净态。
 
 ---
 

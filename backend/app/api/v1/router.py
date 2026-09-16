@@ -14,11 +14,13 @@ from app.api.v1 import (
     factory,
     health,
     merchant,
+    merchant_ops,
     miniapp,
     platform,
     platform_allocations,
     platform_factory,
     platform_orders,
+    platform_ota,
 )
 
 api_router = APIRouter()
@@ -42,6 +44,12 @@ api_router.include_router(platform_orders.router)
 api_router.include_router(platform_allocations.router)
 
 # ---- 商户端（P4：我的订单；P5 起继续追加设备 / 绑定 / 小程序 / 运营数据） ----
+# ★ P9 的商户端模块必须**先于** merchant.py 注册：两者的
+#   ``GET /merchant/products/{product_id}`` 路径重合，而 P9 的形状
+#   （deviceCount / aiConfigSummary 等）才是契约与前端 product_detail.js
+#   所要求的（详见 merchant_ops.py 的模块 docstring）。
+#   先注册者优先，因此这里顺序不能调换。
+api_router.include_router(merchant_ops.router)
 api_router.include_router(merchant.router)
 
 # ---- 设备侧（P5：心跳上报，密钥鉴权、**不挂 JWT**） ----
@@ -63,6 +71,11 @@ api_router.include_router(factory.router)
 # 设备入库端点（POST /platform/devices/stock-in）也放在这里，同理。
 api_router.include_router(platform_factory.router)
 
+# ---- 平台端 · OTA 与内容库（P9） ----
+# OTA 仅平台端可见：固件是型号级制品，一次推送影响所有租户的同型号设备，
+# 决策权属于平台而非单个商户，因此商户端**刻意不提供**任何 OTA 路径。
+api_router.include_router(platform_ota.router)
+
 # ---- 终端用户 · 小程序端（P8：登录 / 扫码激活 / 设备 / 设置 / 充值 / 对话降级流） ----
 # 它是**第四端**，依赖与前三端都不同：认证用 EndUserAuth（终端用户令牌 type=end_user），
 # 可见性收口在「绑定关系」而不是租户（见 app/services/miniapp_service.py）。
@@ -71,4 +84,6 @@ api_router.include_router(platform_factory.router)
 api_router.include_router(miniapp.router)
 
 # 后续阶段在此追加：
-#   P9 的运营看板 / OTA 沿用平台端与商户端既有模块，不新开「端」
+#   P9 的运营看板 / OTA 沿用平台端与商户端既有「端」（不新开「端」），
+#   但按并行开发约定拆成独立模块：merchant_ops.py（商户端 AI 配置 / 知识库 /
+#   内容库 / 指标）与 platform_ota.py（平台端 OTA / 内容库）。

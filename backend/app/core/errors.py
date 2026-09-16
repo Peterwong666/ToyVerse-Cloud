@@ -74,6 +74,15 @@ class ErrorCode(StrEnum):
     # ---- 外部依赖 ----
     VENDOR_UNAVAILABLE = "VENDOR_UNAVAILABLE"
 
+    # ---- OTA（P9） ----
+    #: 云服务商不支持平台侧 OTA 推送（京东 JoyInside Wi-Fi 方案只能端侧升级）。
+    #:
+    #: 为什么不复用 ``VENDOR_UNAVAILABLE``：两者的处置方式完全不同——
+    #: 前者是「稍后重试 / 换厂商就可能成功」（503 语义，可重试），
+    #: 后者是「这条路走不通，只能让设备自己升级」（409 语义，重试无意义）。
+    #: 前端据此给出「请引导用户在设备端升级」而不是「请稍后重试」。
+    OTA_NOT_SUPPORTED = "OTA_NOT_SUPPORTED"
+
     # ---- 兜底 ----
     INTERNAL_ERROR = "INTERNAL_ERROR"
 
@@ -109,6 +118,7 @@ _STATUS_MAP: dict[ErrorCode, int] = {
     ErrorCode.FACTORY_ORDER_EXISTS: 409,
     ErrorCode.BURN_COUNT_EXCEEDED: 400,
     ErrorCode.VENDOR_UNAVAILABLE: 503,
+    ErrorCode.OTA_NOT_SUPPORTED: 409,
     ErrorCode.INTERNAL_ERROR: 500,
 }
 
@@ -143,6 +153,7 @@ _DEFAULT_MESSAGE: dict[ErrorCode, str] = {
     ErrorCode.FACTORY_ORDER_EXISTS: "该订单已派发给工厂，请勿重复派单",
     ErrorCode.BURN_COUNT_EXCEEDED: "烧录上报数量超过工单剩余数量",
     ErrorCode.VENDOR_UNAVAILABLE: "供应商协议尚未配置，该能力已安全禁用",
+    ErrorCode.OTA_NOT_SUPPORTED: "该联网方案不支持平台侧 OTA 推送",
     ErrorCode.INTERNAL_ERROR: "服务内部错误",
 }
 
@@ -314,6 +325,15 @@ def bind_failed(message: str | None = None, *, details: Any = None, ) -> AppExce
 def vendor_unavailable(message: str | None = None, *, vendor: str | None = None) -> AppException:
     details = {"vendor": vendor} if vendor else None
     return AppException(ErrorCode.VENDOR_UNAVAILABLE, message, details=details)
+
+
+def ota_not_supported(message: str | None = None, *, details: Any = None) -> AppException:
+    """构造「该联网方案不支持平台侧 OTA」异常（409）。
+
+    ``details`` 由调用方带上 ``{otaSupport, cloudVendor, cloudProviderName}``，
+    让前端无需再查一次产品就能说明「为什么推不了、该找谁升级」。
+    """
+    return AppException(ErrorCode.OTA_NOT_SUPPORTED, message, details=details)
 
 
 def internal_error(message: str | None = None) -> AppException:

@@ -235,6 +235,527 @@
         "title": "ActivationStatus",
         "type": "string"
       },
+      "AiConfigSummary": {
+        "description": "产品详情里的 AI 配置摘要（比 ``AiConfigView`` 少一半字段）。\n\n详情页只需要回答「这个产品的 AI 配好了吗」，把完整配置视图嵌进产品详情\n会让响应膨胀且与 ``GET /ai-config`` 重复——摘要只保留判断所需的最小集。",
+        "properties": {
+          "knowledgeBaseName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Knowledgebasename"
+          },
+          "providerCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Providercode"
+          },
+          "providerConfigured": {
+            "default": false,
+            "title": "Providerconfigured",
+            "type": "boolean"
+          },
+          "providerName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Providername"
+          },
+          "rolePresetCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rolepresetcode"
+          },
+          "safetyEnabled": {
+            "default": true,
+            "title": "Safetyenabled",
+            "type": "boolean"
+          },
+          "status": {
+            "default": "DISABLED",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "title": "AiConfigSummary",
+        "type": "object"
+      },
+      "AiConfigUpdateRequest": {
+        "description": "部分更新 AI 配置。\n\n**未传的字段不动，显式传 ``null`` 表示清空**——服务层用\nPydantic v2 的 ``model_fields_set`` 区分这两种情况。用「None 即清空」\n会让「只想改问候语」的调用顺手清掉角色预设，那是静默的数据损坏。\n\n``temperature`` 入参是 0.0–2.0 的小数，服务层 ×100 取整落库。",
+        "properties": {
+          "greeting": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Greeting"
+          },
+          "knowledgeBaseId": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Knowledgebaseid"
+          },
+          "maxTokens": {
+            "anyOf": [
+              {
+                "maximum": 32768.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxtokens"
+          },
+          "providerCode": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Providercode"
+          },
+          "rolePresetCode": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rolepresetcode"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EnableStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "systemPrompt": {
+            "anyOf": [
+              {
+                "maxLength": 8000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Systemprompt"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "maximum": 2.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          },
+          "voiceProfileId": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voiceprofileid"
+          }
+        },
+        "title": "AiConfigUpdateRequest",
+        "type": "object"
+      },
+      "AiConfigView": {
+        "description": "某个客户产品的 AI 配置视图。\n\n``roleSupported`` 是**业务规则**而不是配置项的镜像：\n联网方式为 ``4G`` 时平台可覆盖对话角色（``true``）；\n为 ``WIFI`` 时角色由厂商智能体配置，平台不覆盖（``false`` 且给出原因）。\n这条规则写在 :mod:`app.services.ai_config_service` 的 docstring 里，\nGET 与 PUT role 两个入口共用同一文案，避免两处各写一句导致口径漂移。\n\n``providerHealth`` 是**配置推导**的健康态（已配置密钥 = ``UP``，\n未配置 = ``DOWN``），不是主动网络探测：GET 不应该产生出站调用。\n真实探测结果由 ``/ai/health`` 系列端点（P7）负责。",
+        "properties": {
+          "greeting": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Greeting"
+          },
+          "knowledgeBaseId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Knowledgebaseid"
+          },
+          "knowledgeBaseName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Knowledgebasename"
+          },
+          "maxTokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxtokens"
+          },
+          "networkType": {
+            "title": "Networktype",
+            "type": "string"
+          },
+          "productId": {
+            "title": "Productid",
+            "type": "string"
+          },
+          "providerCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Providercode"
+          },
+          "providerConfigured": {
+            "default": false,
+            "title": "Providerconfigured",
+            "type": "boolean"
+          },
+          "providerHealth": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UP / DOWN / null（无解析结果）",
+            "title": "Providerhealth"
+          },
+          "providerName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Providername"
+          },
+          "rolePresetCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rolepresetcode"
+          },
+          "rolePresetName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rolepresetname"
+          },
+          "roleSupported": {
+            "default": true,
+            "title": "Rolesupported",
+            "type": "boolean"
+          },
+          "roleUnsupportedReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roleunsupportedreason"
+          },
+          "safety": {
+            "$ref": "#/components/schemas/SafetySwitches"
+          },
+          "status": {
+            "default": "DISABLED",
+            "title": "Status",
+            "type": "string"
+          },
+          "systemPrompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Systemprompt"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "0.0–2.0（库内为 ×100 整数）",
+            "title": "Temperature"
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updatedat"
+          },
+          "voiceProfileId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voiceprofileid"
+          },
+          "voiceProfileName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voiceprofilename"
+          }
+        },
+        "required": [
+          "productId",
+          "networkType"
+        ],
+        "title": "AiConfigView",
+        "type": "object"
+      },
+      "AiPromptUpdateRequest": {
+        "description": "只更新提示词相关字段（系统提示 / 问候语 / 采样参数）。",
+        "properties": {
+          "greeting": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Greeting"
+          },
+          "maxTokens": {
+            "anyOf": [
+              {
+                "maximum": 32768.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxtokens"
+          },
+          "systemPrompt": {
+            "anyOf": [
+              {
+                "maxLength": 8000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Systemprompt"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "maximum": 2.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          }
+        },
+        "title": "AiPromptUpdateRequest",
+        "type": "object"
+      },
+      "AiRoleUpdateRequest": {
+        "description": "只更新角色预设。Wi-Fi 产品会拿到 409 ``INVALID_STATE_TRANSITION``。",
+        "properties": {
+          "rolePresetCode": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rolepresetcode"
+          }
+        },
+        "title": "AiRoleUpdateRequest",
+        "type": "object"
+      },
+      "AiSafetyUpdateRequest": {
+        "description": "只更新内容安全三开关。",
+        "properties": {
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "llmReview": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llmreview"
+          },
+          "sensitiveWords": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sensitivewords"
+          }
+        },
+        "title": "AiSafetyUpdateRequest",
+        "type": "object"
+      },
+      "AiVoiceUpdateRequest": {
+        "description": "只更新音色档案。",
+        "properties": {
+          "voiceProfileId": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voiceprofileid"
+          }
+        },
+        "title": "AiVoiceUpdateRequest",
+        "type": "object"
+      },
       "AllocationExecuteResult": {
         "description": "分配执行结果。\n\n``skipped`` 用于表达「重跑时已处于目标状态、无需再动」的明细——\n它与 ``allocated`` 分开计数，否则重跑会让成功数虚高。",
         "properties": {
@@ -1968,6 +2489,68 @@
         "title": "BindingUnbindRequest",
         "type": "object"
       },
+      "Body_create_ota_package_api_v1_platform_ota_packages_post": {
+        "properties": {
+          "file": {
+            "anyOf": [
+              {
+                "format": "binary",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "固件文件（可选）",
+            "title": "File"
+          },
+          "is_forced": {
+            "default": false,
+            "title": "Is Forced",
+            "type": "boolean"
+          },
+          "min_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Version"
+          },
+          "release_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Notes"
+          },
+          "template_id": {
+            "description": "产品模板 ID",
+            "title": "Template Id",
+            "type": "string"
+          },
+          "version": {
+            "description": "固件版本号",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "template_id",
+          "version"
+        ],
+        "title": "Body_create_ota_package_api_v1_platform_ota_packages_post",
+        "type": "object"
+      },
       "Body_upload_batch_api_v1_platform_batches_post": {
         "properties": {
           "file": {
@@ -1981,6 +2564,21 @@
           "file"
         ],
         "title": "Body_upload_batch_api_v1_platform_batches_post",
+        "type": "object"
+      },
+      "Body_upload_kb_file_api_v1_merchant_knowledge_bases__kb_id__files_post": {
+        "properties": {
+          "file": {
+            "description": "知识库文件",
+            "format": "binary",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_kb_file_api_v1_merchant_knowledge_bases__kb_id__files_post",
         "type": "object"
       },
       "BurnReportRequest": {
@@ -2976,6 +3574,133 @@
         ],
         "title": "CloudVendor",
         "type": "string"
+      },
+      "ContentItemResponse": {
+        "description": "内容库条目。\n\n``scope`` 区分「平台公共」与「本租户自建」——两者在同一列表里混排，\n没有这个字段前端就无法解释「为什么有些条目我改不了」。",
+        "properties": {
+          "ageGroup": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agegroup"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "durationSeconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Durationseconds"
+          },
+          "hitCount": {
+            "default": 0,
+            "title": "Hitcount",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "scope": {
+            "default": "PLATFORM",
+            "description": "PLATFORM（平台公共）/ TENANT（本租户）",
+            "title": "Scope",
+            "type": "string"
+          },
+          "status": {
+            "default": "ENABLED",
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "default": "STORY",
+            "title": "Type",
+            "type": "string"
+          },
+          "typeLabel": {
+            "default": "故事",
+            "title": "Typelabel",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "ContentItemResponse",
+        "type": "object"
+      },
+      "ContentItemType": {
+        "description": "内容库条目类型。",
+        "enum": [
+          "SONG",
+          "STORY"
+        ],
+        "title": "ContentItemType",
+        "type": "string"
+      },
+      "ContentRankItem": {
+        "description": "内容热度排行的一项（标题为快照值，内容改名/下架不影响历史复盘）。",
+        "properties": {
+          "contentId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contentid"
+          },
+          "hits": {
+            "default": 0,
+            "title": "Hits",
+            "type": "integer"
+          },
+          "rank": {
+            "title": "Rank",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rank",
+          "title",
+          "type"
+        ],
+        "title": "ContentRankItem",
+        "type": "object"
       },
       "CurrentUserResponse": {
         "description": "``/me`` 响应。",
@@ -5003,6 +5728,30 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HourPoint": {
+        "description": "小时分布的一个点。",
+        "properties": {
+          "activeDevices": {
+            "default": 0,
+            "title": "Activedevices",
+            "type": "integer"
+          },
+          "hour": {
+            "title": "Hour",
+            "type": "integer"
+          },
+          "interactions": {
+            "default": 0,
+            "title": "Interactions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hour"
+        ],
+        "title": "HourPoint",
+        "type": "object"
+      },
       "InspectionCreateRequest": {
         "description": "抽检上报。\n\n★ 空白 SN 必须在**入参层**挡掉：P5 的教训是 ``min_length=1`` 拦不住\n``\"   \"``（它长度为 3），会一路落库并污染「抽检合格率」。",
         "properties": {
@@ -5178,6 +5927,359 @@
         "title": "InspectionSummary",
         "type": "object"
       },
+      "KbCreateRequest": {
+        "description": "创建知识库。",
+        "properties": {
+          "clientProductId": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clientproductid"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "KbCreateRequest",
+        "type": "object"
+      },
+      "KbDetailResponse": {
+        "description": "知识库详情：附文件清单。",
+        "properties": {
+          "chunkCount": {
+            "default": 0,
+            "title": "Chunkcount",
+            "type": "integer"
+          },
+          "clientProductId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clientproductid"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "docCount": {
+            "default": 0,
+            "title": "Doccount",
+            "type": "integer"
+          },
+          "fileCount": {
+            "default": 0,
+            "title": "Filecount",
+            "type": "integer"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/KbFileResponse"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "parsedFileCount": {
+            "default": 0,
+            "title": "Parsedfilecount",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status",
+          "updatedAt"
+        ],
+        "title": "KbDetailResponse",
+        "type": "object"
+      },
+      "KbFileDeleteResult": {
+        "description": "删除知识库文件的结果。\n\n删除是**幂等**动作：存储对象已经不存在时同样返回 ``deleted=true``——\n调用方想要的终态已经达成，让「重复删除」报错只会逼客户端写无意义的\ntry/except，反而掩盖真实错误（与 :mod:`app.core.storage` 同一口径）。",
+        "properties": {
+          "deleted": {
+            "default": true,
+            "title": "Deleted",
+            "type": "boolean"
+          }
+        },
+        "title": "KbFileDeleteResult",
+        "type": "object"
+      },
+      "KbFileResponse": {
+        "description": "知识库文件。``status`` 与 ``statusLabel`` 成对给出，前端无需自建映射表。",
+        "properties": {
+          "chunkCount": {
+            "default": 0,
+            "title": "Chunkcount",
+            "type": "integer"
+          },
+          "contentType": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contenttype"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "errorMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errormessage"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "parsedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parsedat"
+          },
+          "sizeBytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sizebytes"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "statusLabel": {
+            "title": "Statuslabel",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "filename",
+          "status",
+          "statusLabel",
+          "createdAt"
+        ],
+        "title": "KbFileResponse",
+        "type": "object"
+      },
+      "KbFileStatus": {
+        "description": "知识库文件解析状态。\n\n刻意把「已入库」与「已解析」分开：文件上传成功不代表能被检索命中，\n运营看板需要区分「传了但没解析成功」这类沉默故障。",
+        "enum": [
+          "PENDING",
+          "PARSING",
+          "PARSED",
+          "FAILED"
+        ],
+        "title": "KbFileStatus",
+        "type": "string"
+      },
+      "KbResponse": {
+        "description": "知识库列表项 / 基本信息。",
+        "properties": {
+          "chunkCount": {
+            "default": 0,
+            "title": "Chunkcount",
+            "type": "integer"
+          },
+          "clientProductId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clientproductid"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "docCount": {
+            "default": 0,
+            "title": "Doccount",
+            "type": "integer"
+          },
+          "fileCount": {
+            "default": 0,
+            "title": "Filecount",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "parsedFileCount": {
+            "default": 0,
+            "title": "Parsedfilecount",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status",
+          "updatedAt"
+        ],
+        "title": "KbResponse",
+        "type": "object"
+      },
+      "KbUpdateRequest": {
+        "description": "更新知识库（部分更新；未传不动）。",
+        "properties": {
+          "clientProductId": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clientproductid"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EnableStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "KbUpdateRequest",
+        "type": "object"
+      },
       "ListResult_FactoryResponse_": {
         "properties": {
           "records": {
@@ -5218,6 +6320,27 @@
           "total"
         ],
         "title": "ListResult[FirmwareVersionResponse]",
+        "type": "object"
+      },
+      "ListResult_MerchantProviderItem_": {
+        "properties": {
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/MerchantProviderItem"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total"
+        ],
+        "title": "ListResult[MerchantProviderItem]",
         "type": "object"
       },
       "ListResult_MiniappDeviceBrief_": {
@@ -5283,6 +6406,27 @@
         "title": "ListResult[QrCodeItemResponse]",
         "type": "object"
       },
+      "ListResult_RolePresetItem_": {
+        "properties": {
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/app__schemas__ops__RolePresetItem"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total"
+        ],
+        "title": "ListResult[RolePresetItem]",
+        "type": "object"
+      },
       "ListResult_TenantOption_": {
         "properties": {
           "records": {
@@ -5302,6 +6446,27 @@
           "total"
         ],
         "title": "ListResult[TenantOption]",
+        "type": "object"
+      },
+      "ListResult_VoiceProfileItem_": {
+        "properties": {
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/VoiceProfileItem"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total"
+        ],
+        "title": "ListResult[VoiceProfileItem]",
         "type": "object"
       },
       "LoginRequest": {
@@ -5447,6 +6612,163 @@
         "title": "MerchantOrderCreateRequest",
         "type": "object"
       },
+      "MerchantProductOpsResponse": {
+        "description": "商户端「我的产品」详情（P9 版：含设备计数与 AI 摘要）。",
+        "properties": {
+          "activatedDeviceCount": {
+            "default": 0,
+            "title": "Activateddevicecount",
+            "type": "integer"
+          },
+          "aiConfigSummary": {
+            "$ref": "#/components/schemas/AiConfigSummary"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "deviceCount": {
+            "default": 0,
+            "title": "Devicecount",
+            "type": "integer"
+          },
+          "firmwareVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firmwareversion"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "networkType": {
+            "title": "Networktype",
+            "type": "string"
+          },
+          "networkTypeLabel": {
+            "title": "Networktypelabel",
+            "type": "string"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "templateName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Templatename"
+          },
+          "tenantId": {
+            "title": "Tenantid",
+            "type": "string"
+          },
+          "totalInteractions": {
+            "default": 0,
+            "title": "Totalinteractions",
+            "type": "integer"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "code",
+          "name",
+          "networkType",
+          "networkTypeLabel",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "MerchantProductOpsResponse",
+        "type": "object"
+      },
+      "MerchantProviderItem": {
+        "description": "商户可见的供应商条目。**不含任何密钥或密钥片段。**",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "configured": {
+            "default": false,
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "isDefault": {
+            "default": false,
+            "title": "Isdefault",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "default": "ACTIVE",
+            "title": "Status",
+            "type": "string"
+          },
+          "vendor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendor"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "kind"
+        ],
+        "title": "MerchantProviderItem",
+        "type": "object"
+      },
       "MessageResult": {
         "description": "仅返回提示信息的响应。",
         "properties": {
@@ -5462,6 +6784,351 @@
           }
         },
         "title": "MessageResult",
+        "type": "object"
+      },
+      "MetricsContentResponse": {
+        "description": "内容热度排行（``source: \"snapshot\"``）。",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/ContentRankItem"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "source": {
+            "default": "snapshot",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date"
+        ],
+        "title": "MetricsContentResponse",
+        "type": "object"
+      },
+      "MetricsHourlyResponse": {
+        "description": "24 小时热力（``source: \"snapshot\"``，恒 24 项，缺失补 0）。",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "hours": {
+            "items": {
+              "$ref": "#/components/schemas/HourPoint"
+            },
+            "title": "Hours",
+            "type": "array"
+          },
+          "source": {
+            "default": "snapshot",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date"
+        ],
+        "title": "MetricsHourlyResponse",
+        "type": "object"
+      },
+      "MetricsOverviewResponse": {
+        "description": "实时聚合概览（``source: \"live\"``）。\n\n★ 每个数字都来自对原始表（``devices`` / ``dialogue_sessions`` /\n``dialogue_messages``）的 ``GROUP BY`` / ``COUNT``，没有任何系数还原\n（遗留缺陷 P-07 的成因就是「拿一个数乘系数」）。",
+        "properties": {
+          "activatedDevices": {
+            "default": 0,
+            "title": "Activateddevices",
+            "type": "integer"
+          },
+          "activeDevices": {
+            "default": 0,
+            "title": "Activedevices",
+            "type": "integer"
+          },
+          "assistantMessages": {
+            "default": 0,
+            "title": "Assistantmessages",
+            "type": "integer"
+          },
+          "avgInteractionsPerActiveDevice": {
+            "default": 0.0,
+            "title": "Avginteractionsperactivedevice",
+            "type": "number"
+          },
+          "avgLatencyMs": {
+            "default": 0.0,
+            "title": "Avglatencyms",
+            "type": "number"
+          },
+          "avgMessagesPerSession": {
+            "default": 0.0,
+            "title": "Avgmessagespersession",
+            "type": "number"
+          },
+          "contentHits": {
+            "default": 0,
+            "title": "Contenthits",
+            "type": "integer"
+          },
+          "hasSnapshot": {
+            "default": false,
+            "title": "Hassnapshot",
+            "type": "boolean"
+          },
+          "productId": {
+            "title": "Productid",
+            "type": "string"
+          },
+          "productName": {
+            "title": "Productname",
+            "type": "string"
+          },
+          "range": {
+            "$ref": "#/components/schemas/MetricsRange"
+          },
+          "safetyBlocked": {
+            "default": 0,
+            "title": "Safetyblocked",
+            "type": "integer"
+          },
+          "sessionCount": {
+            "default": 0,
+            "title": "Sessioncount",
+            "type": "integer"
+          },
+          "source": {
+            "default": "live",
+            "title": "Source",
+            "type": "string"
+          },
+          "totalDevices": {
+            "default": 0,
+            "title": "Totaldevices",
+            "type": "integer"
+          },
+          "totalInteractions": {
+            "default": 0,
+            "title": "Totalinteractions",
+            "type": "integer"
+          },
+          "uniqueEndUsers": {
+            "default": 0,
+            "title": "Uniqueendusers",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "productId",
+          "productName",
+          "range"
+        ],
+        "title": "MetricsOverviewResponse",
+        "type": "object"
+      },
+      "MetricsRange": {
+        "description": "查询区间（含首尾）。\n\n``from`` 是 Python 关键字，因此字段名写成 ``from_`` 并显式声明别名，\n对外 JSON 仍是契约要求的 ``from``。",
+        "properties": {
+          "from": {
+            "format": "date",
+            "title": "From",
+            "type": "string"
+          },
+          "to": {
+            "format": "date",
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ],
+        "title": "MetricsRange",
+        "type": "object"
+      },
+      "MetricsRebuildRequest": {
+        "description": "重建运营快照（幂等 upsert）。",
+        "properties": {
+          "dateFrom": {
+            "format": "date",
+            "title": "Datefrom",
+            "type": "string"
+          },
+          "dateTo": {
+            "format": "date",
+            "title": "Dateto",
+            "type": "string"
+          },
+          "productId": {
+            "minLength": 1,
+            "title": "Productid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "productId",
+          "dateFrom",
+          "dateTo"
+        ],
+        "title": "MetricsRebuildRequest",
+        "type": "object"
+      },
+      "MetricsRebuildResponse": {
+        "description": "重建结果（各表写入行数与覆盖日期）。",
+        "properties": {
+          "contentRows": {
+            "default": 0,
+            "title": "Contentrows",
+            "type": "integer"
+          },
+          "dailyRows": {
+            "default": 0,
+            "title": "Dailyrows",
+            "type": "integer"
+          },
+          "dates": {
+            "items": {
+              "format": "date",
+              "type": "string"
+            },
+            "title": "Dates",
+            "type": "array"
+          },
+          "hourlyRows": {
+            "default": 0,
+            "title": "Hourlyrows",
+            "type": "integer"
+          },
+          "rebuiltAt": {
+            "format": "date-time",
+            "title": "Rebuiltat",
+            "type": "string"
+          },
+          "regionRows": {
+            "default": 0,
+            "title": "Regionrows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rebuiltAt"
+        ],
+        "title": "MetricsRebuildResponse",
+        "type": "object"
+      },
+      "MetricsRegionResponse": {
+        "description": "地域分布（``source: \"snapshot\"``，按 deviceCount 降序）。",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "regions": {
+            "items": {
+              "$ref": "#/components/schemas/RegionPoint"
+            },
+            "title": "Regions",
+            "type": "array"
+          },
+          "source": {
+            "default": "snapshot",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date"
+        ],
+        "title": "MetricsRegionResponse",
+        "type": "object"
+      },
+      "MetricsRetentionResponse": {
+        "description": "留存（实时计算，按**设备**算；快照表没有设备级明细）。",
+        "properties": {
+          "avgIntervalDays": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avgintervaldays"
+          },
+          "churnedDevices": {
+            "default": 0,
+            "title": "Churneddevices",
+            "type": "integer"
+          },
+          "cohorts": {
+            "items": {
+              "$ref": "#/components/schemas/RetentionCohort"
+            },
+            "title": "Cohorts",
+            "type": "array"
+          },
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "productId": {
+            "title": "Productid",
+            "type": "string"
+          },
+          "returnRate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Returnrate"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/RetentionSummary"
+          }
+        },
+        "required": [
+          "productId",
+          "days"
+        ],
+        "title": "MetricsRetentionResponse",
+        "type": "object"
+      },
+      "MetricsTrendResponse": {
+        "description": "日趋势（``source: \"snapshot\"``，读 ``metrics_daily``）。",
+        "properties": {
+          "granularity": {
+            "default": "day",
+            "title": "Granularity",
+            "type": "string"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/TrendPoint"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "source": {
+            "default": "snapshot",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "title": "MetricsTrendResponse",
         "type": "object"
       },
       "MiniAppConfigRequest": {
@@ -6664,6 +8331,622 @@
         "title": "OrderStatus",
         "type": "string"
       },
+      "OtaPackageDetailResponse": {
+        "description": "固件包详情：附最近 20 条推送记录。",
+        "properties": {
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checksum"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "fileName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filename"
+          },
+          "fileSize": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filesize"
+          },
+          "hasFile": {
+            "default": false,
+            "title": "Hasfile",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "isForced": {
+            "default": false,
+            "title": "Isforced",
+            "type": "boolean"
+          },
+          "minVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minversion"
+          },
+          "publishedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publishedat"
+          },
+          "pushStats": {
+            "$ref": "#/components/schemas/OtaPushStats"
+          },
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/OtaRecordResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "releaseNotes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Releasenotes"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "statusLabel": {
+            "title": "Statuslabel",
+            "type": "string"
+          },
+          "templateId": {
+            "title": "Templateid",
+            "type": "string"
+          },
+          "templateName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Templatename"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "templateId",
+          "version",
+          "status",
+          "statusLabel",
+          "createdAt"
+        ],
+        "title": "OtaPackageDetailResponse",
+        "type": "object"
+      },
+      "OtaPackageResponse": {
+        "description": "固件包列表项。\n\n``has_file`` 为 ``false`` 表示这是一个**元数据登记**（种子里的演示包就是\n如此）。无文件的包不能真正推送——推送时逐台写 ``FAILED`` 并说明原因，\n绝不因为「界面看起来能推」就伪造成功。",
+        "properties": {
+          "checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checksum"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "fileName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filename"
+          },
+          "fileSize": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filesize"
+          },
+          "hasFile": {
+            "default": false,
+            "title": "Hasfile",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "isForced": {
+            "default": false,
+            "title": "Isforced",
+            "type": "boolean"
+          },
+          "minVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minversion"
+          },
+          "publishedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publishedat"
+          },
+          "pushStats": {
+            "$ref": "#/components/schemas/OtaPushStats"
+          },
+          "releaseNotes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Releasenotes"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "statusLabel": {
+            "title": "Statuslabel",
+            "type": "string"
+          },
+          "templateId": {
+            "title": "Templateid",
+            "type": "string"
+          },
+          "templateName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Templatename"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "templateId",
+          "version",
+          "status",
+          "statusLabel",
+          "createdAt"
+        ],
+        "title": "OtaPackageResponse",
+        "type": "object"
+      },
+      "OtaPackageUpdateRequest": {
+        "description": "更新固件包（部分更新；文件本身不可替换——换了字节就该发新版本号）。",
+        "properties": {
+          "isForced": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Isforced"
+          },
+          "minVersion": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minversion"
+          },
+          "releaseNotes": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Releasenotes"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EnableStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "OtaPackageUpdateRequest",
+        "type": "object"
+      },
+      "OtaPushRecordItem": {
+        "description": "单台设备的推送结果。\n\n``status`` 取值含 ``SKIPPED``（设备已在目标版本）：该值**只出现在响应里**，\n不写入 ``ota_records``——那张表记的是「推送」，而被跳过的一台从未被推送。",
+        "properties": {
+          "deviceId": {
+            "title": "Deviceid",
+            "type": "string"
+          },
+          "errorMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errormessage"
+          },
+          "fromVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fromversion"
+          },
+          "sn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sn"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "toVersion": {
+            "title": "Toversion",
+            "type": "string"
+          },
+          "vendorMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendormessage"
+          }
+        },
+        "required": [
+          "deviceId",
+          "status",
+          "toVersion"
+        ],
+        "title": "OtaPushRecordItem",
+        "type": "object"
+      },
+      "OtaPushRequest": {
+        "description": "推送固件包给某个客户产品。\n\n``device_ids`` 省略时推送该产品下**全部非 RETIRED 设备**；\n给定 ID 时逐台校验归属，不属于该产品的计入 ``failed``（**不整批拒绝**）——\n整批拒绝会让「99 台正确的设备因 1 个错 ID 而全部推不了」。",
+        "properties": {
+          "clientProductId": {
+            "minLength": 1,
+            "title": "Clientproductid",
+            "type": "string"
+          },
+          "deviceIds": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deviceids"
+          }
+        },
+        "required": [
+          "clientProductId"
+        ],
+        "title": "OtaPushRequest",
+        "type": "object"
+      },
+      "OtaPushResult": {
+        "description": "一次推送的汇总结果。",
+        "properties": {
+          "clientProductId": {
+            "title": "Clientproductid",
+            "type": "string"
+          },
+          "failed": {
+            "default": 0,
+            "title": "Failed",
+            "type": "integer"
+          },
+          "otaSupport": {
+            "default": "SUPPORTED",
+            "title": "Otasupport",
+            "type": "string"
+          },
+          "packageId": {
+            "title": "Packageid",
+            "type": "string"
+          },
+          "pushed": {
+            "default": 0,
+            "title": "Pushed",
+            "type": "integer"
+          },
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/OtaPushRecordItem"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "requested": {
+            "default": 0,
+            "title": "Requested",
+            "type": "integer"
+          },
+          "skipped": {
+            "default": 0,
+            "title": "Skipped",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "packageId",
+          "clientProductId"
+        ],
+        "title": "OtaPushResult",
+        "type": "object"
+      },
+      "OtaPushStats": {
+        "description": "某个固件包的推送统计（按设备逐条汇总）。",
+        "properties": {
+          "failed": {
+            "default": 0,
+            "title": "Failed",
+            "type": "integer"
+          },
+          "pending": {
+            "default": 0,
+            "title": "Pending",
+            "type": "integer"
+          },
+          "success": {
+            "default": 0,
+            "title": "Success",
+            "type": "integer"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "OtaPushStats",
+        "type": "object"
+      },
+      "OtaPushStatus": {
+        "description": "OTA 推送状态。",
+        "enum": [
+          "PENDING",
+          "PUSHING",
+          "SUCCESS",
+          "PARTIAL_FAILED",
+          "FAILED"
+        ],
+        "title": "OtaPushStatus",
+        "type": "string"
+      },
+      "OtaRecordResponse": {
+        "description": "单台设备的推送记录。",
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "deviceId": {
+            "title": "Deviceid",
+            "type": "string"
+          },
+          "errorMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errormessage"
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finishedat"
+          },
+          "fromVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fromversion"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "packageId": {
+            "title": "Packageid",
+            "type": "string"
+          },
+          "pushedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pushedat"
+          },
+          "sn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sn"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "toVersion": {
+            "title": "Toversion",
+            "type": "string"
+          },
+          "vendorMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendormessage"
+          }
+        },
+        "required": [
+          "id",
+          "packageId",
+          "deviceId",
+          "status",
+          "toVersion",
+          "createdAt"
+        ],
+        "title": "OtaRecordResponse",
+        "type": "object"
+      },
       "OtaSupport": {
         "description": "OTA 支持情况。",
         "enum": [
@@ -7001,6 +9284,47 @@
         "title": "PageResult[CloudProviderResponse]",
         "type": "object"
       },
+      "PageResult_ContentItemResponse_": {
+        "properties": {
+          "page": {
+            "description": "当前页码",
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "description": "每页条数",
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "records": {
+            "description": "当前页记录",
+            "items": {
+              "$ref": "#/components/schemas/ContentItemResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "description": "总记录数",
+            "title": "Total",
+            "type": "integer"
+          },
+          "totalPages": {
+            "description": "总页数",
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "title": "PageResult[ContentItemResponse]",
+        "type": "object"
+      },
       "PageResult_DeviceEventResponse_": {
         "properties": {
           "page": {
@@ -7165,6 +9489,129 @@
         "title": "PageResult[InspectionResponse]",
         "type": "object"
       },
+      "PageResult_KbFileResponse_": {
+        "properties": {
+          "page": {
+            "description": "当前页码",
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "description": "每页条数",
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "records": {
+            "description": "当前页记录",
+            "items": {
+              "$ref": "#/components/schemas/KbFileResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "description": "总记录数",
+            "title": "Total",
+            "type": "integer"
+          },
+          "totalPages": {
+            "description": "总页数",
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "title": "PageResult[KbFileResponse]",
+        "type": "object"
+      },
+      "PageResult_KbResponse_": {
+        "properties": {
+          "page": {
+            "description": "当前页码",
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "description": "每页条数",
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "records": {
+            "description": "当前页记录",
+            "items": {
+              "$ref": "#/components/schemas/KbResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "description": "总记录数",
+            "title": "Total",
+            "type": "integer"
+          },
+          "totalPages": {
+            "description": "总页数",
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "title": "PageResult[KbResponse]",
+        "type": "object"
+      },
+      "PageResult_MerchantProductOpsResponse_": {
+        "properties": {
+          "page": {
+            "description": "当前页码",
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "description": "每页条数",
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "records": {
+            "description": "当前页记录",
+            "items": {
+              "$ref": "#/components/schemas/MerchantProductOpsResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "description": "总记录数",
+            "title": "Total",
+            "type": "integer"
+          },
+          "totalPages": {
+            "description": "总页数",
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "title": "PageResult[MerchantProductOpsResponse]",
+        "type": "object"
+      },
       "PageResult_OrderResponse_": {
         "properties": {
           "page": {
@@ -7204,6 +9651,88 @@
           "totalPages"
         ],
         "title": "PageResult[OrderResponse]",
+        "type": "object"
+      },
+      "PageResult_OtaPackageResponse_": {
+        "properties": {
+          "page": {
+            "description": "当前页码",
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "description": "每页条数",
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "records": {
+            "description": "当前页记录",
+            "items": {
+              "$ref": "#/components/schemas/OtaPackageResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "description": "总记录数",
+            "title": "Total",
+            "type": "integer"
+          },
+          "totalPages": {
+            "description": "总页数",
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "title": "PageResult[OtaPackageResponse]",
+        "type": "object"
+      },
+      "PageResult_OtaRecordResponse_": {
+        "properties": {
+          "page": {
+            "description": "当前页码",
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "description": "每页条数",
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "records": {
+            "description": "当前页记录",
+            "items": {
+              "$ref": "#/components/schemas/OtaRecordResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "description": "总记录数",
+            "title": "Total",
+            "type": "integer"
+          },
+          "totalPages": {
+            "description": "总页数",
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "title": "PageResult[OtaRecordResponse]",
         "type": "object"
       },
       "PageResult_TemplateResponse_": {
@@ -7736,6 +10265,30 @@
         "title": "RefreshResponse",
         "type": "object"
       },
+      "RegionPoint": {
+        "description": "地域分布的一项。``region`` 为空时写「未知」——不猜。",
+        "properties": {
+          "deviceCount": {
+            "default": 0,
+            "title": "Devicecount",
+            "type": "integer"
+          },
+          "interactions": {
+            "default": 0,
+            "title": "Interactions",
+            "type": "integer"
+          },
+          "region": {
+            "title": "Region",
+            "type": "string"
+          }
+        },
+        "required": [
+          "region"
+        ],
+        "title": "RegionPoint",
+        "type": "object"
+      },
       "ResetPasswordRequest": {
         "description": "重置账号密码。",
         "properties": {
@@ -7765,28 +10318,117 @@
         "title": "ResetPasswordRequest",
         "type": "object"
       },
-      "RolePresetItem": {
-        "description": "内置角色预设。",
+      "RetentionCohort": {
+        "description": "一个激活日 cohort 的留存明细。``dN`` 为「激活日 + N 天当天有过对话」的台数。",
         "properties": {
-          "code": {
-            "title": "Code",
+          "activated": {
+            "default": 0,
+            "title": "Activated",
+            "type": "integer"
+          },
+          "cohortDate": {
+            "format": "date",
+            "title": "Cohortdate",
             "type": "string"
           },
-          "greeting": {
-            "title": "Greeting",
-            "type": "string"
+          "d1": {
+            "default": 0,
+            "title": "D1",
+            "type": "integer"
           },
-          "name": {
-            "title": "Name",
-            "type": "string"
+          "d3": {
+            "default": 0,
+            "title": "D3",
+            "type": "integer"
+          },
+          "d30": {
+            "default": 0,
+            "title": "D30",
+            "type": "integer"
+          },
+          "d7": {
+            "default": 0,
+            "title": "D7",
+            "type": "integer"
           }
         },
         "required": [
-          "code",
-          "name",
-          "greeting"
+          "cohortDate"
         ],
-        "title": "RolePresetItem",
+        "title": "RetentionCohort",
+        "type": "object"
+      },
+      "RetentionSummary": {
+        "description": "留存汇总比率。\n\n★ 分母为 0 时给 ``null`` 而不是 0：把「没有数据」读成「留存为 0」\n会让人做出完全相反的产品判断（这是运营看板最典型的误读）。",
+        "properties": {
+          "d1Rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "D1Rate"
+          },
+          "d30Rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "D30Rate"
+          },
+          "d3Rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "D3Rate"
+          },
+          "d7Rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "D7Rate"
+          }
+        },
+        "title": "RetentionSummary",
+        "type": "object"
+      },
+      "SafetySwitches": {
+        "description": "内容安全三开关。\n\n三者映射到 ``AiConfig.safety_enabled`` / ``safety_sensitive_words`` /\n``safety_llm_review``，P8 的对话链路直接读这三列，因此改完**立即生效**。",
+        "properties": {
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "llmReview": {
+            "default": false,
+            "title": "Llmreview",
+            "type": "boolean"
+          },
+          "sensitiveWords": {
+            "default": true,
+            "title": "Sensitivewords",
+            "type": "boolean"
+          }
+        },
+        "title": "SafetySwitches",
         "type": "object"
       },
       "ScanDeviceInfo": {
@@ -8085,7 +10727,7 @@
           },
           "rolePresets": {
             "items": {
-              "$ref": "#/components/schemas/RolePresetItem"
+              "$ref": "#/components/schemas/app__schemas__ai__RolePresetItem"
             },
             "title": "Rolepresets",
             "type": "array"
@@ -9187,6 +11829,51 @@
         "title": "TestResult",
         "type": "string"
       },
+      "TrendPoint": {
+        "description": "日趋势的一个点（缺失日期补 0 点，图表因此不会断线）。",
+        "properties": {
+          "activeDevices": {
+            "default": 0,
+            "title": "Activedevices",
+            "type": "integer"
+          },
+          "avgLatencyMs": {
+            "default": 0,
+            "title": "Avglatencyms",
+            "type": "integer"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "interactions": {
+            "default": 0,
+            "title": "Interactions",
+            "type": "integer"
+          },
+          "newActivations": {
+            "default": 0,
+            "title": "Newactivations",
+            "type": "integer"
+          },
+          "safetyBlocked": {
+            "default": 0,
+            "title": "Safetyblocked",
+            "type": "integer"
+          },
+          "sessionCount": {
+            "default": 0,
+            "title": "Sessioncount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date"
+        ],
+        "title": "TrendPoint",
+        "type": "object"
+      },
       "TtsRequest": {
         "description": "语音合成请求。",
         "properties": {
@@ -9502,6 +12189,63 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "VoiceProfileItem": {
+        "description": "音色档案（本租户）。",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "providerCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Providercode"
+          },
+          "status": {
+            "default": "DISABLED",
+            "title": "Status",
+            "type": "string"
+          },
+          "trainStatus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trainstatus"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "VoiceProfileItem",
+        "type": "object"
+      },
       "app__schemas__ai__HealthResponse": {
         "description": "健康探测结果。\n\n未配置密钥时 ``status=DOWN``、``ok=false``——**不伪造成功**（ADR-07）。",
         "properties": {
@@ -9582,6 +12326,30 @@
         "title": "HealthResponse",
         "type": "object"
       },
+      "app__schemas__ai__RolePresetItem": {
+        "description": "内置角色预设。",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "greeting": {
+            "title": "Greeting",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "greeting"
+        ],
+        "title": "RolePresetItem",
+        "type": "object"
+      },
       "app__schemas__auth__HealthResponse": {
         "description": "健康检查响应。",
         "properties": {
@@ -9622,6 +12390,74 @@
           "time"
         ],
         "title": "HealthResponse",
+        "type": "object"
+      },
+      "app__schemas__ops__RolePresetItem": {
+        "description": "角色预设（平台内置 ``tenant_id IS NULL`` + 本租户）。",
+        "properties": {
+          "ageGroup": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agegroup"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "greeting": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Greeting"
+          },
+          "isBuiltin": {
+            "default": false,
+            "title": "Isbuiltin",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "persona": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Persona"
+          },
+          "tone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tone"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "RolePresetItem",
         "type": "object"
       }
     },
@@ -10859,6 +13695,33 @@
         ]
       }
     },
+    "/api/v1/merchant/ai/providers": {
+      "get": {
+        "description": "已注册供应商清单。**绝不含 apiKey / secretKey 或其片段**——只给「是否已配置」的布尔 `configured`。密钥是平台级凭据，商户既不需要也不应拿到。",
+        "operationId": "list_ai_providers_api_v1_merchant_ai_providers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResult_MerchantProviderItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "可用供应商清单",
+        "tags": [
+          "商户端 · AI 配置与运营"
+        ]
+      }
+    },
     "/api/v1/merchant/bindings": {
       "get": {
         "description": "分页查询**本租户**的绑定记录（租户过滤在服务层经 `scoped()` 收口）。支持按状态 / 设备筛选，`keyword` 匹配设备 SN（服务层用子查询实现）。\n\n响应带设备侧快照（`sn` / `deviceLabel` / `assetStatus` / `bindStatus` / `networkType`），列表因此可以自解释，不需要前端再逐台回查设备。",
@@ -11010,6 +13873,142 @@
         "summary": "绑定记录列表",
         "tags": [
           "商户端 · 产品与订单"
+        ]
+      }
+    },
+    "/api/v1/merchant/content-items": {
+      "get": {
+        "description": "范围 = **平台公共内容**（`tenantId` 为空）+ **本租户自建内容**；`scope` 字段标明来源。\n\n**为什么只读**：内容库的运营维护涉及内容审核流程，不在 P9 范围；P9 的验收项是「内容热度榜」（读）。只读端点避免了先造一个能绕过审核的写入口。\n\n权限复用 `merchant:ai-config:read`：内容库是产品/内容素材的延伸，新增权限码会改动既有角色权限矩阵（有测试钉住）。",
+        "operationId": "list_my_content_items_api_v1_merchant_content_items_get",
+        "parameters": [
+          {
+            "description": "内容类型",
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ContentItemType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "内容类型",
+              "title": "Type"
+            }
+          },
+          {
+            "description": "标题 / 描述关键字",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "标题 / 描述关键字",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_ContentItemResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "内容库列表（平台公共 + 本租户，只读）",
+        "tags": [
+          "商户端 · AI 配置与运营"
         ]
       }
     },
@@ -11596,6 +14595,1133 @@
         ]
       }
     },
+    "/api/v1/merchant/knowledge-bases": {
+      "get": {
+        "description": "分页查询本租户的知识库（租户过滤在服务层经 `scoped()` 收口）。",
+        "operationId": "list_knowledge_bases_api_v1_merchant_knowledge_bases_get",
+        "parameters": [
+          {
+            "description": "名称关键字",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "名称关键字",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_KbResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "知识库列表",
+        "tags": [
+          "商户端 · AI 配置与运营"
+        ]
+      },
+      "post": {
+        "description": "创建本租户的知识库，可选关联一个本租户的客户产品（关联越权 → 404）。",
+        "operationId": "create_knowledge_base_api_v1_merchant_knowledge_bases_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KbCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "创建知识库",
+        "tags": [
+          "商户端 · AI 配置与运营"
+        ]
+      }
+    },
+    "/api/v1/merchant/knowledge-bases/{kb_id}": {
+      "delete": {
+        "description": "**被任何 `aiConfigs` 引用时 → 409 `CASCADE_CONFLICT`**，`details` 带 `{products: [{id, name}]}`；否则级联删除文件与存储对象。",
+        "operationId": "delete_knowledge_base_api_v1_merchant_knowledge_bases__kb_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kb_id",
+            "required": true,
+            "schema": {
+              "title": "Kb Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "仍被 AI 配置引用"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "删除知识库",
+        "tags": [
+          "商户端 · AI 配置与运营"
+        ]
+      },
+      "get": {
+        "description": "含文件清单（按上传时间倒序）。访问其他租户的知识库返回 404。",
+        "operationId": "get_knowledge_base_api_v1_merchant_knowledge_bases__kb_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kb_id",
+            "required": true,
+            "schema": {
+              "title": "Kb Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "知识库不存在或不属于本租户"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "知识库详情",
+        "tags": [
+          "商户端 · AI 配置与运营"
+        ]
+      },
+      "put": {
+        "description": "部分更新；`clientProductId` 显式传 `null` 表示解除产品关联。",
+        "operationId": "update_knowledge_base_api_v1_merchant_knowledge_bases__kb_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kb_id",
+            "required": true,
+            "schema": {
+              "title": "Kb Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KbUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "更新知识库",
+        "tags": [
+          "商户端 · AI 配置与运营"
+        ]
+      }
+    },
+    "/api/v1/merchant/knowledge-bases/{kb_id}/files": {
+      "get": {
+        "description": "分页查询文件，可按解析状态 `status` 筛选。",
+        "operationId": "list_kb_files_api_v1_merchant_knowledge_bases__kb_id__files_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kb_id",
+            "required": true,
+            "schema": {
+              "title": "Kb Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "解析状态",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/KbFileStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "解析状态",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_KbFileResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "知识库文件列表",
+        "tags": [
+          "商户端 · AI 配置与运营"
+        ]
+      },
+      "post": {
+        "description": "`multipart/form-data`，字段名 `file`。扩展名白名单由 `KB_ALLOWED_EXTENSIONS` 决定，大小上限 `KB_FILE_MAX_BYTES`。\n\n**同一知识库内内容完全相同的文件 → 409 `VALIDATION_ERROR`**，`details.existingFileId` 指向既有文件（不静默复用：响应契约里没有「这是既有文件」的字段，静默复用会让前端分不清「刚传成功」与「早就有」）。\n\n落盘 key 由服务端生成（`kb/{租户}/{文件ID}{扩展名}`）；原始文件名只入库展示，不进路径。上传后 `status=PENDING`，需再调解析接口。",
+        "operationId": "upload_kb_file_api_v1_merchant_knowledge_bases__kb_id__files_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kb_id",
+            "required": true,
+            "schema": {
+              "title": "Kb Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_kb_file_api_v1_merchant_knowledge_bases__kb_id__files_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbFileResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "扩展名不允许或超过大小上限"
+          },
+          "409": {
+            "description": "文件已存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "上传知识库文件",
+        "tags": [
+          "商户端 · AI 配置与运营"
+        ]
+      }
+    },
+    "/api/v1/merchant/knowledge-bases/{kb_id}/files/{file_id}": {
+      "delete": {
+        "description": "删除库记录与存储对象；对象不存在也返回成功（**幂等**）。",
+        "operationId": "delete_kb_file_api_v1_merchant_knowledge_bases__kb_id__files__file_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kb_id",
+            "required": true,
+            "schema": {
+              "title": "Kb Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "file_id",
+            "required": true,
+            "schema": {
+              "title": "File Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbFileDeleteResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "删除知识库文件",
+        "tags": [
+          "商户端 · AI 配置与运营"
+        ]
+      }
+    },
+    "/api/v1/merchant/knowledge-bases/{kb_id}/files/{file_id}/parse": {
+      "post": {
+        "description": "**诚实实现**：`txt/md/csv/json` 从存储读文本、按空行/段落切块、写回 `chunkCount`、`status=PARSED`；`pdf/docx` 本阶段无解析器 → `status=FAILED` + 说明「需要 PDF/DOCX 解析器」，**绝不假装解析成功**。",
+        "operationId": "parse_kb_file_api_v1_merchant_knowledge_bases__kb_id__files__file_id__parse_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kb_id",
+            "required": true,
+            "schema": {
+              "title": "Kb Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "file_id",
+            "required": true,
+            "schema": {
+              "title": "File Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KbFileResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "解析知识库文件",
+        "tags": [
+          "商户端 · AI 配置与运营"
+        ]
+      }
+    },
+    "/api/v1/merchant/metrics/contents": {
+      "get": {
+        "description": "`source: \"snapshot\"`，读 `content_hot_ranking`。标题为**快照值**：内容改名或下架后，历史排行仍显示当时的名字。",
+        "operationId": "metrics_contents_api_v1_merchant_metrics_contents_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "productId",
+            "required": true,
+            "schema": {
+              "title": "Productid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date"
+            }
+          },
+          {
+            "description": "返回条数",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "description": "返回条数",
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsContentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "内容热度榜（读快照）",
+        "tags": [
+          "商户端 · AI 配置与运营"
+        ]
+      }
+    },
+    "/api/v1/merchant/metrics/hourly": {
+      "get": {
+        "description": "`source: \"snapshot\"`，读 `metrics_hourly`，**恒 24 项**（缺失小时补 0）。`date` 省略时取今天（UTC）。",
+        "operationId": "metrics_hourly_api_v1_merchant_metrics_hourly_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "productId",
+            "required": true,
+            "schema": {
+              "title": "Productid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "快照日期",
+            "in": "query",
+            "name": "date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "快照日期",
+              "title": "Date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsHourlyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "24 小时热力（读快照）",
+        "tags": [
+          "商户端 · AI 配置与运营"
+        ]
+      }
+    },
+    "/api/v1/merchant/metrics/overview": {
+      "get": {
+        "description": "`source: \"live\"`。**每个数字都来自对原始表的 `GROUP BY` / `COUNT`**（`devices` / `dialogue_sessions` / `dialogue_messages`），禁止「拿一个数乘系数」这类写法（遗留缺陷 P-07 的成因）。\n\n`from` / `to` 默认最近 7 天（含今天）；聚合按 **UTC 日期**。\n`totalDevices` 不含已报废（`RETIRED`）设备；`totalInteractions` 以 **USER 消息**计数（一问一答算一次；助手消息可能被安全整段替换）。\n`hasSnapshot` 表示该区间是否已有快照，供前端决定是否提示「去刷新快照」。",
+        "operationId": "metrics_overview_api_v1_merchant_metrics_overview_get",
+        "parameters": [
+          {
+            "description": "客户产品 ID",
+            "in": "query",
+            "name": "productId",
+            "required": true,
+            "schema": {
+              "description": "客户产品 ID",
+              "title": "Productid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "起始日期",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "起始日期",
+              "title": "From"
+            }
+          },
+          {
+            "description": "结束日期",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "结束日期",
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsOverviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "运营概览（实时聚合）",
+        "tags": [
+          "商户端 · AI 配置与运营"
+        ]
+      }
+    },
+    "/api/v1/merchant/metrics/rebuild": {
+      "post": {
+        "description": "**幂等 upsert**（按各表唯一键：有则更新、无则插入），跨度上限 92 天。\n\n`contentHotRanking` 从 `dialogue_messages.contentItemId` 真实 `GROUP BY`统计（只统计非空归属），并写入标题快照；`rank` 按 hits 降序编号。\n\n写入 `AuditAction.REBUILD_METRICS`（`resourceType=metrics`）。\n`dateTo` **允许**是今天：商户端的刷新按钮常常就是刷「含今天」，强行禁止会让界面出现「刷新到今天却报错」；但今天的快照会随时间变化，前端应提示「今日数据仍在累积」。",
+        "operationId": "rebuild_metrics_api_v1_merchant_metrics_rebuild_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetricsRebuildRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsRebuildResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "日期区间非法或跨度超过 92 天"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "重建运营快照",
+        "tags": [
+          "商户端 · AI 配置与运营"
+        ]
+      }
+    },
+    "/api/v1/merchant/metrics/regions": {
+      "get": {
+        "description": "`source: \"snapshot\"`，读 `metrics_region`，按 `deviceCount` 降序。地域来自 `devices.region`，为空时归入「未知」（不猜）。",
+        "operationId": "metrics_regions_api_v1_merchant_metrics_regions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "productId",
+            "required": true,
+            "schema": {
+              "title": "Productid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsRegionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "地域分布（读快照）",
+        "tags": [
+          "商户端 · AI 配置与运营"
+        ]
+      }
+    },
+    "/api/v1/merchant/metrics/retention": {
+      "get": {
+        "description": "留存必须按**设备**算，快照表没有设备级明细，因此这里实时计算。\n\n口径：按 `devices.activatedAt` 的日期分 cohort；`dN` = 该 cohort 中的设备在「激活日 + N 天」当天有过对话的台数；`Rate = dN / activated × 100`，**分母为 0 时给 `null` 而不是 0**（否则「没数据」会被读成「留存为 0」）。\n\n`churnedDevices` = 激活后 7 天内零会话的设备数；`returnRate` = 有过 ≥2 个不同活跃日的设备 / 有过 ≥1 个活跃日的设备；`avgIntervalDays` = 相邻活跃日间隔的均值（不足 2 个活跃日不计入）。",
+        "operationId": "metrics_retention_api_v1_merchant_metrics_retention_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "productId",
+            "required": true,
+            "schema": {
+              "title": "Productid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "cohort 观察天数",
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "description": "cohort 观察天数",
+              "maximum": 365,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsRetentionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "留存（实时计算，按设备）",
+        "tags": [
+          "商户端 · AI 配置与运营"
+        ]
+      }
+    },
+    "/api/v1/merchant/metrics/trend": {
+      "get": {
+        "description": "`source: \"snapshot\"`，读 `metrics_daily`。按日期升序，**缺日补 0 点**（图表因此不会断线）。`granularity` 本阶段仅支持 `day`。",
+        "operationId": "metrics_trend_api_v1_merchant_metrics_trend_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "productId",
+            "required": true,
+            "schema": {
+              "title": "Productid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "description": "粒度，仅支持 day",
+            "in": "query",
+            "name": "granularity",
+            "required": false,
+            "schema": {
+              "default": "day",
+              "description": "粒度，仅支持 day",
+              "title": "Granularity",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsTrendResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "日趋势（读快照）",
+        "tags": [
+          "商户端 · AI 配置与运营"
+        ]
+      }
+    },
     "/api/v1/merchant/orders": {
       "get": {
         "description": "分页查询**本租户**的订单（租户过滤在服务层经 `scoped()` 收口）。支持按状态筛选，`keyword` 匹配订单号。",
@@ -11874,11 +16000,11 @@
     },
     "/api/v1/merchant/products": {
       "get": {
-        "description": "分页查询**本租户**的客户产品（下单时 `clientProductId` 的取值来源）。\n\n租户过滤在服务层经 `scoped()` 收口（ADR-08），商户不可能看到其他租户的产品；响应复用平台端的 `ClientProductResponse`，字段与平台视角一致——少给字段会让前端误以为「没有这个数据」，而隔离本来由作用域保证，无需靠裁剪字段来加固。",
-        "operationId": "list_my_products_api_v1_merchant_products_get",
+        "description": "分页查询**本租户**的客户产品；每行都带设备数 / 已激活数 / 累计交互与 AI 配置摘要。\n\n为什么列表也带计数：这是商户最常打开的一页，只给基础字段会让前端逐行回查详情（20 行 = 21 个请求）。计数在本端点内以批量 `GROUP BY` 完成。\n\n同一路径在 P4 曾由 ``merchant.py`` 提供一版**仅基础字段**的列表（供下单下拉用）；P9 起收敛到本端点——**同一路径只能有一个处理函数**，否则行为取决于路由注册顺序，是一类很难排查的隐性缺陷。",
+        "operationId": "list_my_products_ops_api_v1_merchant_products_get",
         "parameters": [
           {
-            "description": "名称 / 编码",
+            "description": "名称 / 编码关键字",
             "in": "query",
             "name": "keyword",
             "required": false,
@@ -11891,26 +16017,8 @@
                   "type": "null"
                 }
               ],
-              "description": "名称 / 编码",
+              "description": "名称 / 编码关键字",
               "title": "Keyword"
-            }
-          },
-          {
-            "description": "产品状态",
-            "in": "query",
-            "name": "status",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/EnableStatus"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "产品状态",
-              "title": "Status"
             }
           },
           {
@@ -11980,7 +16088,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageResult_ClientProductResponse_"
+                  "$ref": "#/components/schemas/PageResult_MerchantProductOpsResponse_"
                 }
               }
             },
@@ -12002,16 +16110,16 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "我的产品列表",
+        "summary": "我的产品列表（P9：每行含设备计数与 AI 摘要）",
         "tags": [
-          "商户端 · 产品与订单"
+          "商户端 · AI 配置与运营"
         ]
       }
     },
     "/api/v1/merchant/products/{product_id}": {
       "get": {
-        "description": "本租户客户产品详情。访问其他租户的产品返回 **404**（不返回 403）——避免通过错误码探测他人资源是否存在。",
-        "operationId": "get_my_product_api_v1_merchant_products__product_id__get",
+        "description": "本租户客户产品详情：设备数 / 已激活数 / 累计交互 + AI 配置摘要。\n\n计数一律走真实 `COUNT`（P-07 口径），不做系数还原。访问其他租户的产品返回 **404**（不返回 403）——避免通过错误码探测他人资源是否存在。",
+        "operationId": "get_my_product_ops_api_v1_merchant_products__product_id__get",
         "parameters": [
           {
             "in": "path",
@@ -12028,7 +16136,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ClientProductResponse"
+                  "$ref": "#/components/schemas/MerchantProductOpsResponse"
                 }
               }
             },
@@ -12053,9 +16161,408 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "我的产品详情",
+        "summary": "我的产品详情（P9：含设备计数与 AI 摘要）",
         "tags": [
-          "商户端 · 产品与订单"
+          "商户端 · AI 配置与运营"
+        ]
+      }
+    },
+    "/api/v1/merchant/products/{product_id}/ai-config": {
+      "get": {
+        "description": "返回该客户产品的 AI 配置视图。**产品还没配过时返回默认视图**（`status=DISABLED`、安全开关取列默认值），而不是 404——否则配置页打不开，商户找不到入口去配。\n\n`roleSupported` 是业务规则：`4G` 为 `true`；`WIFI` 为 `false` 并给出`roleUnsupportedReason`（角色由厂商智能体配置，平台不覆盖）。\n\n`providerHealth` 是**配置推导**的健康态（已配置密钥 = `UP`，未配置 = `DOWN`），不是主动网络探测——GET 不应产生出站调用。\n\n`temperature` 出参为小数（0.0–2.0）；库内存的是 ×100 的整数。响应**不含任何密钥或密钥片段**。",
+        "operationId": "get_ai_config_api_v1_merchant_products__product_id__ai_config_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiConfigView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "读取 AI 配置",
+        "tags": [
+          "商户端 · AI 配置与运营"
+        ]
+      },
+      "put": {
+        "description": "**部分更新**：未传的字段不动，显式传 `null` 表示清空。\n\n校验：\n- `providerCode` 必须是已注册且**已配置密钥**的供应商，否则 409 `PRODUCT_NOT_AUTHORIZED`（文案说明「选定后对话会安全失败」）\n- `knowledgeBaseId` / `voiceProfileId` 必须存在且属于本租户\n- `status=ENABLED` 时若解析不到可用供应商 → 409 并说明原因\n- `rolePresetCode` 在 Wi-Fi 产品上 → 409 `INVALID_STATE_TRANSITION`（与专用 role 端点同一判据、同一文案）\n\n`temperature` 入参为小数 0.0–2.0，服务层 ×100 取整落库。",
+        "operationId": "update_ai_config_api_v1_merchant_products__product_id__ai_config_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiConfigUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiConfigView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "产品 / 知识库 / 音色不存在或不属于本租户"
+          },
+          "409": {
+            "description": "供应商未配置密钥、Wi-Fi 产品写角色、启用时无可用供应商"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "更新 AI 配置（部分更新）",
+        "tags": [
+          "商户端 · AI 配置与运营"
+        ]
+      }
+    },
+    "/api/v1/merchant/products/{product_id}/ai-config/prompt": {
+      "put": {
+        "description": "只更新 `systemPrompt` / `greeting` / `temperature` / `maxTokens`（部分更新）。",
+        "operationId": "update_ai_prompt_api_v1_merchant_products__product_id__ai_config_prompt_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiPromptUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiConfigView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "更新提示词与采样参数",
+        "tags": [
+          "商户端 · AI 配置与运营"
+        ]
+      }
+    },
+    "/api/v1/merchant/products/{product_id}/ai-config/role": {
+      "put": {
+        "description": "只更新 `rolePresetCode`。**Wi-Fi 产品 → 409 `INVALID_STATE_TRANSITION`**，`details` 带 `{networkType: \"WIFI\", reason: \"...\"}`（与 GET 的 `roleUnsupportedReason` 同一文案）。显式传 `null` 清空在 Wi-Fi 上允许。",
+        "operationId": "update_ai_role_api_v1_merchant_products__product_id__ai_config_role_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiRoleUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiConfigView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "Wi-Fi 方案的对话角色由厂商智能体配置"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "更新对话角色",
+        "tags": [
+          "商户端 · AI 配置与运营"
+        ]
+      }
+    },
+    "/api/v1/merchant/products/{product_id}/ai-config/safety": {
+      "put": {
+        "description": "只更新 `enabled` / `sensitiveWords` / `llmReview` 三个开关，映射到 `AiConfig` 的三列。P8 的对话链路在 `assistant.delta` 之前读它们，因此**下一次对话即生效**。",
+        "operationId": "update_ai_safety_api_v1_merchant_products__product_id__ai_config_safety_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiSafetyUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiConfigView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "更新内容安全开关",
+        "tags": [
+          "商户端 · AI 配置与运营"
+        ]
+      }
+    },
+    "/api/v1/merchant/products/{product_id}/ai-config/voice": {
+      "put": {
+        "description": "只更新 `voiceProfileId`（部分更新；传 `null` 清空）。",
+        "operationId": "update_ai_voice_api_v1_merchant_products__product_id__ai_config_voice_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiVoiceUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiConfigView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "更新音色",
+        "tags": [
+          "商户端 · AI 配置与运营"
+        ]
+      }
+    },
+    "/api/v1/merchant/role-presets": {
+      "get": {
+        "description": "平台内置角色（`tenantId` 为空）与本租户自建角色，只列启用中的。",
+        "operationId": "list_role_presets_api_v1_merchant_role_presets_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResult_RolePresetItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "角色预设清单（平台内置 + 本租户）",
+        "tags": [
+          "商户端 · AI 配置与运营"
+        ]
+      }
+    },
+    "/api/v1/merchant/voice-profiles": {
+      "get": {
+        "description": "本租户的音色档案，含训练状态 `trainStatus`。",
+        "operationId": "list_voice_profiles_api_v1_merchant_voice_profiles_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResult_VoiceProfileItem_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "音色清单（本租户）",
+        "tags": [
+          "商户端 · AI 配置与运营"
         ]
       }
     },
@@ -14770,6 +19277,160 @@
         ]
       }
     },
+    "/api/v1/platform/content-items": {
+      "get": {
+        "description": "平台侧内容库列表。`scope` 可筛 `PLATFORM`（平台公共，`tenantId` 为空）/ `TENANT`（租户自建）。\n\n本阶段只读：内容库的运营维护涉及内容审核流程，不在 P9 范围；P9 的验收项是「内容热度榜」（读）。",
+        "operationId": "list_content_items_api_v1_platform_content_items_get",
+        "parameters": [
+          {
+            "description": "内容类型",
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ContentItemType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "内容类型",
+              "title": "Type"
+            }
+          },
+          {
+            "description": "标题 / 描述关键字",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "标题 / 描述关键字",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "PLATFORM / TENANT",
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "PLATFORM / TENANT",
+              "title": "Scope"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_ContentItemResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "内容库列表（只读）",
+        "tags": [
+          "平台端 · OTA 与内容库"
+        ]
+      }
+    },
     "/api/v1/platform/devices": {
       "get": {
         "description": "分页查询设备。支持按租户 / 客户产品 / 四维状态筛选，`keyword` 匹配 SN / IMEI / MAC；`sortBy` 支持 `created_at` / `sn` / `generated_at`。\n\n`unallocated=true` 只看**尚未分配给任何租户的平台库存**（`tenantId IS NULL`），是「分配设备」页挑选目标设备的取值来源。\n\n`onlineStatus` 按**派生在线判据**（最后一次心跳是否落在 `ONLINE_WINDOW_SECONDS` 窗口内）筛选：落库仍是 `ONLINE` 但已超窗的设备会出现在 `OFFLINE` 里，与展示字段 `online` 口径一致。",
@@ -16224,6 +20885,585 @@
         "summary": "导出订单二维码",
         "tags": [
           "平台端 · 订单与设备"
+        ]
+      }
+    },
+    "/api/v1/platform/ota/packages": {
+      "get": {
+        "description": "分页查询固件包，含推送统计 `pushStats`（逐台记录汇总）。`hasFile=false` 表示该包只有元数据、没有上传文件，**不能真正推送**。",
+        "operationId": "list_ota_packages_api_v1_platform_ota_packages_get",
+        "parameters": [
+          {
+            "description": "固件包状态",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/EnableStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "固件包状态",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "产品模板",
+            "in": "query",
+            "name": "templateId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "产品模板",
+              "title": "Templateid"
+            }
+          },
+          {
+            "description": "版本号 / 文件名",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "版本号 / 文件名",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_OtaPackageResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "固件包列表",
+        "tags": [
+          "平台端 · OTA 与内容库"
+        ]
+      },
+      "post": {
+        "description": "`multipart/form-data`：`file` **可选**，表单字段 `templateId, version, releaseNotes?, minVersion?, isForced?`。\n\n无 `file` 时 `hasFile=false`，仅登记元数据（演示/内测包）——**无文件的固件包不能真正推送**，推送时会逐台写 `FAILED` 并说明原因。\n\n校验：模板存在；`(templateId, version)` 唯一（重复 → 409）；扩展名白名单 `OTA_ALLOWED_EXTENSIONS`；大小上限 `OTA_PACKAGE_MAX_BYTES`。\n\n`checksum` 为 SHA-256（由存储层计算，推送前可做完整性校验）；落盘 key = `ota/{模板ID}/{包ID}{扩展名}`。",
+        "operationId": "create_ota_package_api_v1_platform_ota_packages_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_create_ota_package_api_v1_platform_ota_packages_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtaPackageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "扩展名不允许或超过大小上限"
+          },
+          "404": {
+            "description": "产品模板不存在"
+          },
+          "409": {
+            "description": "该模板下版本号已存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "登记固件包",
+        "tags": [
+          "平台端 · OTA 与内容库"
+        ]
+      }
+    },
+    "/api/v1/platform/ota/packages/{package_id}": {
+      "delete": {
+        "description": "级联删除推送记录并删除存储对象。\n\n若业务上需要保留推送历史，请改为「停用」（`status=DISABLED`）而不是删除——记录里只有 `packageId`，包没了记录就没有解读依据。",
+        "operationId": "delete_ota_package_api_v1_platform_ota_packages__package_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "package_id",
+            "required": true,
+            "schema": {
+              "title": "Package Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "删除固件包",
+        "tags": [
+          "平台端 · OTA 与内容库"
+        ]
+      },
+      "get": {
+        "description": "含 `pushStats` 与最近 20 条逐台推送记录。",
+        "operationId": "get_ota_package_api_v1_platform_ota_packages__package_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "package_id",
+            "required": true,
+            "schema": {
+              "title": "Package Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtaPackageDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "固件包不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "固件包详情",
+        "tags": [
+          "平台端 · OTA 与内容库"
+        ]
+      },
+      "put": {
+        "description": "部分更新 `releaseNotes` / `minVersion` / `isForced` / `status`。\n\n**文件本身不可替换**：换了字节就该发新版本号——允许覆盖文件会让「同版本号对应两份不同固件」，设备的实际固件将无法解释。",
+        "operationId": "update_ota_package_api_v1_platform_ota_packages__package_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "package_id",
+            "required": true,
+            "schema": {
+              "title": "Package Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OtaPackageUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtaPackageDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "更新固件包",
+        "tags": [
+          "平台端 · OTA 与内容库"
+        ]
+      }
+    },
+    "/api/v1/platform/ota/packages/{package_id}/push": {
+      "post": {
+        "description": "推送固件给某客户产品下的设备，逐台写 `ota_records`（`PENDING → PUSHING → SUCCESS | FAILED`）。\n\n★ **先判定云服务商的 `otaSupport`**：`UNSUPPORTED`（如京东 JoyInside Wi-Fi方案仅端侧升级）→ **409 `OTA_NOT_SUPPORTED`**，`details` 带 `{otaSupport, cloudVendor, cloudProviderName}`。这是**数据驱动**的判定，不是写死的 if。\n\n`deviceIds` 省略时 = 该产品下全部非 `RETIRED` 设备；给定 ID 时逐台校验归属，不属于该产品的计入 `failed` 并写原因（**不整批拒绝**）。\n\n成功才更新设备 `firmwareVersion`；厂商未配置 / 未实现 → 该台 `FAILED`，**绝不伪造成功**。已在目标版本的设备计入 `skipped`（不重复推、不写记录）。",
+        "operationId": "push_ota_package_api_v1_platform_ota_packages__package_id__push_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "package_id",
+            "required": true,
+            "schema": {
+              "title": "Package Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OtaPushRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtaPushResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "固件包或客户产品不存在"
+          },
+          "409": {
+            "description": "该联网方案不支持平台侧 OTA 推送"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "推送固件包",
+        "tags": [
+          "平台端 · OTA 与内容库"
+        ]
+      }
+    },
+    "/api/v1/platform/ota/records": {
+      "get": {
+        "description": "分页查询逐台推送记录（按时间倒序），可按固件包 / 状态 / 设备筛选。",
+        "operationId": "list_ota_records_api_v1_platform_ota_records_get",
+        "parameters": [
+          {
+            "description": "固件包",
+            "in": "query",
+            "name": "packageId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "固件包",
+              "title": "Packageid"
+            }
+          },
+          {
+            "description": "推送状态",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/OtaPushStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "推送状态",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "设备",
+            "in": "query",
+            "name": "deviceId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "设备",
+              "title": "Deviceid"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResult_OtaRecordResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "推送记录列表",
+        "tags": [
+          "平台端 · OTA 与内容库"
         ]
       }
     },

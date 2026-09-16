@@ -17,8 +17,9 @@
 import api from '/shared/core/api.js';
 import { PERM } from '/shared/core/auth.js';
 import { formatDay, formatRelative, fromHtml, h } from '/shared/ui/dom.js';
-import { descList, emptyState, loadingState, statGrid } from '/shared/ui/components.js';
+import { alert, descList, emptyState, loadingState, statGrid } from '/shared/ui/components.js';
 import { createDetailPage } from '/shared/app/page.js';
+import { countSafe } from '/shared/app/dashboard.js';
 import { form, readAndValidate } from '/shared/ui/form.js';
 import { confirmDialog } from '/shared/ui/modal.js';
 import toast from '/shared/ui/toast.js';
@@ -303,12 +304,110 @@ async function renderMiniapp(host, data, ctx) {
 }
 
 /* ------------------------------------------------------------
+   运营（P9 追加）
+   ------------------------------------------------------------
+   为什么这里**只有**设备 / 激活 / 绑定 / 订单这几个数字：
+   平台端令牌调 `/merchant/**` 会 403，而运营指标端点
+   （overview / trend / retention …）全部挂在商户端并要求 productId。
+   因此本 Tab 只汇总「平台端本来就拿得到」的产品维度摘要，
+   真正的交互量 / 会话 / 留存 / 地域分布引导用户去商户端看。
+
+   刻意不在这里编数据把 Tab 填满：一个看起来丰富的假看板比一个
+   诚实的引导页危害大得多（运营会基于假数字做决策）。
+   ------------------------------------------------------------ */
+
+async function renderOps(host, data) {
+  host.append(fromHtml(loadingState('正在统计产品维度的基础数据…')));
+
+  const productId = data.id;
+  // countSafe 只取分页的 total，失败时回落 '—'，不会因为一个端点失败而让整个 Tab 空白
+  const [devices, activated, bound, orders] = await Promise.all([
+    countSafe('/platform/devices', { clientProductId: productId }),
+    countSafe('/platform/devices', { clientProductId: productId, activationStatus: 'ACTIVATED' }),
+    countSafe('/platform/devices', { clientProductId: productId, bindStatus: 'BOUND' }),
+    countSafe('/platform/orders', { clientProductId: productId }),
+  ]);
+
+  host.replaceChildren();
+
+  host.append(
+    fromHtml(
+      statGrid([
+        {
+          label: '设备总数',
+          value: devices,
+          unit: '台',
+          icon: 'device',
+          tone: 'brand',
+          foot: '该客户产品下的全部设备',
+        },
+        {
+          label: '已激活',
+          value: activated,
+          unit: '台',
+          icon: 'checkCircle',
+          tone: 'teal',
+          foot: '终端用户已完成激活',
+        },
+        {
+          label: '已绑定',
+          value: bound,
+          unit: '台',
+          icon: 'link',
+          tone: 'accent',
+          foot: '已绑定终端用户',
+        },
+        {
+          label: '订单数',
+          value: orders,
+          unit: '单',
+          icon: 'clipboard',
+          tone: 'info',
+          foot: '商户提交的该产品订单',
+        },
+      ]),
+    ),
+  );
+
+  const card = h('div', { class: 'card mt-4' });
+  card.append(fromHtml(`<div class="card-head"><div class="card-title">产品维度摘要</div></div>`));
+  card.append(
+    fromHtml(
+      descList([
+        ['归属租户', data.tenantName || data.tenantId],
+        ['联网方式', data.networkType === '4G' ? '4G（集贤方案）' : 'Wi-Fi（JoyInside / 火山方案）'],
+        ['固件版本', data.firmwareVersion],
+        ['AI 已配置', data.aiEnabled ? '是' : '否'],
+        ['小程序', data.hasMiniappConfig ? '已配置' : '未配置'],
+      ]),
+    ),
+  );
+  host.append(card);
+
+  /* ---- 引导文案：说清楚「为什么这里没有交互量」以及「去哪里看」 ---- */
+  host.append(
+    fromHtml(
+      alert({
+        tone: 'neutral',
+        title: '详细运营指标请在商户端查看',
+        text:
+          '交互量 / 会话数 / 平均延迟 / 安全拦截 / 内容点播排行 / 留存（D1、D3、D7、D30）' +
+          '与地域分布等指标由商户端「运营看板」提供，且按客户产品维度统计。' +
+          '平台端账号没有商户端的指标读取权限（调用会返回 403），因此本页只展示上面这些' +
+          '平台端可直接统计的基础数据，不在这里编造指标。请让租户管理员登录商户端查看。',
+      }),
+    ),
+  );
+}
+
+/* ------------------------------------------------------------
    页面入口
    ------------------------------------------------------------ */
 
 const TABS = [
   { key: 'basic', label: '基本信息' },
   { key: 'miniapp', label: '小程序配置' },
+  { key: 'ops', label: '运营' },
 ];
 
 /**
@@ -362,6 +461,8 @@ export async function renderClientProductDetail(container, ctx) {
     detail.body.replaceChildren(host);
     if (key === 'miniapp') {
       renderMiniapp(host, data, { reload }).catch((error) => notifyError(error));
+    } else if (key === 'ops') {
+      renderOps(host, data).catch((error) => notifyError(error));
     } else {
       renderBasic(host, data, { router, reload });
     }

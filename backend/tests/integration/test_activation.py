@@ -80,8 +80,8 @@ async def _login(client: httpx.AsyncClient, phone: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {resp.json()['accessToken']}"}
 
 
-# 平台端请求头由 conftest 的 ``auth`` 夹具提供（测试环境的平台口令由夹具决定，
-# 直接读 ``settings`` 会拿到 .env 里的值，两者未必一致）。
+    # 平台端请求头统一用 conftest 的 ``auth`` 夹具（见各用例签名）——
+    # 测试环境的平台口令由夹具决定，直接读 ``settings`` 会拿到 .env 的值。
 
 
 

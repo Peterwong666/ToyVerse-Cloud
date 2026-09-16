@@ -55,13 +55,11 @@ from app.core.idempotency import (
 )
 from app.core.pagination import PageParams, page_params, page_response
 from app.core.permissions import MerchantPerm
-from app.db.scope import assert_visible
 from app.models.enums import (
     ActivationStatus,
     AssetStatus,
     BindingRecordStatus,
     BindStatus,
-    EnableStatus,
     OnlineStatus,
     OrderStatus,
 )
@@ -72,11 +70,10 @@ from app.schemas.binding import (
     BindingResponse,
     BindingUnbindRequest,
 )
-from app.schemas.catalog import ClientProductResponse
 from app.schemas.common import PageResult
 from app.schemas.device import DeviceDetailResponse, DeviceEventResponse, DeviceResponse
 from app.schemas.order import MerchantOrderCreateRequest, OrderDetailResponse, OrderResponse
-from app.services import binding_service, catalog_service, device_service, order_service
+from app.services import binding_service, device_service, order_service
 
 router = APIRouter(prefix="/merchant", tags=["商户端 · 产品与订单"])
 
@@ -102,64 +99,15 @@ def _to_response(detail: OrderDetailResponse) -> OrderResponse:
 
 # ===========================================================================
 # 一、我的产品
+#
+# **P9 起已迁出**：`/merchant/products` 与 `/merchant/products/{id}` 现由
+# ``app/api/v1/merchant_ops.py`` 提供（每行带设备计数与 AI 配置摘要）。
+#
+# 为什么必须迁走而不是两处并存：**同一路径只能有一个处理函数**，
+# 两个模块各自注册时，最终生效取决于 ``router.py`` 的 include 顺序——
+# 那是一类「改了别处的 import 顺序就会静默换实现」的隐性缺陷。
+# P9 版是 P4 版的**超集**（P4 只给基础字段），因此这里是删除而不是保留。
 # ===========================================================================
-
-
-@router.get(
-    "/products",
-    response_model=PageResult[ClientProductResponse],
-    summary="我的产品列表",
-    description=(
-        "分页查询**本租户**的客户产品（下单时 `clientProductId` 的取值来源）。\n\n"
-        "租户过滤在服务层经 `scoped()` 收口（ADR-08），商户不可能看到其他租户的产品；"
-        "响应复用平台端的 `ClientProductResponse`，字段与平台视角一致——"
-        "少给字段会让前端误以为「没有这个数据」，而隔离本来由作用域保证，"
-        "无需靠裁剪字段来加固。"
-    ),
-    dependencies=[require_perm(MerchantPerm.PRODUCT_READ)],
-)
-async def list_my_products(
-    session: DbSession,
-    auth: MerchantAuth,
-    page: PageQuery,
-    keyword: Annotated[str | None, Query(description="名称 / 编码")] = None,
-    status: Annotated[EnableStatus | None, Query(description="产品状态")] = None,
-) -> dict[str, Any]:
-    """我的产品列表。"""
-    records, total = await catalog_service.list_client_products(
-        session,
-        auth,
-        keyword=keyword,
-        status=str(status) if status else None,
-        offset=page.offset,
-        limit=page.limit,
-        sort_by=page.sort_by,
-        order=page.order,
-    )
-    return page_response(records, total, page)
-
-
-@router.get(
-    "/products/{product_id}",
-    response_model=ClientProductResponse,
-    summary="我的产品详情",
-    description=(
-        "本租户客户产品详情。访问其他租户的产品返回 **404**（不返回 403）——"
-        "避免通过错误码探测他人资源是否存在。"
-    ),
-    responses={404: {"description": "产品不存在或不属于本租户"}},
-    dependencies=[require_perm(MerchantPerm.PRODUCT_READ)],
-)
-async def get_my_product(
-    session: DbSession,
-    auth: MerchantAuth,
-    product_id: str,
-) -> ClientProductResponse:
-    """我的产品详情。"""
-    # 先取 ORM 对象做归属校验：不存在与越权都返回 404，信息量一致
-    product = await catalog_service.get_client_product(session, product_id)
-    assert_visible(product.tenant_id, auth, resource="产品")
-    return await catalog_service.get_client_product_detail(session, product_id)
 
 
 # ===========================================================================
