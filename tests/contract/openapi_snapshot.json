@@ -137,6 +137,93 @@
         "title": "AccountCreateResult",
         "type": "object"
       },
+      "ActivateWifiRequest": {
+        "description": "Wi-Fi（京东 JoyInside）激活上报。\n\n设备端配网成功后上报自己读到的 SN 与 MAC，服务端**必须**与设备记录\n逐项比对——`mac` 为空时以本次上报为准写入（设备记录 MAC 常在生产阶段\n才回填），但 ``sn`` 不一致一律判为 ``BIND_FAILED``：\nSN 是设备的唯一身份，不一致意味着「上报的不是这台」。",
+        "properties": {
+          "mac": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Mac",
+            "type": "string"
+          },
+          "sn": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Sn",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sn",
+          "mac"
+        ],
+        "title": "ActivateWifiRequest",
+        "type": "object"
+      },
+      "ActivationResult": {
+        "description": "激活结果（4G 与 Wi-Fi 共用同一形状）。",
+        "properties": {
+          "activatedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activatedat"
+          },
+          "activationStatus": {
+            "title": "Activationstatus",
+            "type": "string"
+          },
+          "bindStatus": {
+            "title": "Bindstatus",
+            "type": "string"
+          },
+          "deviceId": {
+            "title": "Deviceid",
+            "type": "string"
+          },
+          "mock": {
+            "description": "是否为模拟激活结果（未调用真实厂商）",
+            "title": "Mock",
+            "type": "boolean"
+          },
+          "networkType": {
+            "title": "Networktype",
+            "type": "string"
+          },
+          "sn": {
+            "title": "Sn",
+            "type": "string"
+          },
+          "vendorMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "厂商回执文案（原样转述）",
+            "title": "Vendormessage"
+          }
+        },
+        "required": [
+          "deviceId",
+          "sn",
+          "networkType",
+          "activationStatus",
+          "bindStatus",
+          "mock"
+        ],
+        "title": "ActivationResult",
+        "type": "object"
+      },
       "ActivationStatus": {
         "description": "设备激活状态。",
         "enum": [
@@ -808,6 +895,131 @@
         ],
         "title": "AssetStatus",
         "type": "string"
+      },
+      "AuthCodeRequest": {
+        "description": "请求发送登录验证码。",
+        "properties": {
+          "phone": {
+            "description": "手机号（登录账号）",
+            "maxLength": 32,
+            "pattern": "^1[3-9]\\d{9}$",
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone"
+        ],
+        "title": "AuthCodeRequest",
+        "type": "object"
+      },
+      "AuthCodeResponse": {
+        "description": "验证码发送结果。\n\n``mockCode`` 只在 ``MINIAPP_SMS_PROVIDER=mock``（开发 / 验收环境）时回显，\n且 ``mock=true`` 会同时出现——**模拟结果必须显式标注**，\n否则演示数据会被误当成真实的短信下发记录（ADR-07 的精神）。",
+        "properties": {
+          "expiresInSeconds": {
+            "title": "Expiresinseconds",
+            "type": "integer"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "mock": {
+            "description": "是否为模拟通道（未真实发送短信）",
+            "title": "Mock",
+            "type": "boolean"
+          },
+          "mockCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "模拟通道下回显的验证码；真实通道恒为 null",
+            "title": "Mockcode"
+          },
+          "sent": {
+            "title": "Sent",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "sent",
+          "mock",
+          "expiresInSeconds"
+        ],
+        "title": "AuthCodeResponse",
+        "type": "object"
+      },
+      "AuthLoginRequest": {
+        "description": "验证码登录。",
+        "properties": {
+          "code": {
+            "description": "短信验证码",
+            "maxLength": 8,
+            "minLength": 4,
+            "title": "Code",
+            "type": "string"
+          },
+          "phone": {
+            "maxLength": 32,
+            "pattern": "^1[3-9]\\d{9}$",
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone",
+          "code"
+        ],
+        "title": "AuthLoginRequest",
+        "type": "object"
+      },
+      "AuthLoginResponse": {
+        "description": "登录响应（含令牌与该用户的设备列表）。\n\n为什么把设备列表塞进登录响应？小程序登录后直接进首页，\n首页要展示「我的玩具」。若让前端再发一次请求，首屏会白屏一次；\n而设备数在真实场景里是个位数，一起返回的成本可以忽略。",
+        "properties": {
+          "accessToken": {
+            "title": "Accesstoken",
+            "type": "string"
+          },
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/MiniappDeviceBrief"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "expiresInSeconds": {
+            "title": "Expiresinseconds",
+            "type": "integer"
+          },
+          "tokenType": {
+            "default": "Bearer",
+            "description": "固定 Bearer",
+            "title": "Tokentype",
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/EndUserBrief"
+          }
+        },
+        "required": [
+          "accessToken",
+          "expiresInSeconds",
+          "user"
+        ],
+        "title": "AuthLoginResponse",
+        "type": "object"
       },
       "AuthorizationResponse": {
         "description": "授权记录。",
@@ -2025,6 +2237,41 @@
           "message"
         ],
         "title": "ChatRequest",
+        "type": "object"
+      },
+      "ChatStreamRequest": {
+        "description": "SSE 降级流请求（与 WS 的 ``user.text`` 帧等价）。\n\n``sessionId`` 为空表示新开一次会话；续聊时传入 WS/上次 SSE 返回的会话 ID。",
+        "properties": {
+          "deviceId": {
+            "maxLength": 36,
+            "title": "Deviceid",
+            "type": "string"
+          },
+          "sessionId": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sessionid"
+          },
+          "text": {
+            "description": "用户输入文本",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "deviceId",
+          "text"
+        ],
+        "title": "ChatStreamRequest",
         "type": "object"
       },
       "ClientProductCreateRequest": {
@@ -3899,6 +4146,87 @@
         "title": "DeviceRetireRequest",
         "type": "object"
       },
+      "DeviceSettingsResponse": {
+        "description": "设备设置。\n\n读取时若 ``devices.settings`` 为空，返回 :data:`app.services.miniapp_service.DEFAULT_DEVICE_SETTINGS`\n的默认值（音量 60 / 儿童模式关 / 唤醒词「你好小伙伴」）——\n「没设置过」与「设置为默认值」对用户是同一件事，返回 null 只会让前端\n多写一份兜底默认值。",
+        "properties": {
+          "childMode": {
+            "title": "Childmode",
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "设置最近一次写入时间；从未写入过为 null",
+            "title": "Updatedat"
+          },
+          "volume": {
+            "title": "Volume",
+            "type": "integer"
+          },
+          "wakeWord": {
+            "title": "Wakeword",
+            "type": "string"
+          }
+        },
+        "required": [
+          "volume",
+          "childMode",
+          "wakeWord"
+        ],
+        "title": "DeviceSettingsResponse",
+        "type": "object"
+      },
+      "DeviceSettingsUpdateRequest": {
+        "description": "更新设备设置（局部更新，未传的字段保持原值）。\n\n字段范围校验（``volume`` 0–100）放在 schema 层：\n`volume=999` 是**请求本身不合法**（400），而不是「设备不支持」，\n两者对前端的处理方式不同。",
+        "properties": {
+          "childMode": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Childmode"
+          },
+          "volume": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volume"
+          },
+          "wakeWord": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wakeword"
+          }
+        },
+        "title": "DeviceSettingsUpdateRequest",
+        "type": "object"
+      },
       "DeviceSimulateHeartbeatRequest": {
         "description": "平台模拟心跳 / 模拟掉线。\n\n``online=false`` 用于演示「超过 180 秒窗口即判定离线」——\n否则只能真的等三分钟，验收无法自动化。",
         "properties": {
@@ -3991,6 +4319,36 @@
         ],
         "title": "EnableStatus",
         "type": "string"
+      },
+      "EndUserBrief": {
+        "description": "终端用户摘要。",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "nickname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname"
+          },
+          "phone": {
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "phone"
+        ],
+        "title": "EndUserBrief",
+        "type": "object"
       },
       "FactoryDispatchRequest": {
         "description": "派单（平台端 → 工厂）。",
@@ -4862,6 +5220,27 @@
         "title": "ListResult[FirmwareVersionResponse]",
         "type": "object"
       },
+      "ListResult_MiniappDeviceBrief_": {
+        "properties": {
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/MiniappDeviceBrief"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total"
+        ],
+        "title": "ListResult[MiniappDeviceBrief]",
+        "type": "object"
+      },
       "ListResult_OptionItem_": {
         "properties": {
           "records": {
@@ -5420,6 +5799,293 @@
           "updatedAt"
         ],
         "title": "MiniAppConfigResponse",
+        "type": "object"
+      },
+      "MiniappDeviceBrief": {
+        "description": "设备摘要（列表 / 登录响应共用）。\n\n``nickname`` 目前恒为 ``null``：``devices`` 表没有昵称列（P8 只做展示，\n重命名属 P9 的设备管理）。字段先占位，避免 P9 加上重命名时\n前端要改字段名。\n\n:class:`AuthLoginResponse` 会引用本模型，故它定义在认证区段之前——\nPydantic 在类定义时即解析注解，跨区段的正向引用需要模型先存在。",
+        "properties": {
+          "activationStatus": {
+            "title": "Activationstatus",
+            "type": "string"
+          },
+          "assetStatus": {
+            "title": "Assetstatus",
+            "type": "string"
+          },
+          "boundAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Boundat"
+          },
+          "firmwareVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firmwareversion"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lastHeartbeatAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastheartbeatat"
+          },
+          "networkLabel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "联网方式的中文展示名",
+            "title": "Networklabel"
+          },
+          "networkType": {
+            "description": "4G / WIFI",
+            "title": "Networktype",
+            "type": "string"
+          },
+          "nickname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname"
+          },
+          "online": {
+            "description": "派生在线判据（按心跳窗口计算，非落库投影）",
+            "title": "Online",
+            "type": "boolean"
+          },
+          "onlineStatus": {
+            "title": "Onlinestatus",
+            "type": "string"
+          },
+          "sn": {
+            "title": "Sn",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "sn",
+          "networkType",
+          "assetStatus",
+          "activationStatus",
+          "online",
+          "onlineStatus"
+        ],
+        "title": "MiniappDeviceBrief",
+        "type": "object"
+      },
+      "MiniappDeviceDetail": {
+        "description": "设备详情（在小程序「设备信息」页展示）。\n\n``settings`` 直接回原样（含服务端维护的 ``updatedAt``），\n而不是在详情里再拆一层——小程序设置页与设备信息页读的是同一份数据。",
+        "properties": {
+          "activationStatus": {
+            "title": "Activationstatus",
+            "type": "string"
+          },
+          "assetStatus": {
+            "title": "Assetstatus",
+            "type": "string"
+          },
+          "bindCount": {
+            "default": 0,
+            "title": "Bindcount",
+            "type": "integer"
+          },
+          "boundAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Boundat"
+          },
+          "firmwareVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firmwareversion"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lastHeartbeatAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastheartbeatat"
+          },
+          "networkLabel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "联网方式的中文展示名",
+            "title": "Networklabel"
+          },
+          "networkType": {
+            "description": "4G / WIFI",
+            "title": "Networktype",
+            "type": "string"
+          },
+          "nickname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname"
+          },
+          "online": {
+            "description": "派生在线判据（按心跳窗口计算，非落库投影）",
+            "title": "Online",
+            "type": "boolean"
+          },
+          "onlineStatus": {
+            "title": "Onlinestatus",
+            "type": "string"
+          },
+          "productName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Productname"
+          },
+          "settings": {
+            "additionalProperties": true,
+            "title": "Settings",
+            "type": "object"
+          },
+          "sn": {
+            "title": "Sn",
+            "type": "string"
+          },
+          "tenantName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenantname"
+          }
+        },
+        "required": [
+          "id",
+          "sn",
+          "networkType",
+          "assetStatus",
+          "activationStatus",
+          "online",
+          "onlineStatus"
+        ],
+        "title": "MiniappDeviceDetail",
+        "type": "object"
+      },
+      "MiniappProfileResponse": {
+        "description": "终端用户资料。",
+        "properties": {
+          "avatar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar"
+          },
+          "deviceCount": {
+            "description": "已绑定的设备数量",
+            "title": "Devicecount",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "nickname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname"
+          },
+          "phone": {
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "phone",
+          "deviceCount"
+        ],
+        "title": "MiniappProfileResponse",
         "type": "object"
       },
       "NetworkType": {
@@ -6796,6 +7462,235 @@
         "title": "QrCodeItemResponse",
         "type": "object"
       },
+      "RechargeOrderCreateRequest": {
+        "description": "充值下单。",
+        "properties": {
+          "deviceId": {
+            "maxLength": 36,
+            "title": "Deviceid",
+            "type": "string"
+          },
+          "planId": {
+            "maxLength": 36,
+            "title": "Planid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "deviceId",
+          "planId"
+        ],
+        "title": "RechargeOrderCreateRequest",
+        "type": "object"
+      },
+      "RechargeOrderResponse": {
+        "description": "充值订单。\n\n``amount`` / ``data_mb`` / ``valid_days`` / ``plan_name`` 是**下单时的快照**：\n套餐后续改价不得改写历史订单，否则对账时「实付金额」会跟着变。",
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "number"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "dataMb": {
+            "title": "Datamb",
+            "type": "integer"
+          },
+          "deviceId": {
+            "title": "Deviceid",
+            "type": "string"
+          },
+          "failedReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failedreason"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "orderNo": {
+            "title": "Orderno",
+            "type": "string"
+          },
+          "paidAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paidat"
+          },
+          "planId": {
+            "title": "Planid",
+            "type": "string"
+          },
+          "planName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planname"
+          },
+          "refundedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refundedat"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "validDays": {
+            "title": "Validdays",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "orderNo",
+          "deviceId",
+          "planId",
+          "amount",
+          "dataMb",
+          "validDays",
+          "status",
+          "createdAt"
+        ],
+        "title": "RechargeOrderResponse",
+        "type": "object"
+      },
+      "RechargePayResult": {
+        "description": "支付结果。",
+        "properties": {
+          "mock": {
+            "description": "是否为模拟支付（未走真实支付通道）",
+            "title": "Mock",
+            "type": "boolean"
+          },
+          "order": {
+            "$ref": "#/components/schemas/RechargeOrderResponse"
+          }
+        },
+        "required": [
+          "order",
+          "mock"
+        ],
+        "title": "RechargePayResult",
+        "type": "object"
+      },
+      "RechargePlanListResult": {
+        "description": "套餐列表。\n\n``supported=false`` 是**正常状态**而非错误：Wi-Fi 设备通过家庭网络联网，\n根本不需要流量充值。若这里返回 4xx，前端就只能把「不支持」写成\n异常处理分支，反而埋没了真实错误。",
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "不支持时的说明文案",
+            "title": "Reason"
+          },
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/RechargePlanResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "supported": {
+            "title": "Supported",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "supported"
+        ],
+        "title": "RechargePlanListResult",
+        "type": "object"
+      },
+      "RechargePlanResponse": {
+        "description": "流量套餐（小程序端可见字段）。\n\n只下发终端用户需要的字段：**不含** ``status`` / ``sortOrder`` 这类\n运营字段，也不含 ``tenantId``——套餐已经按设备所属租户筛过，\n再回一个租户 ID 只会让前端多一个不该关心的字段。",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "dataMb": {
+            "title": "Datamb",
+            "type": "integer"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "isRecommended": {
+            "default": false,
+            "title": "Isrecommended",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "price": {
+            "title": "Price",
+            "type": "number"
+          },
+          "validDays": {
+            "title": "Validdays",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "dataMb",
+          "validDays",
+          "price"
+        ],
+        "title": "RechargePlanResponse",
+        "type": "object"
+      },
       "RefreshRequest": {
         "description": "刷新令牌请求。",
         "properties": {
@@ -6892,6 +7787,248 @@
           "greeting"
         ],
         "title": "RolePresetItem",
+        "type": "object"
+      },
+      "ScanDeviceInfo": {
+        "description": "扫码解析出的设备信息。",
+        "properties": {
+          "activationStatus": {
+            "title": "Activationstatus",
+            "type": "string"
+          },
+          "assetStatus": {
+            "title": "Assetstatus",
+            "type": "string"
+          },
+          "bindStatus": {
+            "title": "Bindstatus",
+            "type": "string"
+          },
+          "deviceLabel": {
+            "description": "四维状态派生的展示标签",
+            "title": "Devicelabel",
+            "type": "string"
+          },
+          "firmwareVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firmwareversion"
+          },
+          "iccid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iccid"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "imei": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imei"
+          },
+          "mac": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mac"
+          },
+          "networkType": {
+            "title": "Networktype",
+            "type": "string"
+          },
+          "online": {
+            "title": "Online",
+            "type": "boolean"
+          },
+          "sn": {
+            "title": "Sn",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "sn",
+          "networkType",
+          "assetStatus",
+          "activationStatus",
+          "bindStatus",
+          "deviceLabel",
+          "online"
+        ],
+        "title": "ScanDeviceInfo",
+        "type": "object"
+      },
+      "ScanProductInfo": {
+        "description": "扫码解析出的客户产品信息。",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name"
+        ],
+        "title": "ScanProductInfo",
+        "type": "object"
+      },
+      "ScanResolveRequest": {
+        "description": "扫码解析请求。",
+        "properties": {
+          "payload": {
+            "description": "二维码原始文本（JX|… 或 JD|…），由小程序扫码器读取后原样提交",
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Payload",
+            "type": "string"
+          }
+        },
+        "required": [
+          "payload"
+        ],
+        "title": "ScanResolveRequest",
+        "type": "object"
+      },
+      "ScanResolveResponse": {
+        "description": "扫码解析结果。\n\n**本接口不抛业务异常**（除「二维码格式非法」与「SN 不在设备库」两种\n根本性错误）：设备不可绑是一种**正常状态**，用 ``bindable=false`` +\n中文 ``reason`` 表达，页面据此给出「为什么不能绑」而不是一个错误弹窗。",
+        "properties": {
+          "activationStatus": {
+            "title": "Activationstatus",
+            "type": "string"
+          },
+          "assetStatus": {
+            "title": "Assetstatus",
+            "type": "string"
+          },
+          "bindStatus": {
+            "title": "Bindstatus",
+            "type": "string"
+          },
+          "bindable": {
+            "title": "Bindable",
+            "type": "boolean"
+          },
+          "cloudVendor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "云服务商厂商枚举值",
+            "title": "Cloudvendor"
+          },
+          "cloudVendorLabel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cloudvendorlabel"
+          },
+          "device": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScanDeviceInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "format": {
+            "description": "JX（集贤 4G）/ JD（京东 Wi-Fi）",
+            "title": "Format",
+            "type": "string"
+          },
+          "networkType": {
+            "description": "4G / WIFI，以设备记录为准",
+            "title": "Networktype",
+            "type": "string"
+          },
+          "product": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScanProductInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "不可绑原因（可绑时为 null）",
+            "title": "Reason"
+          },
+          "tenantName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenantname"
+          }
+        },
+        "required": [
+          "format",
+          "networkType",
+          "bindable",
+          "activationStatus",
+          "bindStatus",
+          "assetStatus"
+        ],
+        "title": "ScanResolveResponse",
         "type": "object"
       },
       "ScenarioItem": {
@@ -8166,6 +9303,77 @@
           "providerLayer"
         ],
         "title": "TtsResponse",
+        "type": "object"
+      },
+      "UnbindRequest": {
+        "description": "解绑请求。\n\n与商户端的 ``BindingUnbindRequest``（原因**必填**）刻意不同：\n小程序端是终端用户自己操作，多数人不会写原因，强制填写只会催生\n「111」「。。。」这类无意义内容。省略时服务层写入「终端用户主动解绑」，\n仍能保证时间线里有可读的原因。",
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "UnbindRequest",
+        "type": "object"
+      },
+      "UnbindResult": {
+        "description": "解绑结果。",
+        "properties": {
+          "activationStatus": {
+            "description": "解绑**不改**激活状态（已激活的设备仍是已激活）",
+            "title": "Activationstatus",
+            "type": "string"
+          },
+          "assetStatus": {
+            "title": "Assetstatus",
+            "type": "string"
+          },
+          "bindStatus": {
+            "title": "Bindstatus",
+            "type": "string"
+          },
+          "deviceId": {
+            "title": "Deviceid",
+            "type": "string"
+          },
+          "message": {
+            "default": "已解除绑定",
+            "title": "Message",
+            "type": "string"
+          },
+          "sn": {
+            "title": "Sn",
+            "type": "string"
+          },
+          "unboundAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unboundat"
+          }
+        },
+        "required": [
+          "deviceId",
+          "sn",
+          "bindStatus",
+          "assetStatus",
+          "activationStatus"
+        ],
+        "title": "UnbindResult",
         "type": "object"
       },
       "UserProfile": {
@@ -10848,6 +12056,892 @@
         "summary": "我的产品详情",
         "tags": [
           "商户端 · 产品与订单"
+        ]
+      }
+    },
+    "/api/v1/miniapp/auth/code": {
+      "post": {
+        "description": "手机号格式不合法返回 400 `VALIDATION_ERROR`。\n\n`MINIAPP_SMS_PROVIDER=none` 时返回 503 `VENDOR_UNAVAILABLE`（**安全失败**，ADR-07）——通道没接就明确拒绝，而不是「假装发了」。\n\n`mock` 通道下验证码在 `mockCode` 回显且 `mock=true`（开发 / 验收环境），生产环境禁止该取值（启动期即拒绝）。首次使用某手机号会自动创建账号（幂等）。",
+        "operationId": "send_login_code_api_v1_miniapp_auth_code_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthCodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthCodeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "手机号格式不合法"
+          },
+          "403": {
+            "description": "账号已被禁用"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "短信通道未接入"
+          }
+        },
+        "summary": "发送登录验证码",
+        "tags": [
+          "小程序 · 终端用户"
+        ]
+      }
+    },
+    "/api/v1/miniapp/auth/login": {
+      "post": {
+        "description": "校验顺序即错误码优先级：无待验证码 / 已过期 → 409 `QR_EXPIRED`；验证码不匹配 → 400 `VALIDATION_ERROR`（`details.attemptsLeft` 给出剩余次数）；连续错误达到 `MINIAPP_LOGIN_MAX_ATTEMPTS` → **作废该验证码**并返回 400。\n\n成功即签发终端用户令牌（`type=end_user`，与后台令牌双向隔离），并**回带该用户的设备列表**——小程序登录后直接进首页，不需要再发一次请求。",
+        "operationId": "login_api_v1_miniapp_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthLoginResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "验证码不正确或已作废"
+          },
+          "403": {
+            "description": "账号已被禁用"
+          },
+          "409": {
+            "description": "验证码已过期，请重新获取"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "验证码登录",
+        "tags": [
+          "小程序 · 终端用户"
+        ]
+      }
+    },
+    "/api/v1/miniapp/chat/stream": {
+      "post": {
+        "description": "与 WebSocket `/ws/miniapp/chat` 等价的降级端点：返回 `text/event-stream`，每个事件形如 `data: {json}\\n\\n`，事件类型与 WS 帧同名（`session.ready` / `assistant.delta` / `assistant.audio` / `assistant.done` / `error`）。\n\n浏览器 `EventSource` 只认 SSE，因此小程序 / H5 在没有 WebSocket 时走这里；设备固件与调试台走 NDJSON 的 `/ai/chat`。三者字段同名，前端只需一套解析。\n\n会话与消息**落库**（`dialogue_sessions` / `dialogue_messages`）；内容安全在 `assistant.delta` 之前生效，命中时整段替换为安全话术，**原文不出站**，并写 `safetyFlag` 与 `CONTENT_BLOCKED` 审计。\n\n`sessionId` 为空则新开会话；续聊传入上次的会话 ID（不属于本设备 / 本人 → 404）。厂商未接入时以 `error` 帧报告（流已开始，无法再改 HTTP 状态码）。",
+        "operationId": "chat_stream_api_v1_miniapp_chat_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatStreamRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "设备不可见或会话不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "AI 对话（SSE 降级流）",
+        "tags": [
+          "小程序 · 终端用户"
+        ]
+      }
+    },
+    "/api/v1/miniapp/devices": {
+      "get": {
+        "description": "当前终端用户已绑定的设备（含联网方式、四维状态与在线判据）。",
+        "operationId": "list_devices_api_v1_miniapp_devices_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResult_MiniappDeviceBrief_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "我的设备",
+        "tags": [
+          "小程序 · 终端用户"
+        ]
+      }
+    },
+    "/api/v1/miniapp/devices/{device_id}": {
+      "get": {
+        "description": "含产品名 / 租户名 / 设备设置 / 绑定次数。设备不可见 → 404（不泄漏存在性）。",
+        "operationId": "get_device_api_v1_miniapp_devices__device_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MiniappDeviceDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "设备不存在或不属于当前用户"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "设备详情",
+        "tags": [
+          "小程序 · 终端用户"
+        ]
+      }
+    },
+    "/api/v1/miniapp/devices/{device_id}/activate-4g": {
+      "post": {
+        "description": "`NOT_ACTIVATED → ACTIVATING →` 调集贤厂商 `activate_device` `→ ACTIVATED`，成功后**自动绑定**到当前终端用户。\n\n**厂商未配置密钥时退回 `NOT_ACTIVATED` 并返回 503 `VENDOR_UNAVAILABLE`**（ADR-07，绝不伪造成功）；退回是必要的，否则设备会永久卡在 `ACTIVATING`且用户无法重试。\n\n已激活的设备**幂等**返回既有结果并提示「已激活」，不重复调厂商、不重复绑定。\n\n设备不属于当前用户可见范围 → 404（不泄漏存在性）；不是 4G 设备 → 400。",
+        "operationId": "activate_4g_api_v1_miniapp_devices__device_id__activate_4g_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivationResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "该设备不是 4G 设备"
+          },
+          "404": {
+            "description": "设备不存在或不可见"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "厂商未接入或未配置密钥"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "4G 设备激活",
+        "tags": [
+          "小程序 · 终端用户"
+        ]
+      }
+    },
+    "/api/v1/miniapp/devices/{device_id}/activate-wifi": {
+      "post": {
+        "description": "**先校验上报的 `sn` 与设备记录是否一致**，不一致即把 `activationStatus` 置为 `BIND_FAILED`、写设备事件与审计，并返回 409 `BIND_FAILED`（`details` 带 `qrSn` / `reportedSn`）——这是防止「A 的二维码激活了 B 的设备」的关键一步。\n\n`mac` 与记录不符按同一口径处理；设备记录 MAC 为空时以本次上报为准写入（MAC 常在生产阶段才回填）。\n\n一致则调京东 JoyInside 激活，成功后自动绑定；已激活设备在 SN 校验**之前**幂等返回，避免把正常重试判成失败。",
+        "operationId": "activate_wifi_api_v1_miniapp_devices__device_id__activate_wifi_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivateWifiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivationResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "该设备不是 Wi-Fi 设备"
+          },
+          "404": {
+            "description": "设备不存在或不可见"
+          },
+          "409": {
+            "description": "上报 SN / MAC 与设备记录不一致（BIND_FAILED）"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "厂商未接入或未配置密钥"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Wi-Fi 设备配网激活",
+        "tags": [
+          "小程序 · 终端用户"
+        ]
+      }
+    },
+    "/api/v1/miniapp/devices/{device_id}/settings": {
+      "get": {
+        "description": "返回 `volume` / `childMode` / `wakeWord` / `updatedAt`。\n\n`devices.settings` 为空时返回默认值（音量 60、儿童模式关、唤醒词「你好小伙伴」）——「没设置过」与「设置为默认值」对用户是同一件事。",
+        "operationId": "get_settings_api_v1_miniapp_devices__device_id__settings_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "设备不存在或不属于当前用户"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "读取设备设置",
+        "tags": [
+          "小程序 · 终端用户"
+        ]
+      },
+      "put": {
+        "description": "局部更新，未传的字段保持原值。**未知键静默忽略**（不是报错）：客户端可能比服务端新，为一个它多传的字段让整次保存失败是净损失。\n\n`volume` 约束 0–100。\n\n设置项存在 `devices.settings`（JSON）而不是逐项开列：设置项会随型号与固件迭代，逐项开列意味着每加一项就要一次迁移；键白名单由服务层维护（`miniapp_service.DEVICE_SETTING_KEYS`），同样能防止客户端塞任意键进库。",
+        "operationId": "update_settings_api_v1_miniapp_devices__device_id__settings_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceSettingsUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "音量超出 0–100"
+          },
+          "404": {
+            "description": "设备不存在或不属于当前用户"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "更新设备设置",
+        "tags": [
+          "小程序 · 终端用户"
+        ]
+      }
+    },
+    "/api/v1/miniapp/devices/{device_id}/unbind": {
+      "post": {
+        "description": "解绑：`bindStatus → UNBOUND`，设备资产状态 `BOUND → ALLOCATED`（与商户端解绑同口径，**不退回平台库存**），写设备事件与审计。\n\n`activationStatus` **保持不变**：设备已经激活过，解绑只是解除归属——一起退回 `NOT_ACTIVATED` 会让下一位用户重复走厂商激活（会被厂商拒绝），造出一台「永远激活不了」的设备。\n\n`reason` 可省略（省略时写「终端用户主动解绑」）。",
+        "operationId": "unbind_device_api_v1_miniapp_devices__device_id__unbind_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnbindRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnbindResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "设备不存在或不属于当前用户"
+          },
+          "409": {
+            "description": "设备当前未绑定"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "解绑设备",
+        "tags": [
+          "小程序 · 终端用户"
+        ]
+      }
+    },
+    "/api/v1/miniapp/profile": {
+      "get": {
+        "description": "终端用户资料（含已绑定设备数量）。",
+        "operationId": "get_profile_api_v1_miniapp_profile_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MiniappProfileResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "个人资料",
+        "tags": [
+          "小程序 · 终端用户"
+        ]
+      }
+    },
+    "/api/v1/miniapp/recharge/orders": {
+      "get": {
+        "description": "分页返回某台设备的充值订单（按创建时间倒序），`deviceId` 必填。",
+        "operationId": "list_recharge_orders_api_v1_miniapp_recharge_orders_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "deviceId",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 1,
+              "title": "Deviceid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "页码，从 1 开始",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码，从 1 开始",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "每页条数",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "排序字段",
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排序字段",
+              "title": "Sortby"
+            }
+          },
+          {
+            "description": "排序方向",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "排序方向",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Recharge Orders Api V1 Miniapp Recharge Orders Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "设备不存在或不属于当前用户"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "充值记录",
+        "tags": [
+          "小程序 · 终端用户"
+        ]
+      },
+      "post": {
+        "description": "校验设备归属 / 4G / 套餐有效且属于同一租户，订单号 `RC-YYYYMMDD-XXXX`（随机后缀剔除 `0/O/1/I`，冲突重试 5 次），并把**金额与流量快照**到订单（套餐后续改价不改写历史订单），状态 `PENDING`。\n\n**同一设备已有 `PENDING` 订单时不拒绝**：用户「先下一单没付再下一单」在真实场景里很常见，拒绝只会逼他去翻未支付订单；多张未支付订单不产生资费影响（流量只在 `PAID` 后生效），真正要防的是「同一单被付两次」，那由支付接口的状态机挡住。",
+        "operationId": "create_recharge_order_api_v1_miniapp_recharge_orders_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RechargeOrderCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RechargeOrderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "非 4G 设备或套餐已下架"
+          },
+          "404": {
+            "description": "设备不可见或套餐不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "充值下单",
+        "tags": [
+          "小程序 · 终端用户"
+        ]
+      }
+    },
+    "/api/v1/miniapp/recharge/orders/{order_id}/pay": {
+      "post": {
+        "description": "`PAYMENT_PROVIDER=mock` 时把订单置为 `PAID` 并回 `mock=true`；`none` 时 503 `VENDOR_UNAVAILABLE`（安全失败，不改订单状态）。\n\n**只允许 `PENDING → PAID`**：重复支付、或对 `FAILED` / `REFUNDED` 订单支付一律 409 `INVALID_STATE_TRANSITION`——这是「同一单被扣两次钱」的最后一道闸。",
+        "operationId": "pay_recharge_order_api_v1_miniapp_recharge_orders__order_id__pay_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RechargePayResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "订单不存在或不属于当前用户"
+          },
+          "409": {
+            "description": "订单状态不允许支付"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "支付通道未接入"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "支付充值订单",
+        "tags": [
+          "小程序 · 终端用户"
+        ]
+      }
+    },
+    "/api/v1/miniapp/recharge/plans": {
+      "get": {
+        "description": "**仅 4G 设备**：Wi-Fi 设备返回 `supported=false` + 说明文案 + 空数组，**不是错误**（「这台机器不需要流量充值」是正常结论，用 4xx 表达会逼前端把它写成异常分支）。\n\n套餐按 `sortOrder` 升序，只返回 `ENABLED` 且属于设备所属租户的档位。",
+        "operationId": "list_recharge_plans_api_v1_miniapp_recharge_plans_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "deviceId",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 1,
+              "title": "Deviceid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RechargePlanListResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "设备不存在或不属于当前用户"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "流量套餐列表",
+        "tags": [
+          "小程序 · 终端用户"
+        ]
+      }
+    },
+    "/api/v1/miniapp/scan/resolve": {
+      "post": {
+        "description": "解析二维码（`JX|SN|IMEI|ICCID|deviceId` 或 `JD|租户|产品|SN|签名`）并判定「能不能绑」。\n\n**不可绑不是错误**：已冻结 / 已报废 / 尚未分配 / 已被他人绑定都返回`bindable=false` + 中文 `reason` + 200，页面据此给出解释性文案。\n\n只有两种根本性错误返回 4xx：二维码格式非法（404 `QR_INVALID`）与 SN 不在设备库（404 `DEVICE_NOT_FOUND`）。\n\n**同一用户重复扫码** `bindable=true` 且 `reason` 提示已激活。\n\n与商户端 `precheck` 的区别：扫码者就是绑定者，因此**不需要确认令牌**。",
+        "operationId": "resolve_scan_api_v1_miniapp_scan_resolve_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScanResolveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanResolveResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "二维码无效或设备不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "扫码解析",
+        "tags": [
+          "小程序 · 终端用户"
         ]
       }
     },

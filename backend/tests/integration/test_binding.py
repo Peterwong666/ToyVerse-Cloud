@@ -464,8 +464,17 @@ class TestPrecheck:
         assert tampered != payload
         _assert_error(await _precheck(client, merchant, tampered), 404, "QR_INVALID")
 
-        # 只改最后一个字符（签名），同样必须失败
-        _assert_error(await _precheck(client, merchant, payload[:-1] + "0"), 404, "QR_INVALID")
+        # 只改签名段的一个字符，同样必须失败。
+        #
+        # 为什么不写 `payload[:-1] + "0"`：签名的**末位本身可能就是 "0"**，
+        # 那种情况下这个「篡改」等于原样返回，用例会**偶发通过**
+        # （P8 的代理实测出约 1/16 的失败率）。这里显式翻转末位字符，
+        # 保证「改动确实发生了」——一个会随机不变换的用例比没有用例更糟。
+        last = payload[-1]
+        flipped = "0" if last != "0" else "1"
+        mutated = payload[:-1] + flipped
+        assert mutated != payload, "篡改后的载荷必须与原文不同（否则用例本身失效）"
+        _assert_error(await _precheck(client, merchant, mutated), 404, "QR_INVALID")
 
     async def test_jx_payload_with_tampered_imei_is_rejected(
         self, client: AsyncClient, auth: Any, db: AsyncSession, make_tenant: Any, make_user: Any

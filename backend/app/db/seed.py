@@ -25,6 +25,7 @@ from app.core.permissions import FACTORY_ROLE_CODES, ROLE_PERMISSIONS
 from app.core.security import hash_password
 from app.db.base import utcnow
 from app.db.session import SessionLocal
+from app.models.ai import AiConfig
 from app.models.catalog import (
     ClientProduct,
     CloudProvider,
@@ -191,6 +192,34 @@ DEMO_CLIENT_PRODUCTS: tuple[dict[str, Any], ...] = (
         "code": "CP-T001-4G",
         "name": "星辰故事机 4G 版",
         "remark": "演示：4G（集贤方案）客户产品，用于小程序 4G 激活与流量充值",
+    },
+)
+
+
+#: 演示用 AI 配置：把两个演示客户产品的供应商**显式**指向离线模拟引擎。
+#:
+#: 为什么必须显式配而不是靠默认值：供应商解析顺序是「客户产品 → 模板厂商 →
+#: 平台默认 → ``AI_DEFAULT_PROVIDER``」，而演示模板的 `vendor` 是真实的
+#: 集贤 / 火山（都没有密钥）。不配这一层，4G 与 Wi-Fi 两条激活链路都会按
+#: ADR-07 正确返回 503 —— 那是**正确**的拒绝，但演示不出激活流程本身。
+#:
+#: 显式配成 `mock` 之后：演示产品可离线跑通全链路，而**没有配置的产品
+#: （例如新建的客户产品）依然 503**，ADR-07 的安全失败行为仍可观测，
+#: 也由 `tests/integration/test_vendor_unavailable.py` 钉住。
+DEMO_AI_CONFIGS: tuple[dict[str, Any], ...] = (
+    {
+        "id": "aic-t001-4g",
+        "tenant_id": "t-001",
+        "client_product_id": "prod-t001-4g",
+        "provider_code": "mock",
+        "remark": "演示：4G 演示产品使用离线模拟引擎（无真实厂商密钥也能跑通激活）",
+    },
+    {
+        "id": "aic-t001-cube",
+        "tenant_id": "t-001",
+        "client_product_id": "prod-t001-cube",
+        "provider_code": "mock",
+        "remark": "演示：Wi-Fi 演示产品使用离线模拟引擎",
     },
 )
 
@@ -873,12 +902,29 @@ async def _seed_orders_devices(session: AsyncSession) -> None:
 
 
 async def _seed_miniapp(session: AsyncSession) -> None:
-    """写入流量套餐与「待激活」演示设备（幂等）。
+    """写入 AI 演示配置、流量套餐与「待激活」演示设备（幂等）。
 
-    这两批数据的共同点是：**没有它们，P8 的两条链路都不可演示**。
-    套餐为空时小程序充值页只能显示空态；设备都走完状态链时，扫码激活
-    一定会撞上「已被绑定」——那是正确的拒绝，但演示不出流程本身。
+    这三批数据的共同点是：**没有它们，P8 的链路都不可演示**。
+    AI 配置缺失时激活一律 503（正确但演示不了流程）；套餐为空时充值页
+    只能显示空态；设备都走完状态链时，扫码激活一定会撞上「已被绑定」
+    ——那是正确的拒绝，但演示不出流程本身。
     """
+    existing_configs = set((await session.execute(select(AiConfig.id))).scalars().all())
+    config_created = 0
+    for spec in DEMO_AI_CONFIGS:
+        if str(spec["id"]) in existing_configs:
+            continue
+        session.add(
+            AiConfig(
+                id=str(spec["id"]),
+                tenant_id=str(spec["tenant_id"]),
+                client_product_id=str(spec["client_product_id"]),
+                provider_code=str(spec["provider_code"]),
+                remark=spec["remark"],
+            )
+        )
+        config_created += 1
+
     existing_plans = set((await session.execute(select(RechargePlan.id))).scalars().all())
     plan_created = 0
     for spec in DEMO_RECHARGE_PLANS:
@@ -949,9 +995,12 @@ async def _seed_miniapp(session: AsyncSession) -> None:
         )
         device_created += 1
 
-    if plan_created or device_created:
+    if config_created or plan_created or device_created:
         logger.info(
-            "已创建 %d 个流量套餐、%d 台待激活演示设备", plan_created, device_created
+            "已创建 %d 条 AI 演示配置、%d 个流量套餐、%d 台待激活演示设备",
+            config_created,
+            plan_created,
+            device_created,
         )
 
 

@@ -14,6 +14,7 @@ from app.api.v1 import (
     factory,
     health,
     merchant,
+    miniapp,
     platform,
     platform_allocations,
     platform_factory,
@@ -62,5 +63,12 @@ api_router.include_router(factory.router)
 # 设备入库端点（POST /platform/devices/stock-in）也放在这里，同理。
 api_router.include_router(platform_factory.router)
 
+# ---- 终端用户 · 小程序端（P8：登录 / 扫码激活 / 设备 / 设置 / 充值 / 对话降级流） ----
+# 它是**第四端**，依赖与前三端都不同：认证用 EndUserAuth（终端用户令牌 type=end_user），
+# 可见性收口在「绑定关系」而不是租户（见 app/services/miniapp_service.py）。
+# WebSocket 端点（/ws/miniapp/chat）不在此挂载——它不属于 /api/v1 前缀体系，
+# 由 app/main.py 直接挂 app.realtime.ws_chat.router。
+api_router.include_router(miniapp.router)
+
 # 后续阶段在此追加：
-#   miniapp    终端用户端（扫码激活 / 对话 / 充值 / 设置）
+#   P9 的运营看板 / OTA 沿用平台端与商户端既有模块，不新开「端」

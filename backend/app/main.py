@@ -35,6 +35,7 @@ from app.core.logging import (
     setup_logging,
 )
 from app.db.session import database_backend_name, dispose_engine
+from app.realtime.ws_chat import router as ws_router
 
 logger = get_logger(__name__)
 
@@ -258,6 +259,12 @@ def create_app() -> FastAPI:
 
     # ---- API 路由 ----
     app.include_router(api_router, prefix=API_PREFIX)
+
+    # ---- WebSocket 路由（P8） ----
+    # WS 不走 /api/v1 前缀体系：它没有 status code / 响应模型 / OpenAPI 文档，
+    # 混进 api_router 只会让 HTTP 契约与帧契约搅在一起。模块自带完整路径
+    # （/ws/miniapp/chat），因此这里不加 prefix——与上面的挂载方式风格一致。
+    app.include_router(ws_router)
 
     # ---- 前端静态资源 ----
     _mount_frontend(app)

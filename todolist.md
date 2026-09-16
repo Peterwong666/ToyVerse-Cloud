@@ -311,29 +311,44 @@
 
 ## P8 终端用户小程序端 ★
 
-- [ ] 🔑 `app/api/v1/miniapp.py` — 扫码解析 / 4G 激活 / Wi-Fi 配网激活 / 设备信息 / 设置 / 解绑
-- [ ] 🔑 扫码解析：识别 `JX|` 与 `JD|` 前缀，路由到对应租户 / 产品 / 云服务商
-- [ ] 🔑 4G 激活路径：开机 → 4G 上线 → 调集贤激活
-- [ ] 🔑 Wi-Fi 激活路径：配网 → 上报 SN/MAC → **校验二维码 SN 与设备 SN 一致** → 一致则调京东激活，不一致则 `BIND_FAILED`
-- [ ] 重复激活幂等：已激活则提示「已激活」，不重复绑定
-- [ ] 🔑 `app/realtime/ws_chat.py` — WebSocket 对话帧协议
+- [x] 🔑 `app/api/v1/miniapp.py` — 扫码解析 / 4G 激活 / Wi-Fi 配网激活 / 设备信息 / 设置 / 解绑
+- [x] 🔑 扫码解析：识别 `JX|` 与 `JD|` 前缀，路由到对应租户 / 产品 / 云服务商
+  - 解析失败 → 404 `QR_INVALID`；SN 不存在 → 404 `DEVICE_NOT_FOUND`
+  - **不可绑定不报错**：返回 `bindable: false` + 人话 `reason`（冻结 / 报废 / 未分配 / 已被他人绑定），前端据此提示而不是弹错误
+- [x] 🔑 4G 激活路径：开机 → 4G 上线 → 调集贤激活（未配置密钥 → 退回 `NOT_ACTIVATED` 并 503，ADR-07；已激活则幂等）
+- [x] 🔑 Wi-Fi 激活路径：配网 → 上报 SN/MAC → **校验二维码 SN 与设备 SN 一致** → 一致则调京东激活，不一致则 `BIND_FAILED`
+  - 不一致时把设备 `activation_status` 落为 `BIND_FAILED`（可观测、可重试），`details` 带 `qrSn` / `reportedSn`
+- [x] 重复激活幂等：已激活则提示「已激活」，且**必须同时保证绑定关系**（本轮修的真缺陷，见下方「已知局限」的反面记录）
+- [x] 终端用户登录：手机号 + 短信验证码（`MINIAPP_SMS_PROVIDER` 可配；mock 回显验证码并标注，**生产环境启动期拒绝 mock**）
+- [x] 🔑 `app/realtime/ws_chat.py` — WebSocket 对话帧协议
   - `session.open` → `session.ready` → `user.text`/`user.audio` → `asr.partial` → `assistant.delta`（流式）→ `assistant.audio` → `assistant.done{messageId, latencyMs}` / `error` → `session.close`
   - SSE 降级端点 `/miniapp/chat/stream`
-  - 会话与消息落库
-- [ ] 内容安全三开关在 `assistant.delta` 前过滤，命中写 `safety_flag`
-- [ ] 4G 充值：套餐列表 + 下单（**仅 4G 设备展示**）
-- [ ] 🔑 `frontend/pages/miniapp/{scan,login,setup_4g,setup_wifi,activate_done,home,chat,recharge,settings}.js` — 共 9 屏
-- [ ] `tests/integration/test_activation.py` — JX/JD 分支、SN 不一致、重复激活幂等
-- [ ] `tests/e2e/test_activation_flow.py`
+  - 会话与消息落库（`DialogueSession` / `DialogueMessage`）
+  - 令牌与设备走 **query**（浏览器 WebSocket 不能带自定义 header）；非法令牌 close `4401`、越权 close `4403`
+- [x] 内容安全三开关在 `assistant.delta` 前过滤，命中写 `safety_flag`（`assistant.done` 带 `safetyFlag` 与 `blocked`）并写 `AuditAction.CONTENT_BLOCKED`
+  - 开关开启时**先聚合再放行**（牺牲首字延迟换取「原文绝不出站」）；关闭时真流式
+- [x] 4G 充值：套餐列表 + 下单 + mock 支付（**仅 4G 设备展示**；Wi-Fi 返回 `supported: false` + 原因而非报错）
+- [x] 🔑 `frontend/pages/miniapp/{scan,login,setup_4g,setup_wifi,activate_done,home,chat,recharge,settings}.js` — 共 9 屏（另拆出 `shell.js` 外壳）
+- [x] 设备设置（音量 / 儿童模式 / 唤醒词）：JSON 列 + **服务层键白名单**（设置项会随型号迭代，逐项开列意味着每加一项就要一次迁移）
+- [x] `tests/integration/test_activation.py`（20 条：登录与令牌隔离、扫码双分支、激活与绑定、S→SN 不一致、越权矩阵、设置白名单、充值 4G/Wi-Fi 分支、SSE 帧协议、内容安全标注）
 
-**验收**：JX/JD 分支自动路由正确；SN 不一致返回 `BIND_FAILED`；重复激活幂等；WS 流式回复落库；仅 4G 显示充值入口。
+**验收**（2026-09-17 实测通过）：真实服务端到端接口验收 **50/50 通过**；JX/JD 分支自动路由正确；SN 不一致返回 `BIND_FAILED` 且落库；重复激活幂等**且补齐绑定**；WS 与 SSE 双通道流式对话落库；仅 4G 显示充值入口；`make check` 全绿（**757 passed**、mypy 87 文件、契约一致）；`make fe-check` 344 处导入匹配；`alembic check` 零漂移。浏览器实测 11 项。
+
+**已知局限**：
+1. **`frontend/shared/core/ws.js` 与真实协议四处不符**（URL 少 `/ws/miniapp` 前缀、令牌取后台 `auth.accessToken`、帧名写 `{text,seq}` 而实际是 `{delta,index}`、SSE 降级用 `EventSource` 的 GET 无法携带 `user.text`）。P8 的 `chat.js` 用「继承并覆盖 `ChatSocket`」绕开，**共享模块本身未改**——它现在是「看起来是通用实现、实际不可用」的状态，建议 P9/P10 对齐或删除。
+2. **`frontend/shared/core/api.js` 无条件注入后台令牌**（401 时还会用后台 refreshToken 刷新并 `auth.clear()`），终端用户端不能直接用；P8 在 `shell.js` 自建了 `mpApi`（约 15 行重复）。
+3. 语音未接：后端 `provider.asr/tts` 与 `user.audio`/`assistant.audio` 帧已就绪，前端无录音与播放。
+4. 内容安全是**离线关键词级**（6 个词），完整词表 / LLM 复核 / 商户端三开关面板归 P9。
+5. 设备昵称占位 `null`（`devices` 表无该列）。
+6. `miniapp_service` 中相邻两行的 `detail=` 与 `details=` 是不同用途参数，命名易看错（无功能影响）。
+7. `end_users` / `recharge_plans` / `recharge_orders` 由 P8 落地（原计划 P9），P9 迁移编号顺延为 `0015`。
 
 ---
 
 ## P9 AI 配置与运营看板 ★
 
-- [ ] Alembic `0014_ops_metrics_ota.py` — `metrics_daily` `metrics_hourly` `metrics_region` `content_hot_ranking` `ota_packages` `ota_records` `recharge_plans` `recharge_orders` `content_items` `end_users`
-  > 编号说明：原计划 `0012`，被 P6 的两个迁移（`0012` 工厂账号归属、`0013` 设备工单归属）占用，按「落库先后顺延」顺延为 `0014`。
+- [ ] Alembic `0015_ops_metrics_ota.py` — `metrics_daily` `metrics_hourly` `metrics_region` `content_hot_ranking` `ota_packages` `ota_records` `content_items`
+  > 编号说明：原计划 `0012`，被 P6 的 `0012`（工厂账号归属）/ `0013`（设备工单归属）与 **P8 的 `0014`**（`end_users` / `recharge_plans` / `recharge_orders` —— P8 的登录与充值直接依赖它们，故先落）占用，按「落库先后顺延」顺延为 `0015`；`recharge_*` 与 `end_users` **不再由本阶段建表**，本阶段只扩展它们的运营字段（如需）。
 - [ ] 商户端 AI 配置：`/products/{id}/ai-config`、`/prompt`、`/role`（仅 4G）、`/voice`、`/safety`
 - [ ] 知识库 CRUD + 文件上传/删除（走 `STORAGE_BACKEND` 抽象）
 - [ ] 🔑 运营指标聚合：**按 `product_id` 隔离**（修复 P-08），**维度数据真实汇总**而非乘系数（修复 P-07）
