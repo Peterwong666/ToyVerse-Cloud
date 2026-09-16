@@ -102,32 +102,36 @@
 
 **目标**：四端可打开、可登录、路由守卫完备的全新视觉前端。
 
-- [ ] 🔑 `frontend/shared/design/tokens.css` — **全新视觉 token**（靛紫 `#4F46E5` 主色，替代参考站的 Ant 蓝 `#1677ff`；浅色侧导轨替代深色 `#001529`）
-- [ ] `frontend/shared/design/base.css` — 重置、排版、字体（Inter + Noto Sans SC，数值 `tabular-nums`）
-- [ ] `frontend/shared/design/layout.css` — 顶部品牌条 64px + 可折叠侧导轨（72/240px）+ 内容区
-- [ ] `frontend/shared/design/components.css` — 全组件样式
-- [ ] `frontend/shared/design/miniapp.css` — 375px 手机壳
-- [ ] 🔑 `frontend/shared/core/config.js` — API 基址与运行时配置
-- [ ] 🔑 `frontend/shared/core/api.js` — **契约先行**：注入 `Authorization` 与 `x-trace-id`、统一解析 `{code,message,traceId}`、401 自动刷新、错误 toast
-- [ ] 🔑 `frontend/shared/core/auth.js` — token 存取（含过期时间）、`hasPerm()`、`requireRole()`
-- [ ] 🔑 `frontend/shared/core/router.js` — **参数化 hash 路由** `#/tenant/:id`（修复 P-01）；`back()` 按角色决定目标（修复 P-02）
-- [ ] 🔑 `frontend/shared/core/guard.js` — 路由守卫（修复 P-05：未登录跳登录页、角色不符跳本端首页）
-- [ ] `frontend/shared/core/store.js` — 轻量 pub/sub 状态管理
-- [ ] `frontend/shared/core/ws.js` — 对话 WebSocket 客户端（自动重连 + SSE 降级）
-- [ ] `frontend/shared/ui/dom.js` — DOM 工具与安全转义（**避免 XSS**，修复原 MVP 的 `innerHTML` 注入面）
-- [ ] `frontend/shared/ui/components.js` — Button/Input/Select/Switch/Tag/StatusTag/Card/StatCard/Tabs/Steps/Timeline/Tree/Upload/EmptyState/Skeleton/Badge
-- [ ] `frontend/shared/ui/table.js` — 表格（排序 + 分页 + 空态 + 骨架屏）
-- [ ] `frontend/shared/ui/form.js` — 表单校验与提交
-- [ ] `frontend/shared/ui/modal.js` — Modal / Drawer / ConfirmDialog
-- [ ] `frontend/shared/ui/toast.js` — 通知
-- [ ] `frontend/shared/ui/chart.js` — **纯 SVG 图表**（柱 / 线 / 热力 / 环形）最小可用版
-- [ ] `frontend/shared/ui/qrcode.js` — Canvas 自绘二维码（替代原型的假 CSS 方块）
-- [ ] `frontend/shared/ui/command.js` — ⌘K 命令面板
-- [ ] 🔑 `frontend/index.html` — 统一登录页 + 角色入口（对接真实 `/auth/login`，**不再有「任意密码可登录」**）
-- [ ] 🔑 `frontend/platform/index.html` + `frontend/pages/platform/main.js` — 平台端布局壳 + 空工作台
-- [ ] `frontend/{merchant,factory,miniapp}/index.html` — 其余三端壳与各自 `main.js`
+- [x] 🔑 `frontend/shared/design/tokens.css` — **全新视觉 token**（靛紫 `#4F46E5` 主色，替代参考站的 Ant 蓝 `#1677ff`；浅色侧导轨替代深色 `#001529`）
+- [x] `frontend/shared/design/base.css` — 重置、排版、字体（Inter + Noto Sans SC，数值 `tabular-nums`）
+- [x] `frontend/shared/design/layout.css` — 顶部品牌条 64px + 可折叠侧导轨（72/240px）+ 内容区
+- [x] `frontend/shared/design/components.css` — 全组件样式
+- [x] `frontend/shared/design/miniapp.css` — 375px 手机壳
+- [x] 🔑 `frontend/shared/core/config.js` — API 基址与运行时配置
+- [x] 🔑 `frontend/shared/core/api.js` — **契约先行**：注入 `Authorization` 与 `x-trace-id`、统一解析 `{code,message,traceId}`、401 自动刷新、错误 toast
+- [x] 🔑 `frontend/shared/core/auth.js` — token 存取（含过期时间）、`hasPerm()`、`requireRole()`
+- [x] 🔑 `frontend/shared/core/router.js` — **参数化 hash 路由** `#/tenant/:id`（修复 P-01）；`back()` 按角色决定目标（修复 P-02）
+- [x] 🔑 `frontend/shared/core/guard.js` — 路由守卫（修复 P-05：未登录跳登录页、角色不符跳本端首页）
+- [x] `frontend/shared/core/store.js` — 轻量 pub/sub 状态管理
+- [x] `frontend/shared/core/ws.js` — 对话 WebSocket 客户端（自动重连 + SSE 降级）
+- [x] `frontend/shared/ui/dom.js` — DOM 工具与安全转义（**避免 XSS**，修复原 MVP 的 `innerHTML` 注入面）
+- [x] `frontend/shared/ui/components.js` — Button/Input/Select/Switch/Tag/StatusTag/Card/StatCard/Tabs/Steps/Timeline/Tree/Upload/EmptyState/Skeleton/Badge
+- [x] `frontend/shared/ui/table.js` — 表格（排序 + 分页 + 空态 + 骨架屏）
+- [x] `frontend/shared/ui/form.js` — 表单校验与提交
+- [x] `frontend/shared/ui/modal.js` — Modal / Drawer / ConfirmDialog
+- [x] `frontend/shared/ui/toast.js` — 通知
+- [x] `frontend/shared/ui/chart.js` — **纯 SVG 图表**（柱 / 线 / 热力 / 环形）最小可用版
+- [x] `frontend/shared/ui/qrcode.js` — Canvas 自绘二维码（替代原型的假 CSS 方块）
+- [x] `frontend/shared/ui/command.js` — ⌘K 命令面板
+- [x] 🔑 `frontend/index.html` — 统一登录页 + 角色入口（对接真实 `/auth/login`，**不再有「任意密码可登录」**）
+- [x] 🔑 `frontend/platform/index.html` + `frontend/pages/platform/main.js` — 平台端布局壳 + 空工作台
+- [x] `frontend/{merchant,factory,miniapp}/index.html` — 其余三端壳与各自 `main.js`
 
-**验收**：四端页面均可打开；登录后进入对应端工作台；**刷新子页面状态不丢失**（修复 P-01）；未登录直访子页被守卫拦截（修复 P-05）；⌘K 命令面板可用。
+**验收**（2026-09-16 实测通过）：四端页面均可打开（HTTP 200，JS 以 `text/javascript` 提供，ES Module 可直接加载）；登录后进入对应端工作台；**刷新子页面状态不丢失**（修复 P-01）；未登录直访子页被守卫拦截（修复 P-05，`localhost` 与 `127.0.0.1` 跨 Origin 实测）；⌘K 命令面板可用。
+
+**配套校验脚本**：`make fe-check`（77 处 ES Module 导入的路径与具名导出全部匹配）、`make qr-verify`（手写二维码编码器与 `qrcode` 库逐模块比对，104 组矩阵一致）。
+
+**遗留观察**：本轮尚无页面使用路径参数（`#/tenants/t-001` 会回落到 `#/dashboard`），参数化能力已在 `router.js` 落地，将在 P3/P5 的详情页启用；工作台首屏 5 个统计接口返回 404 属预期（对应域尚未开发，页面已降级为「建设中」）。
 
 ---
 

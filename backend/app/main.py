@@ -20,7 +20,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.datastructures import MutableHeaders
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.api.v1.router import api_router
 from app.core.config import FRONTEND_ROOT, InsecureConfigurationError, settings
@@ -42,6 +44,43 @@ API_PREFIX = "/api/v1"
 
 #: 四端前端入口（零构建静态资源）
 FRONTEND_ENTRIES = ("platform", "merchant", "factory", "miniapp")
+
+#: 不参与静态缓存的路径前缀（API 与文档由各自逻辑处理）
+_DYNAMIC_PREFIXES = ("/api/", "/docs", "/redoc", "/openapi.json")
+
+
+class FrontendCacheControlMiddleware:
+    """为前端静态资源补充 ``Cache-Control: no-cache``。
+
+    为什么需要
+    ----------
+    本项目的前端是**零构建**方案，文件名不含内容哈希（``shell.js`` 而不是
+    ``shell.a1b2c3.js``）。若允许浏览器强缓存，发版后用户会持续加载旧代码，
+    出现「改了代码但页面没变」的困惑。
+
+    ``no-cache`` 并非「不缓存」，而是「每次回源校验」：配合 StaticFiles 自动
+    生成的 ``ETag`` / ``Last-Modified``，内容未变时返回 304，开销极小，
+    但能保证代码即时生效。
+
+    （生产环境若要启用强缓存，应改用带内容哈希的文件名 —— 见 docs/01。）
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or scope["path"].startswith(_DYNAMIC_PREFIXES):
+            await self.app(scope, receive, send)
+            return
+
+        async def send_with_cache_control(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                if "cache-control" not in headers:
+                    headers["cache-control"] = "no-cache, must-revalidate"
+            await send(message)
+
+        await self.app(scope, receive, send_with_cache_control)
 
 
 # ---------------------------------------------------------------------------
@@ -209,6 +248,7 @@ def create_app() -> FastAPI:
         expose_headers=[TRACE_ID_HEADER],
     )
     app.add_middleware(TraceIdMiddleware)
+    app.add_middleware(FrontendCacheControlMiddleware)
 
     # ---- 异常处理 ----
     app.add_exception_handler(AppException, _handle_app_exception)
@@ -246,23 +286,36 @@ def _mount_frontend(app: FastAPI) -> None:
         if target.exists():
             app.mount(f"/{shared_dir}", StaticFiles(directory=target), name=shared_dir)
 
-    # 根登录页
-    @app.get("/", include_in_schema=False)
-    async def root() -> JSONResponse:
-        """根路径：前端就绪则跳转平台端，否则返回服务信息。"""
-        index = FRONTEND_ROOT / "index.html"
-        if index.exists():
-            from fastapi.responses import RedirectResponse
+    # 根路径与 /login 都提供统一登录页
+    if (FRONTEND_ROOT / "index.html").exists():
+        from fastapi.responses import FileResponse
 
-            return RedirectResponse(url="/platform/", status_code=302)  # type: ignore[return-value]
-        return JSONResponse(
-            content={
-                "app": settings.APP_NAME,
-                "version": APP_VERSION,
-                "docs": "/docs",
-                "api": API_PREFIX,
-            }
-        )
+        login_page = FRONTEND_ROOT / "index.html"
+
+        @app.get("/", include_in_schema=False)
+        async def root() -> FileResponse:
+            """登录页。"""
+            return FileResponse(login_page)
+
+        @app.get("/login", include_in_schema=False)
+        async def login_page_route() -> FileResponse:
+            """登录页（显式路径，便于跳转时统一指向 /login）。"""
+            return FileResponse(login_page)
+
+        logger.info("已挂载登录页：/ 与 /login")
+    else:
+        logger.warning("未找到前端登录页，根路径返回服务信息")
+
+        @app.get("/", include_in_schema=False)
+        async def root_info() -> JSONResponse:
+            return JSONResponse(
+                content={
+                    "app": settings.APP_NAME,
+                    "version": APP_VERSION,
+                    "docs": "/docs",
+                    "api": API_PREFIX,
+                }
+            )
 
 
 #: 应用实例（供 uvicorn 引用：``uvicorn app.main:app``）

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-api-base="/api/v1">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="description" content="ToyVerse Cloud 终端用户端 — 扫码激活、与玩具对话、流量充值" />
+    <meta name="theme-color" content="#4f46e5" />
+    <title>智能玩具 · 终端用户端</title>
+
+    <link rel="stylesheet" href="/shared/design/tokens.css" />
+    <link rel="stylesheet" href="/shared/design/base.css" />
+    <link rel="stylesheet" href="/shared/design/components.css" />
+    <link rel="stylesheet" href="/shared/design/miniapp.css" />
+  </head>
+
+  <body data-end="miniapp">
+    <!-- 手机壳骨架：JS 装配完成前先给出视觉反馈 -->
+    <div class="phone-stage" id="bootSkeleton">
+      <div class="phone-frame">
+        <div class="phone-notch"></div>
+        <div class="mp-statusbar">
+          <span class="mp-statusbar-time">9:41</span>
+          <span class="mp-statusbar-icons"><span>▮▮▮</span><span>5G</span><span>▮</span></span>
+        </div>
+        <div class="mp-screen">
+          <div class="mp-body">
+            <div class="page-loading">
+              <span class="spinner spinner-lg"></span>
+              <span>正在加载…</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/pages/miniapp/main.js"></script>
+  </body>
+</html>

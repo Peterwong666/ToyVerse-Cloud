@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-api-base="/api/v1">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="ToyVerse Cloud 商户端 — 我的产品、AI 配置、订单、设备与运营数据" />
+    <title>商户端 · ToyVerse Cloud</title>
+
+    <link rel="stylesheet" href="/shared/design/tokens.css" />
+    <link rel="stylesheet" href="/shared/design/base.css" />
+    <link rel="stylesheet" href="/shared/design/layout.css" />
+    <link rel="stylesheet" href="/shared/design/components.css" />
+  </head>
+
+  <body data-end="merchant">
+    <div class="app-shell" id="bootSkeleton" data-collapsed="false">
+      <aside class="app-sidebar">
+        <div class="sidebar-brand">
+          <span class="sidebar-brand-logo">T</span>
+          <div class="sidebar-brand-text">
+            <span class="sidebar-brand-name">ToyVerse Cloud</span>
+            <span class="sidebar-brand-sub">商户端</span>
+          </div>
+        </div>
+        <nav class="sidebar-nav">
+          <div class="skeleton skeleton-row" style="margin:0 12px 8px"></div>
+          <div class="skeleton skeleton-row" style="margin:0 12px 8px"></div>
+        </nav>
+      </aside>
+      <div class="app-main">
+        <header class="app-topbar"></header>
+        <main class="app-content">
+          <div class="page-loading">
+            <span class="spinner spinner-lg"></span>
+            <span>正在加载商户端…</span>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <script type="module" src="/pages/merchant/main.js"></script>
+  </body>
+</html>

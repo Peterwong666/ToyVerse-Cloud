@@ -179,6 +179,14 @@ smoke: ## 对运行中的服务执行冒烟测试
 qrcodes: ## 生成演示二维码清单
 	@$(PY) scripts/gen_qrcodes.py
 
+.PHONY: qr-verify
+qr-verify: ## 验证前端手写二维码编码器的正确性（与独立实现逐模块比对）
+	@$(PY) scripts/verify_qrcode.py
+
+.PHONY: fe-check
+fe-check: ## 校验前端 ES Module 导入契约（路径与具名导出）
+	@$(PY) scripts/verify_frontend_imports.py
+
 # ------------------------------------------------------------
 # Docker 部署
 # ------------------------------------------------------------

@@ -1,0 +1,789 @@
+/* ============================================================
+   ToyVerse Cloud — 终端用户端（H5 小程序模拟）样式
+
+   与后台三端的差异：
+   * 375px 手机壳居中展示，桌面端便于演示
+   * 移动端全屏铺满
+   * 顶部品牌色渐变、底部 Tab 栏、卡片式列表
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   一、外壳
+   ------------------------------------------------------------ */
+
+.phone-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--space-6);
+  background:
+    radial-gradient(circle at 20% 20%, rgba(79, 70, 229, 0.08), transparent 45%),
+    radial-gradient(circle at 80% 70%, rgba(251, 113, 133, 0.08), transparent 45%),
+    var(--canvas);
+}
+
+.phone-frame {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 375px;
+  height: 812px;
+  /* 手机边框 */
+  border: 10px solid #0f172a;
+  border-radius: 44px;
+  background: var(--surface);
+  box-shadow:
+    0 0 0 2px #1e293b,
+    0 32px 64px -16px rgba(15, 23, 42, 0.35);
+  overflow: hidden;
+}
+
+/* 刘海 */
+.phone-notch {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 148px;
+  height: 26px;
+  background: #0f172a;
+  border-radius: 0 0 16px 16px;
+  z-index: 10;
+}
+
+/* ------------------------------------------------------------
+   二、状态栏
+   ------------------------------------------------------------ */
+
+.mp-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 44px;
+  padding: 0 var(--space-5);
+  flex-shrink: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+.mp-statusbar-time { font-variant-numeric: tabular-nums; }
+
+.mp-statusbar-icons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 12px;
+}
+
+/* 深色背景上的状态栏（首页渐变头图） */
+.mp-statusbar.on-dark { color: #fff; }
+
+/* ------------------------------------------------------------
+   三、页面容器
+   ------------------------------------------------------------ */
+
+.mp-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--canvas);
+}
+
+/* 可滚动内容区 */
+.mp-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mp-body::-webkit-scrollbar { width: 0; }
+
+.mp-section {
+  padding: var(--space-4) var(--space-5);
+}
+
+.mp-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+}
+
+.mp-section-more {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-normal);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------
+   四、顶部导航（页面标题栏）
+   ------------------------------------------------------------ */
+
+.mp-navbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 48px;
+  padding: 0 var(--space-4);
+  flex-shrink: 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line-subtle);
+}
+
+.mp-navbar-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  color: var(--text-body);
+  font-size: var(--text-lg);
+}
+
+.mp-navbar-title {
+  flex: 1;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+}
+
+/* 渐变头图导航（首页） */
+.mp-hero {
+  position: relative;
+  flex-shrink: 0;
+  padding: var(--space-5) var(--space-5) var(--space-8);
+  background: linear-gradient(135deg, var(--brand-500), var(--brand-700) 60%, var(--coral-500));
+  color: #fff;
+}
+
+.mp-hero-title {
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  color: #fff;
+}
+
+.mp-hero-sub {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  color: rgba(255, 255, 255, 0.82);
+}
+
+/* 上浮卡片（覆盖在头图上） */
+.mp-float-card {
+  margin: calc(-1 * var(--space-6)) var(--space-5) var(--space-4);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+/* ------------------------------------------------------------
+   五、设备状态卡
+   ------------------------------------------------------------ */
+
+.mp-device {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.mp-device-figure {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--brand-50), var(--brand-100));
+  font-size: 28px;
+}
+
+.mp-device-info { flex: 1; min-width: 0; }
+
+.mp-device-name {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+}
+
+.mp-device-meta {
+  margin-top: 2px;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.mp-device-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+}
+
+/* 在线状态点 */
+.mp-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success-500);
+}
+
+.mp-dot.offline { background: var(--ink-300); }
+.mp-dot.pulse { animation: pulse-soft 1.6s ease-in-out infinite; }
+
+/* ------------------------------------------------------------
+   六、功能宫格
+   ------------------------------------------------------------ */
+
+.mp-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
+}
+
+.mp-grid-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-1);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.mp-grid-item:active { background: var(--surface-sunken); }
+
+.mp-grid-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-lg);
+  font-size: 22px;
+  background: var(--brand-50);
+}
+
+.mp-grid-icon[data-tone="accent"] { background: var(--accent-50); }
+.mp-grid-icon[data-tone="teal"]   { background: var(--teal-50); }
+.mp-grid-icon[data-tone="coral"]  { background: var(--coral-50); }
+.mp-grid-icon[data-tone="info"]   { background: var(--info-50); }
+
+.mp-grid-label {
+  font-size: var(--text-xs);
+  color: var(--text-body);
+  text-align: center;
+  line-height: var(--leading-tight);
+}
+
+/* ------------------------------------------------------------
+   七、列表项
+   ------------------------------------------------------------ */
+
+.mp-list {
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.mp-list-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--line-subtle);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.mp-list-item:last-child { border-bottom: none; }
+.mp-list-item:active { background: var(--surface-sunken); }
+
+.mp-list-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-md);
+  background: var(--brand-50);
+}
+
+.mp-list-title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-base);
+  color: var(--text-primary);
+}
+
+.mp-list-desc {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  margin-top: 1px;
+}
+
+.mp-list-value {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.mp-list-arrow {
+  flex-shrink: 0;
+  color: var(--ink-300);
+  font-size: var(--text-md);
+}
+
+/* ------------------------------------------------------------
+   八、聊天界面
+   ------------------------------------------------------------ */
+
+.mp-chat-body {
+  padding: var(--space-4) var(--space-4) var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.mp-msg {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  max-width: 100%;
+}
+
+.mp-msg-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-md);
+  background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
+  color: #fff;
+}
+
+.mp-bubble {
+  max-width: 76%;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.mp-msg-assistant .mp-bubble {
+  background: var(--surface);
+  color: var(--text-primary);
+  border-bottom-left-radius: var(--radius-xs);
+  box-shadow: var(--shadow-xs);
+}
+
+.mp-msg-user {
+  flex-direction: row-reverse;
+}
+
+.mp-msg-user .mp-bubble {
+  background: var(--brand-600);
+  color: #fff;
+  border-bottom-right-radius: var(--radius-xs);
+}
+
+/* 正在输入 */
+.mp-typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: var(--space-3) var(--space-4);
+}
+
+.mp-typing span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink-300);
+  animation: mp-typing 1.2s ease-in-out infinite;
+}
+
+.mp-typing span:nth-child(2) { animation-delay: 0.15s; }
+.mp-typing span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes mp-typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30%           { transform: translateY(-4px); opacity: 1; }
+}
+
+/* 快捷提问 */
+.mp-quick-replies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: 0 var(--space-4) var(--space-3);
+}
+
+.mp-quick-reply {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--brand-100);
+  border-radius: var(--radius-pill);
+  background: var(--brand-50);
+  color: var(--brand-700);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.mp-quick-reply:active { background: var(--brand-100); }
+
+/* ------------------------------------------------------------
+   九、底部输入栏 / Tab 栏
+   ------------------------------------------------------------ */
+
+.mp-inputbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  flex-shrink: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--line-subtle);
+}
+
+.mp-inputbar .input {
+  flex: 1;
+  height: 38px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+}
+
+.mp-send {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--brand-600);
+  color: #fff;
+  font-size: var(--text-md);
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.mp-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.mp-tabbar {
+  display: flex;
+  align-items: stretch;
+  height: 56px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--line-subtle);
+}
+
+.mp-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--text-disabled);
+  font-size: 11px;
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.mp-tab-icon { font-size: 20px; line-height: 1; }
+
+.mp-tab.active {
+  color: var(--brand-600);
+  font-weight: var(--weight-medium);
+}
+
+/* ------------------------------------------------------------
+   十、按钮与卡片（移动端尺寸）
+   ------------------------------------------------------------ */
+
+.mp-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: 46px;
+  border-radius: var(--radius-md);
+  background: var(--brand-600);
+  color: #fff;
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.mp-btn:active { opacity: 0.88; }
+.mp-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.mp-btn-outline {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text-body);
+}
+
+.mp-btn-danger {
+  background: var(--danger-500);
+}
+
+.mp-btn-sm {
+  width: auto;
+  height: 34px;
+  padding: 0 var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.mp-card {
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+
+/* 套餐卡（充值页） */
+.mp-plan {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.mp-plan.selected {
+  border-color: var(--brand-600);
+  background: var(--brand-50);
+}
+
+.mp-plan-name {
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+.mp-plan-desc {
+  margin-top: 2px;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.mp-plan-price {
+  flex-shrink: 0;
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  color: var(--coral-600);
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-plan-price small { font-size: var(--text-xs); font-weight: var(--weight-normal); }
+
+/* 推荐角标 */
+.mp-plan-popular {
+  position: relative;
+  overflow: visible;
+}
+
+.mp-plan-popular::after {
+  content: "推荐";
+  position: absolute;
+  top: -9px;
+  right: var(--space-4);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--accent-500);
+  color: #fff;
+  font-size: 10px;
+  font-weight: var(--weight-semibold);
+}
+
+/* ------------------------------------------------------------
+   十一、扫描 / 激活向导
+   ------------------------------------------------------------ */
+
+.mp-scan-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-5);
+  flex: 1;
+  padding: var(--space-8) var(--space-5);
+  text-align: center;
+}
+
+/* 扫描取景框 */
+.mp-scanner {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+
+.mp-scanner-corner {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--brand-600);
+}
+
+.mp-scanner-corner.tl { top: 12px; left: 12px; border-right: none; border-bottom: none; border-radius: var(--radius-sm) 0 0 0; }
+.mp-scanner-corner.tr { top: 12px; right: 12px; border-left: none; border-bottom: none; border-radius: 0 var(--radius-sm) 0 0; }
+.mp-scanner-corner.bl { bottom: 12px; left: 12px; border-right: none; border-top: none; border-radius: 0 0 0 var(--radius-sm); }
+.mp-scanner-corner.br { bottom: 12px; right: 12px; border-left: none; border-top: none; border-radius: 0 0 var(--radius-sm) 0; }
+
+/* 扫描线 */
+.mp-scanner-line {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--brand-500), transparent);
+  animation: mp-scan 2.2s ease-in-out infinite;
+}
+
+@keyframes mp-scan {
+  0%, 100% { top: 16px; opacity: 0.3; }
+  50%      { top: 200px; opacity: 1; }
+}
+
+/* 向导圆环数字 */
+.mp-step-ring {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--brand-50);
+  color: var(--brand-600);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+}
+
+/* 成功勾选 */
+.mp-success-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--success-50);
+  color: var(--success-600);
+  font-size: 34px;
+  animation: pop-in var(--duration-slow) var(--ease-out);
+}
+
+.mp-fail-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--danger-50);
+  color: var(--danger-600);
+  font-size: 34px;
+  animation: pop-in var(--duration-slow) var(--ease-out);
+}
+
+/* 步骤指示点 */
+.mp-steps-dots {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mp-steps-dots span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink-300);
+  transition: background var(--duration-normal) var(--ease-out);
+}
+
+.mp-steps-dots span.active {
+  width: 18px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-600);
+}
+
+.mp-steps-dots span.done { background: var(--brand-300, #a5b4fc); }
+
+/* ------------------------------------------------------------
+   十二、响应式：真实移动端全屏
+   ------------------------------------------------------------ */
+
+@media (max-width: 480px) {
+  .phone-stage { padding: 0; }
+
+  .phone-frame {
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .phone-notch { display: none; }
+  .mp-statusbar { height: env(safe-area-inset-top, 24px); min-height: 24px; }
+
+  .mp-tabbar { padding-bottom: env(safe-area-inset-bottom, 0); }
+  .mp-inputbar { padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0)); }
+}
+
+/* 桌面端小屏：缩小手机壳 */
+@media (max-height: 900px) and (min-width: 481px) {
+  .phone-frame {
+    height: 720px;
+  }
+}
+
+/* ------------------------------------------------------------
+   十三、演示用横屏提示
+   ------------------------------------------------------------ */
+
+.mp-landscape-hint {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--warning-50);
+  color: var(--warning-600);
+  font-size: var(--text-sm);
+}
