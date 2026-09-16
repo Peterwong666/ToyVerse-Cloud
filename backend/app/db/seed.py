@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any
 
 from sqlalchemy import func, select, update
@@ -25,7 +26,7 @@ from app.core.permissions import FACTORY_ROLE_CODES, ROLE_PERMISSIONS
 from app.core.security import hash_password
 from app.db.base import utcnow
 from app.db.session import SessionLocal
-from app.models.ai import AiConfig
+from app.models.ai import AiConfig, DialogueMessage, DialogueSession
 from app.models.catalog import (
     ClientProduct,
     CloudProvider,
@@ -40,7 +41,11 @@ from app.models.enums import (
     BindStatus,
     CloudProviderStatus,
     CloudVendor,
+    ContentItemType,
+    DialogueSessionStatus,
     EnableStatus,
+    MessageContentType,
+    MessageRole,
     NetworkType,
     OnlineStatus,
     OrderStatus,
@@ -49,7 +54,8 @@ from app.models.enums import (
     UserStatus,
 )
 from app.models.identity import Role, RolePermission, Tenant, UserAccount
-from app.models.miniapp import RechargePlan
+from app.models.miniapp import EndUser, RechargePlan
+from app.models.ops import ContentItem, OtaPackage
 from app.models.order import Order
 from app.models.org import Factory
 
@@ -298,6 +304,128 @@ DEMO_END_USER_DEVICES: tuple[dict[str, Any], ...] = (
 
 
 # ---------------------------------------------------------------------------
+# 运营域演示数据（P9）：内容库 / 地域 / 对话历史 / 固件包
+# ---------------------------------------------------------------------------
+
+#: 平台公共内容（``tenant_id`` 为空 = 所有租户可用）。
+#:
+#: 标题刻意与 ``app/ai/mock/scenarios.py`` 里的素材**同名**：离线引擎按规则命中
+#: 素材后会把标题带进 ``ChatChunk.content_title``，服务层据此回填
+#: ``dialogue_messages.content_item_id``，内容热度排行才能真的聚合出来。
+#: 名字对不上时排行会全空——那是最容易被忽略的一类断链。
+DEMO_CONTENT_ITEMS: tuple[dict[str, Any], ...] = (
+    {
+        "id": "ci-story-moon",
+        "type": ContentItemType.STORY,
+        "title": "小狐狸的月亮灯",
+        "description": "小狐狸怕黑，月亮送它一盏会发光的灯",
+        "age_group": "3-6 岁",
+        "duration_seconds": 180,
+    },
+    {
+        "id": "ci-story-turtle",
+        "type": ContentItemType.STORY,
+        "title": "会飞的小乌龟",
+        "description": "想飞的小乌龟用气球实现了愿望",
+        "age_group": "3-6 岁",
+        "duration_seconds": 200,
+    },
+    {
+        "id": "ci-story-star",
+        "type": ContentItemType.STORY,
+        "title": "不肯睡觉的小星星",
+        "description": "小星星偷偷溜出去玩，天亮了才回家",
+        "age_group": "2-5 岁",
+        "duration_seconds": 150,
+    },
+    {
+        "id": "ci-song-star",
+        "type": ContentItemType.SONG,
+        "title": "小星星",
+        "description": "一闪一闪亮晶晶",
+        "age_group": "2-6 岁",
+        "duration_seconds": 90,
+    },
+    {
+        "id": "ci-song-rabbit",
+        "type": ContentItemType.SONG,
+        "title": "小兔子乖乖",
+        "description": "经典童谣，学会不给陌生人开门",
+        "age_group": "3-6 岁",
+        "duration_seconds": 80,
+    },
+    {
+        "id": "ci-song-duck",
+        "type": ContentItemType.SONG,
+        "title": "数鸭子",
+        "description": "数一数池塘里的小鸭子",
+        "age_group": "3-6 岁",
+        "duration_seconds": 85,
+    },
+)
+
+#: 演示终端用户。对话历史要挂到人身上，否则「活跃用户数」永远是 0。
+DEMO_END_USERS: tuple[dict[str, Any], ...] = (
+    {"id": "eu-demo-01", "phone": "13700000001", "nickname": "小朋友A的家长"},
+    {"id": "eu-demo-02", "phone": "13700000002", "nickname": "小朋友B的家长"},
+    {"id": "eu-demo-03", "phone": "13700000003", "nickname": "小朋友C的家长"},
+)
+
+#: 设备地域（运营看板「地域分布」的数据源）
+DEMO_DEVICE_REGIONS: dict[str, str] = {
+    "d-demo-01": "华东",
+    "d-demo-02": "华东",
+    "d-demo-03": "华南",
+    "d-demo-04": "华北",
+    "d-demo-05": "华南",
+    "d-demo-4g-01": "华东",
+    "d-demo-wifi-01": "西南",
+    "d-stock-01": "华东",
+    "d-stock-02": "华北",
+    "d-stock-03": "华南",
+    "d-stock-04": "西南",
+}
+
+#: 对话历史生成计划：``(客户产品 ID, 参与设备 ID, 天数, 每天会话数, 每会话轮数)``。
+#:
+#: 刻意**确定性**（不随机）：运营看板的验收要能对得上具体数字，
+#: 随机种子会让「今天看是 37、明天看是 41」变成无法断言的噪声。
+#: 两个产品的规模刻意不同（Wi-Fi 产品 5 天、4G 产品 3 天且量更小）——
+#: 这正是 P-07 / P-08 的验收前提：两个产品的指标必须**看得出差别**，
+#: 混在一起算或按系数摊派都会让它们变得一样。
+DEMO_DIALOGUE_PLAN: tuple[tuple[str, tuple[str, ...], int, int, int], ...] = (
+    ("prod-t001-cube", ("d-demo-01", "d-demo-02", "d-demo-03"), 5, 2, 3),
+    ("prod-t001-4g", ("d-demo-4g-01",), 3, 1, 2),
+)
+
+#: 对话轮次模板：``(用户台词, 意图, 命中内容 ID)``。
+#: 命中内容为 ``None`` 表示这轮没有引用素材（天气 / 寒暄），不计入内容排行。
+DEMO_ROUNDS: tuple[tuple[str, str | None], ...] = (
+    ("讲个故事", "ci-story-moon"),
+    ("唱首歌", "ci-song-star"),
+    ("今天天气怎么样", None),
+    ("再讲一个故事", "ci-story-turtle"),
+    ("我想听数鸭子", "ci-song-duck"),
+    ("你叫什么名字", None),
+)
+
+#: 演示固件包（挂在 4G 模板上；Wi-Fi 模板的云服务商 `ota_support=UNSUPPORTED`，
+#: 因此对 Wi-Fi 产品的推送必须被拒绝——这条由集成测试断言）
+DEMO_OTA_PACKAGES: tuple[dict[str, Any], ...] = (
+    {
+        "id": "otap-4g-130",
+        "template_id": "tpl-4g-storyteller",
+        "version": "1.3.0",
+        "release_notes": "修复 4G 弱信号下的重连问题；新增离线故事缓存。",
+        "file_name": "ml307n-fw-1.3.0.bin",
+        "file_size": 2_411_724,
+        "is_forced": False,
+        "min_version": "1.0.0",
+    },
+)
+
+
+# ---------------------------------------------------------------------------
 # 入口
 # ---------------------------------------------------------------------------
 
@@ -317,6 +445,7 @@ async def seed_demo_data() -> None:
             await _seed_catalog(session)
             await _seed_orders_devices(session)
             await _seed_miniapp(session)
+            await _seed_ops(session)
 
         await session.commit()
 
@@ -1001,6 +1130,218 @@ async def _seed_miniapp(session: AsyncSession) -> None:
             config_created,
             plan_created,
             device_created,
+        )
+
+
+async def _seed_ops(session: AsyncSession) -> None:
+    """写入运营域演示数据：内容库 / 设备地域 / 终端用户 / 对话历史 / 固件包（幂等）。
+
+    为什么对话历史必须由种子提供
+    ----------------------------
+    P9 的运营看板读的是 ``dialogue_sessions`` / ``dialogue_messages`` 的真实聚合。
+    全新库里这些表是空的，看板只能显示 0——验收时无法判断「看板是对的」
+    还是「看板根本没接上数据」。因此这里造**确定性**的历史（不随机），
+    且**两个产品的规模刻意不同**：P-07「维度数据非真实汇总」与
+    P-08「运营数据全局共享」这两个遗留缺陷的验收，前提就是
+    「两个产品的指标必须看得出差别」。
+
+    时间戳为什么显式写入
+    --------------------
+    日趋势 / 24 小时热力按 ``created_at`` 的日期与小时分组，若交给
+    ``TimestampMixin`` 的默认值，所有历史都会落在「今天同一时刻」——
+    图表只有一根柱子，等于没有趋势可验。
+    """
+    # ---- 内容库 ----
+    existing_content = set((await session.execute(select(ContentItem.id))).scalars().all())
+    content_created = 0
+    for index, spec in enumerate(DEMO_CONTENT_ITEMS):
+        if str(spec["id"]) in existing_content:
+            continue
+        session.add(
+            ContentItem(
+                id=str(spec["id"]),
+                tenant_id=None,  # 平台公共内容
+                type=str(spec["type"]),
+                title=str(spec["title"]),
+                description=spec["description"],
+                age_group=spec["age_group"],
+                duration_seconds=int(spec["duration_seconds"]),
+                status=EnableStatus.ENABLED,
+                sort_order=index * 10,
+                hit_count=0,
+                remark="演示：平台公共内容",
+            )
+        )
+        content_created += 1
+    await session.flush()
+
+    # ---- 终端用户 ----
+    existing_users = set((await session.execute(select(EndUser.id))).scalars().all())
+    users_created = 0
+    for spec in DEMO_END_USERS:
+        if str(spec["id"]) in existing_users:
+            continue
+        session.add(
+            EndUser(
+                id=str(spec["id"]),
+                phone=str(spec["phone"]),
+                nickname=str(spec["nickname"]),
+                status=UserStatus.ACTIVE,
+                login_code_attempts=0,
+                remark="演示：终端用户",
+            )
+        )
+        users_created += 1
+    await session.flush()
+
+    # ---- 设备地域 ----
+    region_updated = 0
+    for device_id, region in DEMO_DEVICE_REGIONS.items():
+        device = await session.get(Device, device_id)
+        if device is not None and not device.region:
+            device.region = region
+            region_updated += 1
+
+    # ---- 对话历史 ----
+    existing_sessions = int(
+        (await session.execute(select(func.count()).select_from(DialogueSession))).scalar_one()
+    )
+    sessions_created = 0
+    messages_created = 0
+    content_by_id = {
+        str(spec["id"]): spec for spec in DEMO_CONTENT_ITEMS
+    }
+
+    if not existing_sessions:
+        now = utcnow()
+        end_user_ids = [str(spec["id"]) for spec in DEMO_END_USERS]
+        for product_id, device_ids, days, per_day, rounds in DEMO_DIALOGUE_PLAN:
+            for day_offset in range(days):
+                for slot in range(per_day):
+                    started = (now - timedelta(days=day_offset)).replace(
+                        # 小时刻意错开：24 小时热力图才有多峰形态
+                        hour=9 + (slot * 5 + day_offset * 2) % 12,
+                        minute=(slot * 17 + day_offset * 7) % 60,
+                        second=0,
+                        microsecond=0,
+                    )
+                    device_id = device_ids[(day_offset + slot) % len(device_ids)]
+                    end_user_id = end_user_ids[(day_offset + slot) % len(end_user_ids)]
+                    dialogue = DialogueSession(
+                        id=new_id("dialogue_session"),
+                        tenant_id="t-001",
+                        client_product_id=product_id,
+                        device_id=device_id,
+                        end_user_id=end_user_id,
+                        provider_code="mock",
+                        status=str(DialogueSessionStatus.CLOSED),
+                        message_count=0,
+                        total_latency_ms=0,
+                        started_at=started,
+                        ended_at=started + timedelta(minutes=3),
+                        close_reason="user_closed",
+                        created_at=started,
+                        updated_at=started,
+                    )
+                    session.add(dialogue)
+                    await session.flush()
+                    sessions_created += 1
+
+                    seq = 0
+                    total_latency = 0
+                    for round_index in range(rounds):
+                        user_text, content_id = DEMO_ROUNDS[
+                            (day_offset + slot + round_index) % len(DEMO_ROUNDS)
+                        ]
+                        latency = 180 + ((round_index * 37 + day_offset * 11) % 260)
+                        # 用户消息
+                        seq += 1
+                        session.add(
+                            DialogueMessage(
+                                id=new_id("dialogue_message"),
+                                session_id=dialogue.id,
+                                tenant_id="t-001",
+                                seq=seq,
+                                role=str(MessageRole.USER),
+                                content_type=str(MessageContentType.TEXT),
+                                content=user_text,
+                                chunk_count=0,
+                                created_at=started + timedelta(seconds=round_index * 20),
+                                updated_at=started + timedelta(seconds=round_index * 20),
+                            )
+                        )
+                        messages_created += 1
+
+                        # 助手消息：命中素材时带上内容归属（热度排行靠它聚合）
+                        seq += 1
+                        if content_id:
+                            spec = content_by_id[content_id]
+                            reply = f"好呀，我给你讲《{spec['title']}》。{spec['description']}"
+                        else:
+                            reply = "今天天气不错，适合出去玩哦。"
+                        # 每第 7 条助手消息模拟一次内容安全拦截，让
+                        # 「安全拦截数」这个指标也有非零值可验
+                        blocked = messages_created % 7 == 0
+                        session.add(
+                            DialogueMessage(
+                                id=new_id("dialogue_message"),
+                                session_id=dialogue.id,
+                                tenant_id="t-001",
+                                seq=seq,
+                                role=str(MessageRole.ASSISTANT),
+                                content_type=str(MessageContentType.TEXT),
+                                content="（内容安全拦截，已替换为安全文案）" if blocked else reply,
+                                latency_ms=latency,
+                                provider_code="mock",
+                                chunk_count=3,
+                                safety_flag="KEYWORD" if blocked else None,
+                                content_item_id=None if blocked else content_id,
+                                created_at=started + timedelta(seconds=round_index * 20 + 2),
+                                updated_at=started + timedelta(seconds=round_index * 20 + 2),
+                            )
+                        )
+                        messages_created += 1
+                        total_latency += latency
+
+                    dialogue.message_count = seq
+                    dialogue.total_latency_ms = total_latency
+        await session.flush()
+
+    # ---- 固件包 ----
+    existing_packages = set((await session.execute(select(OtaPackage.id))).scalars().all())
+    packages_created = 0
+    for spec in DEMO_OTA_PACKAGES:
+        if str(spec["id"]) in existing_packages:
+            continue
+        session.add(
+            OtaPackage(
+                id=str(spec["id"]),
+                template_id=str(spec["template_id"]),
+                tenant_id=None,  # 全平台可用
+                version=str(spec["version"]),
+                release_notes=spec["release_notes"],
+                file_name=str(spec["file_name"]),
+                file_size=int(spec["file_size"]),
+                is_forced=bool(spec["is_forced"]),
+                min_version=spec["min_version"],
+                status=EnableStatus.ENABLED,
+                published_at=utcnow(),
+                created_by="seed",
+                remark="演示固件包（未上传真实文件，仅用于界面与推送流程演示）",
+            )
+        )
+        packages_created += 1
+
+    if content_created or users_created or sessions_created or packages_created:
+        logger.info(
+            "运营域演示数据：内容 %d 条、终端用户 %d 个、对话会话 %d 个（消息 %d 条）、"
+            "固件包 %d 个、设备地域 %d 台",
+            content_created,
+            users_created,
+            sessions_created,
+            messages_created,
+            packages_created,
+            region_updated,
         )
 
 

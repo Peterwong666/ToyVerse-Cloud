@@ -387,6 +387,15 @@ class DialogueMessage(Base, TimestampMixin):
         String(32), index=True, doc="安全过滤命中标记；为空表示未命中"
     )
     safety_detail: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    #: 本段回复所依据的内容库条目（P9 新增）。
+    #:
+    #: 由供应商在流式分块里**显式声明**内容标题，服务层据此回填本列
+    #: （见 :class:`app.ai.base.ChatChunk` 的说明）。运营看板的「内容热度排行」
+    #: 就建立在这一列的真实 GROUP BY 上——而不是靠「回复文本里出现了《某某》」
+    #: 这类文本嗅探，后者会被用户自己说出的书名与角色前缀污染。
+    content_item_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("content_items.id", ondelete="SET NULL"), index=True
+    )
     raw: Mapped[dict[str, Any] | None] = mapped_column(JSON, doc="厂商原始响应（排查用，脱敏后存）")
 
     session: Mapped[DialogueSession] = relationship(back_populates="messages")

@@ -178,6 +178,21 @@ class Settings(BaseSettings):
     S3_ACCESS_KEY: str = ""
     S3_SECRET_KEY: str = ""
 
+    # ---------------- 知识库文件与固件包（P9） ----------------
+    #: 单个知识库文件的上限（字节）。默认 10MB：知识库是给检索用的文本素材，
+    #: 更大的文件通常是误传（音视频应走内容库而不是知识库）。
+    KB_FILE_MAX_BYTES: int = Field(default=10 * 1024 * 1024, ge=1024)
+    #: 允许的知识库文件扩展名（小写，不含点）。
+    #:
+    #: 用**白名单**而不是黑名单：解析器只认识这几种格式，放进来别的类型
+    #: 只会得到一个「上传成功但解析失败」的文件（:class:`KbFileStatus` 里
+    #: `PENDING` 与 `PARSED` 是分开的两个事实，就是为了暴露这种沉默故障）。
+    KB_ALLOWED_EXTENSIONS: str = "txt,md,csv,json,pdf,docx"
+    #: 单个固件包的上限（字节）。默认 128MB。
+    OTA_PACKAGE_MAX_BYTES: int = Field(default=128 * 1024 * 1024, ge=1024)
+    #: 允许的固件包扩展名
+    OTA_ALLOWED_EXTENSIONS: str = "bin,img,hex,zip,gz"
+
     # ---------------- 终端用户小程序（P8） ----------------
     #: 短信通道。
     #:

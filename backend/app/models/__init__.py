@@ -34,6 +34,15 @@ from app.models.device import (
 from app.models.factory import BurnReport, FactoryOrder, Inspection
 from app.models.identity import RefreshToken, Role, RolePermission, Tenant, UserAccount
 from app.models.miniapp import EndUser, RechargeOrder, RechargePlan
+from app.models.ops import (
+    ContentHotRanking,
+    ContentItem,
+    MetricsDaily,
+    MetricsHourly,
+    MetricsRegion,
+    OtaPackage,
+    OtaRecord,
+)
 from app.models.order import Order
 from app.models.org import Factory, Organization, Position
 
@@ -47,6 +56,8 @@ __all__ = [
     "BurnReport",
     "ClientProduct",
     "CloudProvider",
+    "ContentHotRanking",
+    "ContentItem",
     "Device",
     "DeviceBatch",
     "DeviceBatchLine",
@@ -62,9 +73,14 @@ __all__ = [
     "Inspection",
     "KbFile",
     "KnowledgeBase",
+    "MetricsDaily",
+    "MetricsHourly",
+    "MetricsRegion",
     "MiniAppConfig",
     "Order",
     "Organization",
+    "OtaPackage",
+    "OtaRecord",
     "OutboxEvent",
     "Position",
     "ProductAuthorization",

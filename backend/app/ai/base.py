@@ -108,6 +108,17 @@ class ChatChunk:
         latency_ms: 该块的相对耗时（毫秒），用于度量首字延迟。
         finish_reason: 结束原因（``stop`` / ``length`` / ``safety``）。
         message_id: 厂商侧消息 ID（若有）。
+        content_title: 本段回复所依据的**内容标题**（P9 新增）。
+        intent: 供应商判定的意图标签（P9 新增）。
+
+    ``content_title`` / ``intent`` 为什么由**供应商声明**而不是事后从文本里猜
+    ---------------------------------------------------------------------------
+    运营看板的「内容热度排行」必须建立在真实归属上：如果靠「回复文本里出现了
+    《某某》就记一次命中」，那么用户自己说出的书名、角色预设拼进去的称呼、
+    乃至被安全拦截后替换的兜底文案都会污染排行。
+    让**知道自己用了哪条素材**的一方（mock 引擎的规则匹配、知识库检索、
+    未来的真实 LLM 带 tool 调用）显式声明，是唯一不会误记的做法。
+    真实厂商适配器不知道素材归属，留空即可——宁可有缺口，也不要错记。
     """
 
     delta: str
@@ -116,6 +127,8 @@ class ChatChunk:
     latency_ms: int | None = None
     finish_reason: str | None = None
     message_id: str | None = None
+    content_title: str | None = None
+    intent: str | None = None
 
 
 @dataclass(slots=True)

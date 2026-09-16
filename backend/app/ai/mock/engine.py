@@ -220,6 +220,11 @@ class MockProvider(AIProvider):
                 is_final=is_final,
                 latency_ms=int(per_chunk_seconds * 1000) if per_chunk_seconds else 0,
                 finish_reason=finish_reason if is_final else None,
+                # 素材归属只由**知道答案的一方**声明（见 ChatChunk 的 docstring）：
+                # 规则引擎明确知道用了哪条故事的标题，因此这里如实带上；
+                # 真实厂商适配器不知道素材归属，留空。
+                content_title=reply.snippet_title,
+                intent=reply.intent,
             )
 
     async def close_session(self, *, session_id: str, reason: str | None = None) -> None:

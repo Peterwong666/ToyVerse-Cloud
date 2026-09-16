@@ -710,6 +710,9 @@ class AuditAction(StrEnum):
     #: 内容安全拦截（P8）：命中即写审计，便于运营回溯「被拦了什么」
     CONTENT_BLOCKED = "CONTENT_BLOCKED"
     OTA_PUSH = "OTA_PUSH"
+    #: 重建运营快照（P9）。单独一个动作而不是复用 UPDATE：快照重建会**批量写**
+    #: metrics_* 四张表，运营复盘时需要能把「数字什么时候被固化过」单独筛出来。
+    REBUILD_METRICS = "REBUILD_METRICS"
     PERMISSION_DENIED = "PERMISSION_DENIED"
     VENDOR_CALL_FAILED = "VENDOR_CALL_FAILED"
 

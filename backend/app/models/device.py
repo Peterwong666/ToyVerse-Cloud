@@ -102,6 +102,15 @@ class Device(Base, TimestampMixin):
     )
     firmware_version: Mapped[str | None] = mapped_column(String(64))
 
+    #: 设备地域（P9 运营看板的「地域分布」数据源）。
+    #:
+    #: 为什么必须是一列真实字段，而不是看板里按比例摊派的假数据：
+    #: 地域分布的服务对象是**渠道与售后决策**（哪个区域激活多、故障多），
+    #: 编出来的分布比没有分布更危险——它会让人据此做出真实的资源投放。
+    #: 真实部署里该值来自设备激活时的 IP 归属地或出厂分配信息；
+    #: 允许为空（未知即未知，不猜），聚合时归入「未知」一档。
+    region: Mapped[str | None] = mapped_column(String(64), index=True)
+
     # ---- 四维状态（ADR-03） ----
     asset_status: Mapped[str] = mapped_column(
         String(32), nullable=False, default=AssetStatus.PENDING_GEN, index=True
