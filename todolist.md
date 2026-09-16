@@ -376,7 +376,12 @@
 - [ ] `scripts/smoke_test.sh` — 全端点冒烟
 - [ ] `scripts/gen_qrcodes.py` — 生成演示二维码清单
 - [ ] `scripts/reset_db.sh`、`scripts/dev.sh`
-- [ ] 🔑 `tests/e2e/test_full_loop.py` — 全闭环：客户开通 → 模板 → 授权 → 客户产品 → 下单 → 审核 → 生成设备 → 工厂烧录 → 抽检 → 出货 → 分配 → 终端扫码激活 → AI 对话
+- [x] 🔑 `tests/e2e/test_full_loop.py` — 全闭环：客户开通 → 模板 → 授权 → 客户产品 → 下单 → 审核 → 生成设备 → 工厂烧录 → 抽检 → 出货 → 分配 → 终端扫码激活 → AI 对话
+  > **已在本次夜间任务中提前交付**（原属 P10，但对它是 P0–P8 九个阶段的最终验证，独立于 P9，故提前写）。
+  > 一条测试串完主干，逐环断言；含脱敏红线（工厂端响应不得出现客户名/联系方式/金额）、
+  > `SHIPPED → ALLOCATED` 分配边、激活绑定、SSE 对话分块与会话消息落库、
+  > 以及设备时间线七种事件（GENERATED / IN_STOCK / PRODUCING / PRODUCED / SHIPPED / ALLOCATED / BOUND）。
+  > **一次通过**，`make test-e2e` 纳入回归。
 - [ ] GitHub Actions CI（lint + typecheck + test + openapi 快照比对）
 - [ ] 🔑 安全验收：**确认无任何硬编码弱口令**（特别是不含 `admin@2024`）；`.env` 强密码必填
 - [ ] 验证：`docker compose up -d` 后 `make smoke` 全绿；`down && up` 数据保留
