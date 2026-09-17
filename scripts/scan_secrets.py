@@ -297,7 +297,12 @@ def scan_weak_passwords(files: list[Path]) -> list[Finding]:
 #: （生产环境会拒绝启动），因此把它们报成「硬编码密钥」是误报——
 #: 真正要抓的是「有人在生产代码里写了一个像真密钥的串」。
 PLACEHOLDER_MARKERS = ("dev-only", "devonly", "change-me", "changeme", "insecure",
-                       "placeholder", "example", "dummy", "fake", "test-only", "xxx")
+                       "placeholder", "example", "dummy", "fake", "test-only", "xxx",
+                       # CI 里的一次性占位值（如 `Ci-Only-Str0ng#Pass1`）——它们只存在于
+                       # GitHub Actions 的 runner 内、不指向任何真实环境，且自我声明为 ci-only。
+                       # 与其把它们塞进按文件的 allowlist（那会**整个文件**不再扫描），
+                       # 不如按「值自带占位标记」排除——这样 ci.yml 的其它内容仍受扫描。
+                       "ci-only")
 
 
 def _looks_like_a_real_secret(value: str) -> bool:
@@ -314,6 +319,11 @@ def _looks_like_a_real_secret(value: str) -> bool:
     """
     stripped = value.strip()
     if not stripped:
+        return False
+    # ★ 命令替换 / 变量展开不是字面量：shell 里 `TOKEN="$(login ...)"`、`"${VAR}"`
+    #   都只是把命令输出或环境变量赋给变量，与「硬编码密钥」无关。
+    #   （此前把 4 处 `TOKEN="$(...)"` 误报为硬编码密钥，属规则过宽。）
+    if stripped.startswith("$(") or stripped.startswith("`") or "$(" in stripped:
         return False
     if stripped.isupper() and re.fullmatch(r"[A-Z][A-Z0-9_]*", stripped):
         return False

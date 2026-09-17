@@ -106,8 +106,19 @@ def _date_between(column: Any, date_from: date, date_to: date) -> ColumnElement[
     用 ``func.date()`` 而不是 ``created_at >= from AND created_at < to+1day``：
     后者需要把 date 还原成带时区的 datetime，容易在跨时区时错一天；
     ``func.date()`` 与快照表的 ``metric_date`` 是同一口径（库里存的就是 UTC）。
+
+    ⚠️ **绑定的是 ``date`` 对象，不是 ``.isoformat()`` 字符串**——这一条踩过坑：
+
+    * SQLite：``func.date(col)`` 返回 **TEXT**（``'2026-09-17'``），与字符串比较能过，
+      所以本地测试全绿；
+    * PostgreSQL：``func.date(col)`` 返回真正的 **date**，与 ``varchar`` 比较直接抛
+      ``operator does not exist: date >= character varying``。
+
+    绑定 ``date`` 对象两种方言都正确：SQLite 方言把它渲染成 ISO 字符串（TEXT 比 TEXT），
+    PostgreSQL 方言绑定为 ``date``（date 比 date）。
+    回归守卫见 ``tests/unit/test_sql_dialect_portability.py``。
     """
-    return func.date(column).between(date_from.isoformat(), date_to.isoformat())
+    return func.date(column).between(date_from, date_to)
 
 
 def resolve_range(date_from: date | None, date_to: date | None) -> tuple[date, date]:
