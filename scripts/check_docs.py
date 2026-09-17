@@ -224,7 +224,21 @@ def check_permissions(perms: set[str]) -> None:
     absent = perms - declared
     if absent:
         fail(f"docs/07 遗漏了权限码（{len(absent)}）：{sorted(absent)}")
-    ok(f"权限码：docs/07 覆盖 {len(perms)} 个权限码且全部已注册")
+
+    # ★ 格式写错的权限码：形如 `factory:batch_read`（少了最后一段的冒号）。
+    # 只匹配「已知领域前缀 + 下划线形式」的形状，避免误报其他形如 a:b_c 的标识符。
+    malformed: set[str] = set()
+    for doc in DOCS.glob("*.md"):
+        text = doc.read_text(encoding="utf-8")
+        for token in re.findall(r"`((?:platform|merchant|factory):[a-z-]+_[a-z]+)`", text):
+            malformed.add(f"{doc.name} → {token}")
+    if malformed:
+        fail(
+            f"发现格式写错的权限码（应为 `<领域>:<资源>:read|write`，{len(malformed)} 处）："
+            f"{sorted(malformed)}"
+        )
+
+    ok(f"权限码：docs/07 覆盖 {len(perms)} 个权限码且全部已注册；无格式错误的权限码")
 
 
 def check_enums(members: set[str]) -> None:
