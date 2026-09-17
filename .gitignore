@@ -102,3 +102,7 @@ desktop.ini
 deploy/dist/
 frontend/dist/
 *.tar.gz
+
+# ---------- 洗稿/编辑临时备份（防误提交）----------
+*.pre-clean.bak
+*.docx.bak

@@ -164,7 +164,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      # 对应 P10 的安全验收：确认无任何硬编码弱口令（特别是历史弱口令
-      # `admin@2024`），且 `.env` / `data/` / `learning/` 没有被 git 跟踪。
+      # 对应 P10 的安全验收：确认无任何硬编码弱口令（含历史事故里出现过的
+      # 那类口令），且 `.env` / `data/` / `learning/` 没有被 git 跟踪。
       - name: 扫描弱口令与敏感信息
         run: python scripts/scan_secrets.py
