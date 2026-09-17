@@ -123,6 +123,12 @@ jobs:
           FACTORY_ADMIN_PASSWORD: "Ci-Only-Str0ng#Pass3"
           JWT_SECRET_KEY: "ci-only-secret-key-at-least-32-bytes-long-000000"
 
+      # 对应 `make docs-check`：文档会悄悄过期，因此把它也变成红灯。
+      # 校验端点 / 表 / 错误码 / 权限码 / 枚举值 / 引用 / 边界声明七类一致性。
+      # 注意：本步不构造 app，因此不需要上面的口令环境变量。
+      - name: 校验文档与代码一致
+        run: python scripts/check_docs.py -v
+
   # ----------------------------------------------------------
   # 4) 前端导入契约（零构建 ES Module）
   # ----------------------------------------------------------

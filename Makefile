@@ -156,7 +156,7 @@ typecheck: ## 静态类型检查（mypy）
 	@cd $(BACKEND_DIR) && ../$(PY) -m mypy app
 
 .PHONY: check
-check: lint typecheck test openapi-check ## 执行全部质量检查
+check: lint typecheck test openapi-check docs-check ## 执行全部质量检查（含文档一致性）
 	@echo "$(C_GREEN)✔ 全部检查通过$(C_RESET)"
 
 # ------------------------------------------------------------
@@ -186,6 +186,14 @@ qr-verify: ## 验证前端手写二维码编码器的正确性（与独立实现
 .PHONY: fe-check
 fe-check: ## 校验前端 ES Module 导入契约（路径与具名导出）
 	@$(PY) scripts/verify_frontend_imports.py
+
+.PHONY: docs-check
+docs-check: ## 校验文档与代码是否一致（端点 / 表 / 错误码 / 权限码 / 枚举 / 引用 / 边界声明）
+	@$(PY) scripts/check_docs.py
+
+.PHONY: docs-check-v
+docs-check-v: ## 同上，并打印每类检查的明细
+	@$(PY) scripts/check_docs.py -v
 
 # ------------------------------------------------------------
 # Docker 部署
