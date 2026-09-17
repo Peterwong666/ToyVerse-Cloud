@@ -3,7 +3,7 @@
 这些测试是**跨端协议的可执行文档**：服务端生成、前端展示、设备端解析
 三方必须对字段顺序与签名算法理解一致，因此这里逐段断言而不是只断言「能解析」。
 
-特别关注附录 B 的缺陷修复：``ai-toy/app/assets/data.js:595`` 把 ``clientId``
+特别关注附录 B 的缺陷修复：早期参考实现把 ``clientId``
 误传进 ``tenant_id`` 的位置。下面的
 :meth:`TestJdFormat.test_second_segment_is_tenant_id` 把字段位置钉死，
 一旦有人改动参数顺序，测试立即失败。

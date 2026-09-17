@@ -60,7 +60,7 @@ class TestLogin:
     ) -> None:
         response = await client.post(
             f"{API_PREFIX}/auth/login",
-            json={"account": "15555555555", "password": TEST_MERCHANT_PASSWORD},
+            json={"account": "13812345679", "password": TEST_MERCHANT_PASSWORD},
         )
         assert response.status_code == 200, response.text
 
@@ -420,7 +420,7 @@ class TestCurrentUser:
         assert response.status_code == 200, response.text
 
         body = response.json()
-        assert body["account"] == "15555555555"
+        assert body["account"] == "13812345679"
         assert body["role"] == "MERCHANT_ADMIN"
         assert body["tenantId"] == "t-001"
         assert body["tenantName"]
@@ -451,7 +451,7 @@ class TestChangePassword:
         # 新密码可登录
         login = await client.post(
             f"{API_PREFIX}/auth/login",
-            json={"account": "15555555555", "password": new_password},
+            json={"account": "13812345679", "password": new_password},
         )
         assert login.status_code == 200, login.text
 

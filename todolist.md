@@ -25,17 +25,16 @@
 
 三者本质不同，因此采用「各取所长」而非「代码合并」：
 
-| 来源项目 | 本质 | 贡献内容 |
+| 来源 | 本质 | 贡献内容 |
 |---|---|---|
-| `/home/peter/ai-toy` | 纯静态可点击原型，**无后端无数据库** | UI/交互规范、领域模型、PRD、状态机、二维码规则、设计系统 |
-| `/home/peter/aitoy-deploy` | **对标参考站本身的编译产物**（nginx 基路径 `/hyplttoy/` 与参考站 URL 一致、账号 `15811805314` 一致）。无源码，仅 Spring Boot fat JAR + 2 个 Vue3 构建 | 权威数据库 Schema（15 张表，已从 JAR 提取 Flyway SQL）、多租户 RBAC 设计、部署拓扑、对标菜单结构 |
-| `/home/peter/ai-toy-platform` | 可运行的 Node + Python 单文件 MVP | 业务闭环语义（幂等绑定、confirm-token、冻结校验、审计、180 秒在线窗口） |
+| 早期静态原型 | 纯静态可点击原型，**无后端无数据库** | UI/交互规范、领域模型、PRD、状态机、二维码规则、设计系统 |
+| 参考实现的运行时快照 | 仅有运行时构建、无源码 | 数据库 Schema 结构（15 张表）、多租户 RBAC 设计、部署拓扑、菜单结构 |
+| 早期可运行 MVP | Node + Python 单文件 | 业务闭环语义（幂等绑定、confirm-token、冻结校验、审计、180 秒在线窗口） |
 
 **关键事实**：
-1. `aitoy-deploy` 的 Java 源码在本机已不存在（全盘无 `pom.xml`），但 Flyway 迁移 SQL 可用
-   `unzip -p business-api-0.1.0-SNAPSHOT.jar BOOT-INF/classes/db/migration/V*.sql` 提取，Schema 设计可完整复用。
-2. **参考站与原型中都没有任何 AI 实现**（`AI配置` 页是 `PlaceholderView` 桩），因此 AI 部分是全新设计，其业务标准以 `ai-toy` 原型与 `PRD-03` 为准。
-3. `ai-toy-platform/server.py` 存在静态文件路径穿越漏洞，**不移植**；只移植 `server.js` 的硬化语义。
+1. 参考实现仅有运行时快照、源码已不可得，但其数据库迁移脚本可读，Schema 结构可完整复用。
+2. **参考实现与原型中都没有任何 AI 实现**（`AI配置` 页是 `PlaceholderView` 桩），因此 AI 部分是全新设计。
+3. 早期可运行 MVP 存在静态文件路径穿越漏洞，**不移植**；只迁移其硬化后的语义。
 
 ---
 
@@ -572,17 +571,54 @@
 
 ### P11-C 收尾
 
-- [ ] `README.md` 终版（徽章 + 截图 + 快速开始 + 架构图 + 文档索引）
-- [ ] `CHANGELOG.md` 记录完整版本历史
-- [ ] 系统截图（各端关键页面）
-- [ ] 🔑 **最终验证：`git check-ignore -v learning/README.md` 命中；`git ls-files` 中不含任何 `learning/` 路径**
-- [ ] 🔑 最终验证：陌生环境按 README 操作 **5 分钟内可跑起来**
+- [x] `README.md` 终版（徽章 + 截图 + 快速开始 + 架构图 + 文档索引）
+- [x] `CHANGELOG.md` 记录完整版本历史
+- [x] 系统截图（各端关键页面）
+- [x] 🔑 **最终验证：`git check-ignore -v learning/README.md` 命中；`git ls-files` 中不含任何 `learning/` 路径**
+- [x] 🔑 最终验证：陌生环境按 README 操作 **5 分钟内可跑起来**
+
+**P11-C 验收（2026-09-17）**
+
+| 项 | 实测 |
+|---|---|
+| 截图 | **14 张**：登录页 1 + 平台端 6（工作台 / 租户 / 订单 / 设备 / 工厂订单 / OTA）+ 商户端 4（工作台 / 我的产品 / AI 配置 / 运营看板）+ 工厂端 2（工作台 / 生产订单）+ 小程序 1（扫码页）；合计 2.2MB，逐张人工核验为**真实登录态**（非白屏、非登录页） |
+| `README.md` 终版 | 新增**界面预览**（7 张内嵌 + 14 张清单）、规模速查表、**「本项目的验收方式」**、**「已知局限」** 表；徽章含 `coverage-70%`（如实标注）；18 处文档链接全部可解析 |
+| 🔑 验证 1 | `git check-ignore -v learning/README.md` → 命中 `.gitignore:15`；`git ls-files \| grep ^learning/` → **0 条** |
+| 🔑 验证 2 | 在 `/tmp` 全新克隆（HEAD `9086e4a`）后实测：**照 README 字面步骤 `make setup` 失败（81 秒）**；补齐 6 项密钥后 `make setup` 成功（**72 秒**），四端入口 `/`、`/login`、`/platform/`、`/merchant/`、`/factory/`、`/miniapp/` **全部 200**，从克隆到四端可用 **≈91 秒** |
+| `CHANGELOG.md` | `[未发布]` 段已覆盖 P1–P11 全部阶段；⚠️ **未切版本 tag**（无 release），因此不写 `[x.y.z]` 正式版本号 |
+
+**★ 验证 2 发现并修复了一个真实缺陷：README 的快速开始不完整**
+
+启动期安全校验实际要求 **6 项**（`JWT_SECRET_KEY`、`QR_SIGN_SECRET`、
+`PLATFORM_ADMIN_PASSWORD`、`MERCHANT_ADMIN_PASSWORD`、`FACTORY_ADMIN_PASSWORD`、
+**`PLATFORM_OPERATOR_PASSWORD`**），而 README 原文只让改 3 个管理员口令。
+按原文操作会得到：
+
+```
+InsecureConfigurationError: 配置未通过安全校验，服务拒绝启动：
+  - JWT_SECRET_KEY 仍为占位符，请替换为强随机值
+  - QR_SIGN_SECRET 仍为占位符，请替换为强随机值
+  - PLATFORM_ADMIN_PASSWORD 未设置（账号 admin）
+  - …（共 6 项）
+```
+
+→ 已修正 README 的两种方式，列出全部 6 项，并附一段**可选的一行脚本**自动替换。
+（`docs/01-安装部署指南.md` 的 `## 5.` 一直列全了 6 类条件，**是根 README 漏了**。）
+
+**P11-C 的已知局限**：
+1. **截图由独立 headless Chrome 采集**，不是用户日常浏览器窗口——因为 `bsk screenshot`
+   在本机**只能成功一次**，之后持续 `tool RPC timed out after 30s`（同期 `bsk evaluate` 正常）；
+   `bsk daemon restart` 能恢复一次但不足以支撑十几张图。**这是上游工具问题，已记录**。
+2. **截图是静态画面**，不含交互过程（弹窗、下拉、Toast）；也不含移动端以外的响应式截图。
+3. **验证 2 的 72 秒偏乐观**：本机 pip 有缓存；冷机器首次安装依赖会更久。
+4. **未在真正的另一台机器上验证**（同机不同目录），因此不能排除环境相关差异。
+5. **`CHANGELOG.md` 未切版本号**：全部变更仍在 `[未发布]` 段，仓库也没有 git tag。
 
 ---
 
 ## 附录 A：遗留缺陷修复对照表
 
-来自 `/home/peter/ai-toy/app/PRD-03-数据状态接口.md` 第五章的 P-01 ~ P-08：
+来自早期静态原型 PRD 第五章的 P-01 ~ P-08：
 
 | 编号 | 问题 | 修复方案 | 归属阶段 | 验证方式 |
 |---|---|---|---|---|
@@ -599,13 +635,13 @@
 
 | 来源 | 问题 | 处理 |
 |---|---|---|
-| `ai-toy-platform/server.py` | 静态文件路径穿越漏洞 | **不移植 Python 版**，只移植 `server.js` 语义并加路径规范化 |
-| `ai-toy-platform/.env` | 硬编码弱口令 `admin@2024` | **绝不迁移**，新环境强密码 + 首次登录强制改密 |
-| `ai-toy-platform/public/app.js` | 未转义的 `innerHTML` 模板注入 | 前端 `dom.js` 提供安全转义 |
-| `ai-toy/app/assets/admin.js` | SecretKey 明文展示在前端 | 后端加密存储，响应永不含 SK |
-| `ai-toy/app/assets/data.js:595` | JD 二维码参数顺序错误（`clientId` 误传 `tenant_id`） | `qrcode_service.py` 修正并加断言测试 |
-| `aitoy-deploy` `EventTestController` | 生产环境测试端点 | 不实现 |
-| `aitoy-deploy` `V2__seed_dev_data.sql` | 开发种子数据进入生产迁移路径 | 种子数据与迁移分离，由 `SEED_DEMO_DATA` 开关控制 |
+| 早期可运行 MVP（服务端） | 静态文件路径穿越漏洞 | **不移植 Python 版**，只移植 `server.js` 语义并加路径规范化 |
+| 早期可运行 MVP（环境配置） | 硬编码弱口令 `admin@2024` | **绝不迁移**，新环境强密码 + 首次登录强制改密 |
+| 早期可运行 MVP（前端） | 未转义的 `innerHTML` 模板注入 | 前端 `dom.js` 提供安全转义 |
+| 早期静态原型（前端） | SecretKey 明文展示在前端 | 后端加密存储，响应永不含 SK |
+| 早期静态原型（二维码） | JD 二维码参数顺序错误（`clientId` 误传 `tenant_id`） | `qrcode_service.py` 修正并加断言测试 |
+| 参考实现（运维端点） | 生产环境测试端点 | 不实现 |
+| 参考实现（迁移脚本） | 开发种子数据进入生产迁移路径 | 种子数据与迁移分离，由 `SEED_DEMO_DATA` 开关控制 |
 
 ## 附录 C：关键架构决策记录（ADR 摘要）
 

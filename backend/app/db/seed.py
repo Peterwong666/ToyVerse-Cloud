@@ -683,7 +683,7 @@ async def _seed_tenants(session: AsyncSession) -> None:
 
 async def _seed_tenant_users(session: AsyncSession) -> None:
     """为演示租户补充一个运营账号（便于验证商户端权限差异）。"""
-    account = "15555555556"
+    account = "13812345680"
     password = settings.MERCHANT_ADMIN_PASSWORD
     if not password:
         return
