@@ -3,7 +3,7 @@
 这些测试是**跨端协议的可执行文档**：服务端生成、前端展示、设备端解析
 三方必须对字段顺序与签名算法理解一致，因此这里逐段断言而不是只断言「能解析」。
 
-特别关注附录 B 的缺陷修复：早期参考实现把 ``clientId``
+特别关注附录 B 的缺陷修复：早期实现把 ``clientId``
 误传进 ``tenant_id`` 的位置。下面的
 :meth:`TestJdFormat.test_second_segment_is_tenant_id` 把字段位置钉死，
 一旦有人改动参数顺序，测试立即失败。
@@ -122,7 +122,7 @@ class TestJdFormat:
     def test_second_segment_is_tenant_id(self) -> None:
         """★ 钉死字段顺序：第 2 段必须是 tenant_id，不是 clientId/产品 ID。
 
-        这正是参考实现 ``data.js:595`` 的缺陷所在——把客户/产品 ID
+        这正是早期实现的缺陷所在——把客户/产品 ID
         传进了租户的位置。参数顺序一旦被改错，本断言立即失败。
         """
         payload = build_jd_payload(TENANT_ID, PRODUCT_ID, SN)

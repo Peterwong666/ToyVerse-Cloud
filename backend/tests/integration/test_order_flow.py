@@ -343,7 +343,7 @@ class TestOrderClosedLoop:
             assert item["format"] == "JD"
             segments = item["payload"].split("|")
             assert len(segments) == 5
-            assert segments[1] == tenant.id, "第 2 段必须是 tenantId（修正参考实现把产品 ID 传错的缺陷）"
+            assert segments[1] == tenant.id, "第 2 段必须是 tenantId（修正早期实现把产品 ID 传错的缺陷）"
             assert segments[2] == catalog["product_id"]
             assert segments[4] == qrcode_service.sign_jd(
                 tenant.id, catalog["product_id"], item["sn"]

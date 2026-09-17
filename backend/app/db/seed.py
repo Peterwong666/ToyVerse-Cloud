@@ -568,8 +568,16 @@ async def _seed_roles(session: AsyncSession) -> None:
 async def _seed_admin_users(session: AsyncSession) -> None:
     """写入各端的初始账号（平台超管 / 平台运营 / 商户管理员 / 工厂管理员）。
 
-    密码来自环境变量，启动期已校验强度。若账号已存在则不改密码，
-    避免每次重启都把线上密码重置回 `.env` 中的值。
+    幂等规则（三种情况都要能安全重跑）：
+
+    * **已存在同 id 且登录名一致** → 空操作（不动密码，避免每次重启把线上密码重置回 `.env`）
+    * **已存在同 id 但登录名不同** → **同步登录名**（`.env` 是这几个初始账号名的事实来源），
+      并在日志里明确告警；密码仍不动
+    * **不存在同 id** → 创建；但若该登录名已被**别的 id** 占用则跳过并告警
+      （否则会撞 `uq_user_accounts_account`）
+
+    ★ 查重一律按 **id** 而不是 account——按 account 查会在「账号改名」时漏判，
+    导致拿同一个固定 id 再插一次 → 主键冲突 → **应用启动即崩**（容器里表现为无限重启）。
 
     平台运营账号是**可选**的：未在环境变量里配置账号时跳过，
     这样「克隆后最快跑起来」的路径不需要多填一个口令。
@@ -617,20 +625,67 @@ async def _seed_admin_users(session: AsyncSession) -> None:
         )
 
     created = 0
+    renamed = 0
     for admin in admins:
         account = str(admin["account"] or "").strip()
         if not account:
             continue
+        admin_id = str(admin["id"])
 
-        exists = (
+        # ★ 按 **id**（稳定标识）查重，而不是按 account。
+        #
+        # 按 account 查会在「**账号改名**」时漏判，进而造成两个后果（都实测过）：
+        #   1. 查不到新名字 → 拿同一个固定 id 再插一次 → 主键冲突
+        #      `UNIQUE constraint failed: user_accounts.id`；
+        #   2. 在容器里表现为**应用启动即崩、无限重启**（入口脚本先播种再起服务），
+        #      现场是「.env 把商户账号从 15555555555 改成 13812345679 后容器起不来」。
+        # 也就是说：改一次 `.env` 里的账号名就会让**已有库**的部署挂掉。
+        existing = (
+            await session.execute(select(UserAccount).where(UserAccount.id == admin_id))
+        ).scalar_one_or_none()
+        if existing is not None:
+            # ⚠️ 不改密码（避免每次重启都把线上密码重置回 .env 中的值），
+            # 但**同步登录名**：`.env` 是这几个初始账号名称的事实来源，
+            # 不同步会让「新库用新名字、老库用旧名字」长期分叉。
+            if existing.account == account:
+                continue
+            taken = (
+                await session.execute(
+                    select(UserAccount).where(
+                        UserAccount.account == account, UserAccount.id != admin_id
+                    )
+                )
+            ).scalar_one_or_none()
+            if taken is not None:
+                logger.warning(
+                    "管理员账号 %s 已被另一条账号（id=%s）占用，id=%s 的登录名保持为 %s 不变",
+                    account, taken.id, admin_id, existing.account,
+                )
+                continue
+            logger.warning(
+                "管理员账号改名：%s → %s（id=%s）。密码未改动；"
+                "若这不是你要的，请把 .env 改回去后重新播种。",
+                existing.account, account, admin_id,
+            )
+            existing.account = account
+            renamed += 1
+            continue
+
+        # 没有同 id 的行：还要确认新账号名没被**别的 id** 占用，
+        # 否则插入会撞 `uq_user_accounts_account`（同样会让容器起不来）。
+        taken = (
             await session.execute(select(UserAccount).where(UserAccount.account == account))
         ).scalar_one_or_none()
-        if exists is not None:
+        if taken is not None:
+            logger.warning(
+                "登录名 %s 已存在（id=%s），与本次期望的 id=%s 不同，跳过创建",
+                account, taken.id, admin_id,
+            )
             continue
 
         session.add(
             UserAccount(
-                id=str(admin["id"]),
+                id=admin_id,
                 account=account,
                 password_hash=hash_password(str(admin["password"])),
                 nickname=str(admin["nickname"]),
@@ -645,6 +700,8 @@ async def _seed_admin_users(session: AsyncSession) -> None:
 
     if created:
         logger.info("已创建 %d 个管理员账号", created)
+    if renamed:
+        logger.info("已同步 %d 个管理员账号的登录名（来源：.env）", renamed)
 
 
 # ---------------------------------------------------------------------------

@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-D71F00.svg)](https://www.sqlalchemy.org/)
-[![Tests](https://img.shields.io/badge/tests-804%20passed-brightgreen.svg)](#测试与质量保障)
+[![Tests](https://img.shields.io/badge/tests-814%20passed-brightgreen.svg)](#测试与质量保障)
 [![Coverage](https://img.shields.io/badge/coverage-70%25-yellow.svg)](#测试与质量保障)
 [![Documentation](https://img.shields.io/badge/docs-14%20篇-blue.svg)](./docs/)
 
@@ -18,7 +18,8 @@
 
 > ⚠️ **先读这一条，避免误解**：这是一个**作品集项目**，功能闭环完整且经过真实服务验收，
 > 但**尚未与真实厂商联调**（AI 与设备链路走的是内置离线引擎）、**未实现儿童数据合规**
-> （PIPL / COPPA，涉及儿童语音数据）、**代码覆盖率 70%**、**从未做过压测**。
+> （PIPL / COPPA，涉及儿童语音数据）、**代码覆盖率 70%**、
+> 压测**只有一轮单机短测**（不能当容量规划依据）。
 > 上线前必须补齐的部分见 [已知局限](#已知局限) 与 [`SECURITY.md`](./SECURITY.md)。
 
 平台对接两类云服务商，并抽象出统一的接入层：
@@ -238,7 +239,7 @@ flowchart TB
 | 数据库表 | **46**（15 个迁移版本） |
 | 权限码 / 错误码 / 内置角色 | **54** / **31** / **6** |
 | 前端模块 | 页面 **45** + 共享 **28**（零构建） |
-| 测试 | **545** 个测试函数 / **804** 个用例 |
+| 测试 | **553** 个测试函数 / **814** 个用例 |
 
 ---
 
@@ -317,7 +318,7 @@ make up / down     # Docker 启停
 ## 测试与质量保障
 
 ```bash
-make test              # 全部测试（804 passed）
+make test              # 全部测试（814 passed）
 make test-unit         # 单元测试
 make test-integration  # 集成测试（含租户隔离矩阵）
 make test-e2e          # 端到端全闭环
@@ -329,14 +330,14 @@ make docs-check        # 文档一致性门禁
 
 | 项 | 实测 |
 |---|---|
-| 测试 | **804 passed**（545 个测试函数；差额来自参数化展开） |
+| 测试 | **814 passed**（553 个测试函数；差额来自参数化展开） |
 | 类型检查 | mypy **strict**，95 个源文件无问题 |
 | **代码覆盖率** | ⚠️ **70%**（`ai_config_service` / `metrics_service` / `ota_service` 低于 31%） |
 | 接口契约 | 实现与快照一致（自建门禁，改端点连 `docstring` 都会让快照过期） |
 | 文档一致性 | 八类校验通过（端点 / 表 / 错误码 / 权限码 / 枚举值 / 引用 / 测试计数 / 边界声明） |
-| 敏感信息扫描 | 245 个被跟踪文件 **0 命中** |
+| 敏感信息扫描 | 247 个被跟踪文件 **0 命中** |
 
-> ⚠️ **「804 passed」不等于「测试充分」**：覆盖率只有 70%，
+> ⚠️ **「814 passed」不等于「测试充分」**：覆盖率只有 70%，
 > 且三个 P9 服务低于 31%。原因与改进方向见 [`docs/11-测试与质量保障.md`](./docs/11-测试与质量保障.md)。
 
 ---
@@ -380,9 +381,9 @@ make docs-check        # 文档一致性门禁
 | **合规** | ⚠️ **未实现** PIPL / COPPA 等未成年人数据保护机制（涉及儿童语音数据，**不能直接用于真实商业场景**） |
 | **AI 与设备链路** | ⚠️ 四家厂商适配器**全部未联调**（无密钥）；火山引擎**签名算法仍为占位**；语音链路前端未实现录音与播放 |
 | **CI** | ⚠️ 从未在真实 GitHub 上运行过（本机无 remote）；CI 中不构建镜像 |
-| **数据库** | ⚠️ PostgreSQL 只验证了配置可解析，未真跑；SQLite 写并发能力有限 |
-| **部署** | ⚠️ Nginx 未启用 TLS、未验证多实例；备份为同盘备份 |
-| **性能** | ⚠️ **从未做过压测**，因此不提供 QPS / P95 这类数字 |
+| **数据库** | ✅ PostgreSQL 16 已真跑（迁移 / 种子 / healthy / 冒烟 57/57）。★ 实测：**SQLite 并发写会 `database is locked`**（20 并发 → 30.7 QPS、4×500），PG **93.0 QPS、0 失败** → **需要并发写时必须上 PG** |
+| **部署** | ✅ Nginx TLS（自签）与多实例轮询均已实测（`wss` 握手 4401、轮询 31/29）。★ 但**多实例共享 SQLite 卷无收益且报 500** → 多实例必须配 PG；⚠️ 多实例下的 WS 会话路由 / 限流仍缺共享状态；⚠️ 备份为同盘备份 |
+| **性能** | ⚠️ 只有**单机 15 秒 × 20 并发**一轮基线（读 73.6 QPS / 写 30.7 QPS，SQLite），**无劣化曲线、无参数扫描、未长时间观测** —— **不要拿它做容量规划** |
 | **测试** | ⚠️ 覆盖率 70%；e2e 只有 1 条用例；冒烟只覆盖读路径 |
 | **功能缺口** | 内容库只读；知识库为关键词级检索（无向量化）；工厂端「批次查询」未交付 |
 

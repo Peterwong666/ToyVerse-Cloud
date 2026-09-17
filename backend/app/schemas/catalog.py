@@ -15,7 +15,7 @@
 * ``MiniAppConfigResponse`` 只有 ``appSecretHint``
 
 即「即使业务代码写错，也无法把明文密钥序列化出去」——
-这是对参考站「SecretKey 明文下发前端」问题的架构性防范。
+这是对早期实现「SecretKey 明文下发前端」问题的架构性防范。
 """
 
 from __future__ import annotations

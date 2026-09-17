@@ -155,7 +155,7 @@ class Settings(BaseSettings):
     LOCKOUT_MINUTES: int = Field(default=15, ge=1)
 
     # ---------------- 初始管理员账号 ----------------
-    #: 平台超级管理员：``admin``（不使用手机号，也与任何第三方参考站账号无关）
+    #: 平台超级管理员：``admin``（不使用手机号，也与任何早期实现的账号无关）
     PLATFORM_ADMIN_ACCOUNT: str = "admin"
     PLATFORM_ADMIN_PASSWORD: str = ""
     PLATFORM_ADMIN_NICKNAME: str = "平台管理员"

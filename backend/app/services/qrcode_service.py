@@ -38,7 +38,7 @@
 
 修复原型缺陷（附录 B / todolist P4）
 ====================================
-早期参考实现把 ``clientId``（客户/产品 ID）
+早期实现把 ``clientId``（客户/产品 ID）
 误传进了 ``tenant_id`` 的位置，导致二维码里的租户与产品整体错位。
 本项目在**签名层面**堵死这类错误：签名内容包含全部三个字段，
 顺序一旦写错，校验必然失败。:func:`build_jd_payload` 的参数顺序为
@@ -206,7 +206,7 @@ def build_jd_payload(tenant_id: str, product_id: str, sn: str) -> str:
 
     ★ 参数顺序是**契约的一部分**：``(tenant_id, product_id, sn)``。
 
-    参考实现 ``data.js:595`` 正是因为把 ``clientId`` 传进了 ``tenant_id``
+    早期实现正是因为把 ``clientId`` 传进了 ``tenant_id``
     的位置，导致整条二维码字段错位。为了让这类错误无法悄悄溜过，
     本函数：
 

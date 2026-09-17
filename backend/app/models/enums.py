@@ -6,7 +6,7 @@
 状态机权威来源
 --------------
 设备状态采用**四维模型**（``asset_status`` / ``activation_status`` /
-``online_status`` / ``bind_status``），源自参考实现的 Schema 设计。
+``online_status`` / ``bind_status``），源自早期实现的 Schema 设计。
 原型中的单一 9 态枚举降级为**前端派生展示标签**，见 :func:`derive_device_label`。
 """
 
