@@ -135,7 +135,6 @@ SECRET_ALLOWLIST = {
     "CHANGELOG.md",
     "todolist.md",
     "项目进度.md",
-    "SUMMARY.md",
     "docs/13-火山引擎硬件对话智能体配置说明.md",
     "docs/14-ESP32-S3刷机与联调步骤清单.md",
 }
