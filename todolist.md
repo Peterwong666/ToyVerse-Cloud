@@ -280,13 +280,13 @@
 
 ## P7 AI 抽象层与离线模拟引擎 ★
 
-- [ ] 🔑 `app/ai/base.py` — `AIProvider` 抽象基类与 DTO
+- [x] 🔑 `app/ai/base.py` — `AIProvider` 抽象基类与 DTO
   - 生命周期：`health_check`
   - 设备侧：`provision_devices` `activate_device` `deactivate_device` `push_ota`
   - 对话侧：`open_session` `chat`（流式 `AsyncIterator[ChatChunk]`）`close_session`
   - 语音侧：`asr` `tts`
-- [ ] 🔑 `app/ai/registry.py` — 注册表与解析顺序（`client_product → template.vendor → ai_providers 默认 → AI_DEFAULT_PROVIDER`）
-- [ ] 🔑 `app/ai/mock/engine.py` `dialogue.py` `asr.py` `tts.py` `scenarios.py`
+- [x] 🔑 `app/ai/registry.py` — 注册表与解析顺序（`client_product → template.vendor → ai_providers 默认 → AI_DEFAULT_PROVIDER`）
+- [x] 🔑 `app/ai/mock/engine.py` `dialogue.py` `asr.py` `tts.py` `scenarios.py`
   - 规则对话：`故事` → 内容库取故事；`歌/唱` → 唱歌；`天气` → 天气；其余兜底
   - 支持 `role_preset` 与知识库关键词检索影响回复
   - `MOCK_ASR_MODE=echo|fixed`、`MOCK_TTS_MODE=text|wav`、固定随机种子保证可复现

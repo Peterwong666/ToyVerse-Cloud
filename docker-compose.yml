@@ -30,8 +30,8 @@ services:
       context: .
       dockerfile: deploy/Dockerfile.backend
     image: toyverse-cloud:0.1.0
-    container_name: toyverse-app
     restart: unless-stopped
+    # 不固定 container_name，以便 docker compose up --scale app=2 做多实例验证
     # .env 允许缺失：缺失时由**应用自身**的启动期安全校验给出可执行的报错
     # （逐项列出哪个口令为空/过弱），比 compose 的一句「env file not found」
     # 更有指导性。首次部署请先 `make env` 再由部署者填写强口令。
@@ -71,6 +71,9 @@ services:
       SEED_AT_STARTUP: "false"
       # uvicorn worker 数（按 CPU 核数与 SQLite 写并发权衡；SQLite 下不建议调大）
       WORKERS: ${WORKERS:-4}
+    # 默认暴露 8000，方便 `docker compose --profile postgres up -d` 后直接访问。
+    # 做多实例 + Nginx 负载均衡时，需要把下面这行注释掉，避免 scale 时端口冲突，
+    # 入口统一走 Nginx（--profile nginx）。
     ports:
       - "${APP_PORT:-8000}:8000"
     volumes:
@@ -130,9 +133,9 @@ services:
     container_name: toyverse-nginx
     profiles: ["nginx"]
     restart: unless-stopped
+    # 多实例场景下 service_healthy 条件与 scale 不兼容，改为简单依赖
     depends_on:
-      app:
-        condition: service_healthy
+      - app
     ports:
       - "${NGINX_PORT:-8080}:80"
     volumes:
