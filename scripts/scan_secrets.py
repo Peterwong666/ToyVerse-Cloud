@@ -195,18 +195,29 @@ FORBIDDEN_TRACKED_EXACT = (
 
 
 def _git_tracked_files() -> list[str]:
-    """列出被 git 跟踪的文件（相对仓库根的 POSIX 路径）。"""
+    """列出被 git 跟踪的文件（相对仓库根的 POSIX 路径）。
+
+    ⚠️ 必须用 `-z`（NUL 分隔）而不是按行解析：`git ls-files` 默认会把非 ASCII
+    文件名转义并加引号（例如 `"docs/15-\\351\\207\\215..."`）。那样下面
+    `path.is_file()` 会**永远为假**，导致中文名文件被静默跳过——
+    而本仓库的文档几乎全是中文名，等于这道门禁从来没真正扫过它们。
+    2026-09-20 实测：按行解析只扫到 247 个文件，`-z` 后为 264 个。
+    """
     try:
         out = subprocess.run(
-            ["git", "ls-files"],
+            ["git", "ls-files", "-z"],
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
+            # 显式钉住 UTF-8：改用 `-z` 后输出里会出现中文文件名。
+            # （C/POSIX locale 下 Python 会自动进 UTF-8 模式，但那种自动保护
+            # 不覆盖所有 locale；这里不去依赖系统 locale 的默认值。）
+            encoding="utf-8",
             check=True,
         ).stdout
     except (subprocess.CalledProcessError, FileNotFoundError):
         return []
-    return [line.strip() for line in out.splitlines() if line.strip()]
+    return [path for path in out.split("\0") if path]
 
 
 def _iter_source_files() -> list[Path]:
