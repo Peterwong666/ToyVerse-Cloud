@@ -230,6 +230,11 @@ class Settings(BaseSettings):
     VOLCANO_MODEL_ENDPOINT: str = ""
     VOLCANO_TIMEOUT_SECONDS: int = 30
 
+    # 火山引擎 IoT（硬件对话智能体 · 设备注册）
+    VOLCANO_IOT_INSTANCE_ID: str = ""
+    VOLCANO_IOT_PRODUCT_KEY: str = ""
+    VOLCANO_IOT_PRODUCT_SECRET: str = ""
+
     # 百度智能云
     BAIDU_API_BASE: str = ""
     BAIDU_API_KEY: str = ""

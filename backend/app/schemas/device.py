@@ -269,6 +269,31 @@ class DeviceSimulateHeartbeatRequest(ApiModel):
     firmware_version: str | None = Field(default=None, max_length=64)
 
 
+class DeviceRegisterRequest(ApiModel):
+    """设备注册请求（后端代注册 Route B）。
+
+    ★ 设备侧端点，不挂 JWT。鉴权方式与心跳一致：SN + 平台签发的 DEVICE_SECRET。
+    设备用此接口换取火山 ``device_secret``，用于连接 WebSocket 标准协议。
+    """
+
+    sn: str = Field(min_length=1, max_length=64)
+    secret: str = Field(
+        min_length=8,
+        max_length=256,
+        description="平台签发的设备密钥明文",
+    )
+
+
+class DeviceRegisterResponse(ApiModel):
+    """设备注册结果。"""
+
+    device_id: str = Field(description="平台设备 ID")
+    sn: str
+    device_secret: str = Field(description="火山 device_secret，用于 WebSocket 鉴权")
+    instance_id: str = Field(description="火山 IoT 实例 ID")
+    product_key: str = Field(description="火山产品标识符")
+
+
 class DeviceCredentialIssueRequest(ApiModel):
     """签发设备密钥。
 
@@ -355,6 +380,8 @@ __all__ = [
     "DeviceFreezeRequest",
     "DeviceHeartbeatRequest",
     "DeviceHeartbeatResponse",
+    "DeviceRegisterRequest",
+    "DeviceRegisterResponse",
     "DeviceResponse",
     "DeviceRetireRequest",
     "DeviceSimulateHeartbeatRequest",

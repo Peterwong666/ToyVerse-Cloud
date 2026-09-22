@@ -1,4 +1,4 @@
-"""设备侧 API：心跳上报（P5）。
+"""设备侧 API：心跳上报（P5）+ 设备注册（Route B 后端代注册）。
 
 为什么不挂任何 JWT 依赖
 ----------------------
@@ -16,11 +16,28 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Body, Request
+import hashlib
+import hmac
 
-from app.core.deps import DbSession
-from app.schemas.device import DeviceHeartbeatRequest, DeviceHeartbeatResponse
-from app.services import heartbeat_service
+from fastapi import APIRouter, Body, Request
+from sqlalchemy import select
+
+from app.core.config import settings
+from app.core.deps import AuthContext, DbSession
+from app.core.errors import unauthenticated, vendor_unavailable
+from app.core.logging import get_logger
+from app.db.base import utcnow
+from app.models.device import Device, DeviceCredential
+from app.models.enums import CredentialType
+from app.schemas.device import (
+    DeviceHeartbeatRequest,
+    DeviceHeartbeatResponse,
+    DeviceRegisterRequest,
+    DeviceRegisterResponse,
+)
+from app.services import heartbeat_service, device_register_service
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/device", tags=["设备侧"])
 
@@ -57,6 +74,87 @@ async def report_heartbeat(
         secret=payload.secret,
         firmware_version=payload.firmware_version,
         request=request,
+    )
+
+
+@router.post(
+    "/register",
+    response_model=DeviceRegisterResponse,
+    summary="设备注册（后端代注册火山 device_secret）",
+    description=(
+        "设备首次上电时调用，用平台签发的 `sn` + `secret` 换取火山 `device_secret`。\n\n"
+        "**鉴权方式**：与心跳一致，SN + 密钥摘要比对，不挂 JWT。\n\n"
+        "**流程**：后端验证设备凭证 → 调用火山 `DynamicRegister` → "
+        "解密得到 `device_secret` → 返回给设备。设备应将 `device_secret` "
+        "持久化到 NVS，避免每次重启都重新注册。\n\n"
+        "**幂等**：若设备已有 `device_secret`（NVS 缓存），建议直接使用，"
+        "不必重复调用本接口。"
+    ),
+    responses={
+        401: {"description": "设备未签发密钥 / 密钥校验失败"},
+        404: {"description": "设备不存在"},
+        503: {"description": "火山 IoT 凭证未配置（VOLCANO_IOT_*）"},
+    },
+)
+async def register_device(
+    request: Request,
+    session: DbSession,
+    payload: DeviceRegisterRequest = Body(...),
+) -> DeviceRegisterResponse:
+    """设备注册：用平台凭证换取火山 device_secret（Route B 后端代注册）。"""
+    # 1. 查找设备
+    device = (
+        await session.execute(select(Device).where(Device.sn == (payload.sn or "").strip()))
+    ).scalar_one_or_none()
+    if device is None:
+        raise unauthenticated("设备不存在")
+
+    # 2. 校验密钥（与心跳同一逻辑）
+    credential = (
+        await session.execute(
+            select(DeviceCredential).where(
+                DeviceCredential.device_id == device.id,
+                DeviceCredential.credential_type == str(CredentialType.DEVICE_SECRET),
+            )
+        )
+    ).scalar_one_or_none()
+    if credential is None:
+        raise unauthenticated("设备未签发密钥")
+    if credential.revoked_at is not None:
+        raise unauthenticated("设备密钥已失效")
+    if credential.expires_at is not None and credential.expires_at < utcnow():
+        raise unauthenticated("设备密钥已失效")
+
+    if not hmac.compare_digest(
+        hashlib.sha256((payload.secret or "").encode("utf-8")).hexdigest(),
+        credential.secret_hash or "",
+    ):
+        raise unauthenticated("设备密钥校验失败")
+
+    # 3. 调用火山 DynamicRegister
+    try:
+        device_secret = await device_register_service.register_device_on_volcano(
+            device_name=device.sn,
+        )
+    except Exception as exc:
+        logger.error("设备 %s 注册失败: %s", device.sn, exc)
+        raise vendor_unavailable(f"火山设备注册失败: {exc}") from exc
+
+    # 4. 更新设备的 vendor_device_id（火山侧的 device_name）
+    if not device.vendor_device_id:
+        device.vendor_device_id = device.sn
+
+    await session.flush()
+    await session.commit()
+
+    logger.info("设备 %s 注册成功，已获取 device_secret", device.sn)
+
+    return DeviceRegisterResponse(
+        device_id=device.id,
+        sn=device.sn,
+        device_secret=device_secret,
+        instance_id=settings.VOLCANO_IOT_INSTANCE_ID,
+        product_key=settings.VOLCANO_IOT_PRODUCT_KEY,
     )
 
 
