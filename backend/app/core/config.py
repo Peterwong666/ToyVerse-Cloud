@@ -234,6 +234,7 @@ class Settings(BaseSettings):
     VOLCANO_IOT_INSTANCE_ID: str = ""
     VOLCANO_IOT_PRODUCT_KEY: str = ""
     VOLCANO_IOT_PRODUCT_SECRET: str = ""
+    VOLCANO_BOT_ID: str = ""
 
     # 百度智能云
     BAIDU_API_BASE: str = ""

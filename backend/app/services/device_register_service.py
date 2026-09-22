@@ -110,7 +110,7 @@ def _build_register_body(
     product_secret: str,
 ) -> dict[str, Any]:
     """构造 DynamicRegister 请求体。"""
-    random_num = str(int.from_bytes(os.urandom(4), "big") % 100000000)
+    random_num = int.from_bytes(os.urandom(4), "big") % 100000000  # int
     timestamp = int(time.time() * 1000)  # 毫秒
 
     signature = _build_register_signature(
@@ -174,7 +174,11 @@ async def register_device_on_volcano(
     logger.info("调用火山 DynamicRegister: device_name=%s", device_name)
 
     async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.post(DYNAMIC_REGISTER_URL, json=body)
+        resp = await client.post(
+            DYNAMIC_REGISTER_URL,
+            params={"Action": "DynamicRegister", "Version": "2021-12-14"},
+            json=body,
+        )
 
     if resp.status_code != 200:
         logger.error("DynamicRegister HTTP %d: %s", resp.status_code, resp.text[:500])
@@ -198,8 +202,8 @@ async def register_device_on_volcano(
             detail={"volcano_code": code, "volcano_message": error_msg},
         )
 
-    # 解密 device_secret
-    encrypted_payload = result.get("Payload", "")
+    # 解密 device_secret（字段名小写 payload）
+    encrypted_payload = result.get("payload") or result.get("Payload", "")
     if not encrypted_payload:
         raise AppException(
             code=ErrorCode.VENDOR_UNAVAILABLE,

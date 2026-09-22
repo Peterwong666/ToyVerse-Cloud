@@ -137,10 +137,10 @@ class TestBuildRegisterBody:
         after = int(time.time() * 1000)
         assert before <= body["timestamp"] <= after
 
-    def test_random_num_is_string(self) -> None:
+    def test_random_num_is_int(self) -> None:
         body = _build_register_body("i", "p", "d", "s")
-        assert isinstance(body["random_num"], str)
-        assert body["random_num"].isdigit()
+        assert isinstance(body["random_num"], int)
+        assert 0 <= body["random_num"] < 100_000_000
 
 
 class TestAesCbcDecrypt:
