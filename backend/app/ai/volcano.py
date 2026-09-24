@@ -117,8 +117,14 @@ Action 清单（已核实名称）
 
 from __future__ import annotations
 
+import datetime
+import hashlib
+import hmac as hmac_mod
 from collections.abc import AsyncIterator, Sequence
 from typing import Any
+from urllib.parse import urlencode
+
+import httpx
 
 from app.ai.base import (
     CAP_ASR,
@@ -253,16 +259,97 @@ class VolcanoProvider(BaseHttpProvider):
         required = ("access_key", "secret_key")
         return [key for key in required if not (self.credentials.get(key) or "").strip()]
 
-    def build_headers(self) -> dict[str, str]:
-        """构造请求头。
+    # ---------------- AK/SK HMAC-SHA256 签名（已实现） ----------------
 
-        **签名尚未实现（占位）**：真实算法见官方《服务端 API › 调用方法》
-        （通常为 AK/SK 的 HMAC 签名，含 ``X-Date`` 等参与字段），
-        且签名应放在 Header 还是 Query 需以官方为准。当前仅由
-        :meth:`~app.ai.base.BaseHttpProvider.sign` 在 Query 上附加占位
-        ``signature`` 参数——**联调时必须替换为真实签名，勿当作已实现。**
+    @staticmethod
+    def _hash_sha256(content: str) -> str:
+        return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _hmac_sha256(key: bytes, content: str) -> bytes:
+        return hmac_mod.new(key, content.encode("utf-8"), hashlib.sha256).digest()
+
+    @classmethod
+    def _sign_request(
+        cls,
+        *,
+        ak: str,
+        sk: str,
+        method: str,
+        host: str,
+        uri: str,
+        query_string: str,
+        body: str,
+    ) -> tuple[str, str]:
+        """火山引擎 AK/SK HMAC-SHA256 签名（来自官方 demo RtcApiRequester.py）。
+
+        Returns:
+            (x_date, authorization_header) 二元组。
         """
-        return {"Content-Type": "application/json"}
+        now = datetime.datetime.utcnow()
+        x_date = now.strftime("%Y%m%dT%H%M%SZ")
+        x_content_sha256 = cls._hash_sha256(body)
+        content_type = "application/json"
+
+        signed_headers_vec = (
+            ("content-type", content_type),
+            ("host", host),
+            ("x-content-sha256", x_content_sha256),
+            ("x-date", x_date),
+        )
+        canonical_headers = "\n".join(":".join(x) for x in signed_headers_vec) + "\n"
+        signed_headers = ";".join(x[0] for x in signed_headers_vec)
+
+        # 步骤 1：规范请求
+        canonical_request = "\n".join([
+            method, uri, query_string, canonical_headers, signed_headers, x_content_sha256,
+        ])
+
+        # 步骤 2：待签字符串
+        credential_scope = f"{x_date[:8]}/cn-north-1/rtc/request"
+        string_to_sign = "\n".join([
+            "HMAC-SHA256", x_date, credential_scope, cls._hash_sha256(canonical_request),
+        ])
+
+        # 步骤 3：HMAC 链签名
+        hmac_parts = [*credential_scope.split("/"), string_to_sign]
+        signature = sk.encode("utf-8")
+        for part in hmac_parts:
+            signature = cls._hmac_sha256(signature, part)
+        signature_hex = signature.hex()
+
+        # 步骤 4：Authorization header
+        authorization = (
+            f"HMAC-SHA256 Credential={ak}/{credential_scope}, "
+            f"SignedHeaders={signed_headers}, Signature={signature_hex}"
+        )
+        return x_date, authorization
+
+    def _build_action_headers(self, action: str, body: dict[str, Any]) -> dict[str, str]:
+        """为一次 Action 调用构造完整请求头（含 HMAC 签名）。"""
+        ak = (self.credentials.get("access_key") or "").strip()
+        sk = (self.credentials.get("secret_key") or "").strip()
+        if not ak or not sk:
+            return {"Content-Type": "application/json"}
+
+        import json as json_mod
+        body_str = json_mod.dumps(body, separators=(",", ":"), ensure_ascii=False)
+        query_string = urlencode({"Action": action, "Version": API_VERSION})
+
+        from urllib.parse import urlparse
+        parsed = urlparse(self.api_base)
+        host = parsed.hostname or "rtc.volcengineapi.com"
+
+        x_date, authorization = self._sign_request(
+            ak=ak, sk=sk,
+            method="POST", host=host, uri=API_PATH,
+            query_string=query_string, body=body_str,
+        )
+        return {
+            "Content-Type": "application/json",
+            "X-Date": x_date,
+            "Authorization": authorization,
+        }
 
     def _action_params(self, action: str) -> dict[str, Any]:
         """构造 Query 固定参数：``Action`` + ``Version``。"""
@@ -271,14 +358,59 @@ class VolcanoProvider(BaseHttpProvider):
     async def _call_action(
         self, action: str, body: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        """调用一个 Action。
+        """调用一个 Action（带 AK/SK HMAC 签名）。
 
         所有 Action 都 POST 到**同一个地址** :data:`DEFAULT_API_BASE` +
         :data:`API_PATH`，靠 Query 的 ``Action`` / ``Version`` 区分。
+
+        重写此方法而非依赖 ``request_json`` 的 ``build_headers()``：
+        火山签名需要请求体参与计算，必须在知道 body 之后才能构造 Authorization header。
+        但仍复用基类的重试与错误处理逻辑。
         """
-        return await self.request_json(
-            "POST", API_PATH, params=self._action_params(action), json_body=body or {}
-        )
+        self.ensure_configured()
+        effective_body = body or {}
+        query = self._action_params(action)
+        url = f"{self.api_base}{API_PATH}"
+        headers = self._build_action_headers(action, effective_body)
+
+        import asyncio
+        last_error = "未知错误"
+
+        for attempt in range(self.retry.max_retries + 1):
+            try:
+                async with httpx.AsyncClient(timeout=self.retry.timeout_seconds) as client:
+                    response = await client.request(
+                        "POST", url, params=query, json=effective_body, headers=headers,
+                    )
+            except httpx.HTTPError as exc:
+                last_error = f"{type(exc).__name__}: {exc}"
+                if attempt < self.retry.max_retries:
+                    await asyncio.sleep(self.retry.backoff_seconds * (attempt + 1))
+                    continue
+                raise self._call_failed(
+                    f"{self.name} 调用失败（已重试 {self.retry.max_retries} 次）：{last_error}"
+                ) from exc
+
+            if response.status_code in self.retry.retry_statuses and attempt < self.retry.max_retries:
+                last_error = f"HTTP {response.status_code}"
+                await asyncio.sleep(self.retry.backoff_seconds * (attempt + 1))
+                continue
+
+            if response.status_code >= 400:
+                raise self._call_failed(
+                    f"{self.name} 返回 HTTP {response.status_code}",
+                    detail={"statusCode": response.status_code},
+                )
+
+            try:
+                data = response.json()
+            except ValueError as exc:
+                raise self._call_failed(f"{self.name} 返回了非 JSON 响应") from exc
+            if isinstance(data, dict):
+                return data
+            return {"data": data}
+
+        raise self._call_failed(f"{self.name} 调用失败：{last_error}")
 
     # ===========================================================
     # 二、智能体生命周期（AibotCreate / Query / Update / Delete）
