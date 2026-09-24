@@ -7,19 +7,29 @@
 
 ## [未发布]
 
+### 新增
+
+- **后端代注册接口（Route B）**：`POST /api/v1/device/register`——设备首次上电用平台 SN + 密钥换取火山 `device_secret`，`product_secret` 不出后端；配 14 条单元测试（HMAC 签名、请求体构造、payload 编解码、AES-CBC 解密）。
+- **火山 Provider AK/SK HMAC-SHA256 签名实现**：闭环 P7 已知局限①（原为占位），算法取自官方 demo 的 `RtcApiRequester.py`，收口于 `VolcanoProvider._sign_request`。
+
 ### 验证与合规
 
+- **P-A / P-B PC 端验证通过（2026-09-22）**：注册 + 建连收到 `session.created`（过程中修复 4 个问题：`random_num` 应为 int、payload 字段小写、缺 `bot_id`、缺 Query 参数）；文本双向对话打通；采样率确认为上行 16kHz / 下行 24kHz。音频 ASR 上行需真机，见「待继续」。
 - **ESP32 云端链路自检完成**：确认 `https://rtc.volcengineapi.com` 可达，平台端云服务商配置已填入账号级 AccessKey / SecretKey；设备端产品级 ProductKey / ProductSecret / InstanceID 已定位，待真机刷机后联调。
 - **多实例 + PostgreSQL 组合验证完成**：2 app 实例 + 1 Nginx + 1 Postgres，读 142.5 QPS / 0 失败，写 66.2 QPS / 1000/1000 成功，请求经 Nginx 均匀分发，WebSocket 握手返回期望的 `4401`。
 - **儿童数据合规自查完成**：在 `SECURITY.md` 新增「儿童数据合规边界（自查清单）」，列出 6 类数据、7 项已实现保护、8 处生产缺口与风险结论。
 
 ### 变更
 
+- **测试与开发机 `.env` 隔离**：`conftest.py` 在导入应用前把四家厂商的凭证变量钉为空串——修复「开发机配了火山 AK/SK 后，8 条 ADR-07『未配置安全失败』测试反向失败」的环境依赖问题（CI 无 `.env`，不受影响）。
+- **门禁修复（2026-09-24 复盘方案执行）**：修复 09-22 提交遗留的 ruff / mypy 问题；重生成 OpenAPI 快照（146 端点 / 120 paths）并同步 `docs/06`、`docs/11` 计数（27 文件 / 567 函数）。当前 **828 passed、覆盖率 68%**（新代码拉低 2 点，仍高于 65 门槛）。
 - `docker-compose.yml`：移除 `app` 服务的固定 `container_name`，注释掉 app 宿主机端口映射，避免 `--scale app=N` 时冲突；Nginx `depends_on` 改为简单列表（service-health conditions 与 scaled services 不兼容）。
 - `docs/11-测试与质量保障.md`：新增 `8.3.2 多实例 + PostgreSQL（2026-09-18 补测）`，同步更新 8.5 节「仍未证明的事」。
+- `docs/13`、`docs/08`：标注 2026-09-20 路线 B 决策影响（`volc_*` API 名与官方 `byte_rtc_*` 的出入、签名已实现等），防止旧文档误导。
 
 ### 待继续
 
+- **火山 License 已用满（2/2）**：新设备注册会失败（`12000130`）——需扩容或复用已注册设备的 `device_secret`（见 `项目进度.md` 阻塞事项 B-01）。
 - 真机刷机与端到端语音对话（依赖 ESP32-S3 Sense 硬件时间）。
 - 儿童合规的 8 处缺口需法务/产品确认后转化为需求。
 
