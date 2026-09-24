@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import json
 import time
 
 import pytest
@@ -149,8 +148,8 @@ class TestAesCbcDecrypt:
     def test_known_vector(self) -> None:
         """使用已知的 AES-CBC 测试向量验证解密。"""
         try:
-            from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
             from cryptography.hazmat.primitives import padding as sym_padding
+            from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
             # AES-128-CBC with PKCS7 padding
             key = b"0123456789abcdef"

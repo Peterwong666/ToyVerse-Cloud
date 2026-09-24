@@ -70,8 +70,8 @@ def _hmac_sha256(key: bytes, content: str) -> bytes:
 
 
 def _aes_cbc_decrypt(key_16: bytes, ciphertext: bytes) -> bytes:
-    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
     from cryptography.hazmat.primitives import padding as sym_padding
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
     cipher = Cipher(algorithms.AES(key_16), modes.CBC(key_16))
     decryptor = cipher.decryptor()
@@ -277,11 +277,11 @@ async def connect_websocket(
 
         # ── P-B：音频上行 ──
         if audio_path:
-            print(f"\n--- P-B：音频上行 ---")
+            print("\n--- P-B：音频上行 ---")
             pcm_data = load_audio(audio_path)
             await send_audio(ws, pcm_data)
         elif text_message:
-            print(f"\n--- P-B：文本上行 ---")
+            print("\n--- P-B：文本上行 ---")
             await send_text(ws, text_message)
         else:
             print("\n[提示] 未指定输入，跳过 P-B")
@@ -306,7 +306,7 @@ async def send_text(ws, text: str) -> None:
     # 触发响应
     response_event = {"type": "response.create"}
     await ws.send(json.dumps(response_event))
-    print(f"[发送] response.create")
+    print("[发送] response.create")
 
     # 收集响应
     print("[等待] 等待响应...")
@@ -323,7 +323,7 @@ async def send_text(ws, text: str) -> None:
                 full_response += delta
 
             elif event_type == "response.text.done":
-                print(f"\n[文本] (完成)")
+                print("\n[文本] (完成)")
                 full_response = data.get("text", full_response)
 
             elif event_type == "response.audio.delta":
@@ -336,7 +336,7 @@ async def send_text(ws, text: str) -> None:
                     full_response += td
 
             elif event_type == "response.done":
-                print(f"\n[收到] response.done")
+                print("\n[收到] response.done")
                 # 从 response.done 提取最终文本
                 resp = data.get("response", {})
                 output = resp.get("output", [])
@@ -355,18 +355,18 @@ async def send_text(ws, text: str) -> None:
                 print(f"[收到] {event_type}")
 
         print(f"\n{'=' * 60}")
-        print(f"✅ P-B 文本验证成功！")
+        print("✅ P-B 文本验证成功！")
         print(f"发送: 「{text}」")
         print(f"回复: 「{full_response}」")
         print("=" * 60)
         await ws.close(1000)
 
-    except asyncio.TimeoutError:
-        print(f"\n❌ 等待超时（60秒）")
+    except TimeoutError:
+        print("\n❌ 等待超时（60秒）")
     except Exception as e:
         if "ConnectionClosed" in type(e).__name__ and full_response:
             print(f"\n{'=' * 60}")
-            print(f"✅ P-B 文本验证成功！（连接被服务端关闭，但已收到回复）")
+            print("✅ P-B 文本验证成功！（连接被服务端关闭，但已收到回复）")
             print(f"发送: 「{text}」")
             print(f"回复: 「{full_response}」")
             print(f"关闭原因: {e}")

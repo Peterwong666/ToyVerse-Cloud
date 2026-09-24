@@ -31,7 +31,6 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac as hmac_mod
-import json
 import os
 import time
 from typing import Any
@@ -69,8 +68,8 @@ def _aes_cbc_decrypt(key_16: bytes, ciphertext: bytes) -> bytes:
         return b""
 
     try:
-        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
         from cryptography.hazmat.primitives import padding as sym_padding
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
         cipher = Cipher(algorithms.AES(key_16), modes.CBC(key_16))
         decryptor = cipher.decryptor()
@@ -90,7 +89,7 @@ def _aes_cbc_decrypt(key_16: bytes, ciphertext: bytes) -> bytes:
 def _build_register_signature(
     product_secret: str,
     device_name: str,
-    random_num: str,
+    random_num: int,
     product_key: str,
     timestamp: int,
 ) -> str:
@@ -199,7 +198,7 @@ async def register_device_on_volcano(
             code=ErrorCode.VENDOR_UNAVAILABLE,
             message=f"火山 DynamicRegister 失败: {error_msg}",
             status_code=502,
-            detail={"volcano_code": code, "volcano_message": error_msg},
+            details={"volcano_code": code, "volcano_message": error_msg},
         )
 
     # 解密 device_secret（字段名小写 payload）

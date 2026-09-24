@@ -23,7 +23,7 @@ from fastapi import APIRouter, Body, Request
 from sqlalchemy import select
 
 from app.core.config import settings
-from app.core.deps import AuthContext, DbSession
+from app.core.deps import DbSession
 from app.core.errors import unauthenticated, vendor_unavailable
 from app.core.logging import get_logger
 from app.db.base import utcnow
@@ -35,7 +35,7 @@ from app.schemas.device import (
     DeviceRegisterRequest,
     DeviceRegisterResponse,
 )
-from app.services import heartbeat_service, device_register_service
+from app.services import device_register_service, heartbeat_service
 
 logger = get_logger(__name__)
 

@@ -65,6 +65,17 @@ os.environ.update(
         "AI_DEFAULT_PROVIDER": "mock",
         "MOCK_LATENCY_MS": "0",
         "CORS_ALLOWED_ORIGINS": "http://localhost",
+        # 厂商凭证一律钉空：测试不得依赖开发机 .env 里可能存在的真实密钥。
+        # 否则 ADR-07 的「未配置厂商必须安全失败」测试在配了密钥的机器上会
+        # 反向失败（volcano 变成 configured=True）。CI 无 .env，不受影响。
+        "JIXIAN_ACCESS_KEY": "",
+        "JIXIAN_SECRET_KEY": "",
+        "JOYINSIDE_ACCESS_KEY": "",
+        "JOYINSIDE_SECRET_KEY": "",
+        "VOLCANO_ACCESS_KEY": "",
+        "VOLCANO_SECRET_KEY": "",
+        "BAIDU_API_KEY": "",
+        "BAIDU_SECRET_KEY": "",
     }
 )
 
