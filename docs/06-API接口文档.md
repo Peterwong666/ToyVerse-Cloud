@@ -1,7 +1,7 @@
 # API 接口文档
 
 > **适用对象**：对接接口的前后端开发、联调与测试人员
-> **本文定位**：**145 个端点的完整清单** + 通用约定（认证 / 错误码 / 幂等 / 分页 / 追踪）+ WebSocket 协议 + 示例
+> **本文定位**：**146 个端点的完整清单** + 通用约定（认证 / 错误码 / 幂等 / 分页 / 追踪）+ WebSocket 协议 + 示例
 > **配套文档**：[`07-多租户与权限设计.md`](./07-多租户与权限设计.md)（54 个权限码详解）、[`05-数据模型与ER图.md`](./05-数据模型与ER图.md)（字段语义）、[`03-系统架构图.md`](./03-系统架构图.md)（分层与调用链）
 > **最后更新**：2026-09-17
 > **文档中标注说明**：✅ = 已实测或有代码原文可查（★ **第 `3.` 节的方法、路径与摘要在生成时已与 OpenAPI 快照双向核对**）；⚠️ = 未验证
@@ -20,16 +20,16 @@
 | 工厂端 | **9** | 同上（令牌含 `factoryId`） | **工厂**（跨租户） |
 | AI 调试台 | **6** | 同上 | — |
 | 鉴权与个人信息 | **6** | 部分公开（登录/刷新） | — |
-| 设备侧 | **1** | **不用 JWT**：`sn` + 设备密钥 | 设备自身 |
+| 设备侧 | **2** | **不用 JWT**：`sn` + 设备密钥 | 设备自身 |
 | 健康检查 | **2** | 公开 | — |
-| **合计** | **145** | | |
+| **合计** | **146** | | |
 
 **与契约快照的关系**：
 
 | 项 | 值 | 说明 |
 |---|---|---|
-| OpenAPI `paths` | **119** | 去重后的路径数（同一路径多个方法只算一条） |
-| OpenAPI operations | **145** | = 本表端点数；`get 72` / `post 52` / `put 13` / `delete 8`，**无 `patch`** |
+| OpenAPI `paths` | **120** | 去重后的路径数（同一路径多个方法只算一条） |
+| OpenAPI operations | **146** | = 本表端点数；`get 72` / `post 53` / `put 13` / `delete 8`，**无 `patch`** |
 | WebSocket | **1** | `WS /ws/miniapp/chat`，**不在 OpenAPI 内**（见 `## 4.`） |
 | 快照文件 | `tests/contract/openapi_snapshot.json` | ★ **在仓库根**，不在 `backend/` |
 
@@ -237,7 +237,7 @@ curl -X POST http://localhost:8000/api/v1/platform/allocations/{id}/execute \
 
 ---
 
-## 3. 端点清单（145 个）
+## 3. 端点清单（146 个）
 
 > 本节的**方法、路径与摘要在生成时已与 `tests/contract/openapi_snapshot.json` 双向核对**
 > （源码提取集合 == 快照集合，不一致则拒绝生成），因此不会与实现脱节。
@@ -440,11 +440,12 @@ curl -X POST http://localhost:8000/api/v1/platform/allocations/{id}/execute \
 | `GET` | `/api/v1/me` | 当前登录用户 | — | 登录用户（任意后台角色） |
 | `POST` | `/api/v1/me/password` | 修改密码 | — | 登录用户（任意后台角色） |
 
-### 3.12 设备侧（无 JWT）（1）
+### 3.12 设备侧（无 JWT）（2）
 
 | 方法 | 路径 | 说明 | 权限码 | 认证 |
 |---|---|---|---|---|
 | `POST` | `/api/v1/device/heartbeat` | 设备心跳上报 | — | — |
+| `POST` | `/api/v1/device/register` | 设备注册（Route B 后端代注册）：SN + 密钥摘要换取火山 `device_secret`，`product_secret` 不出后端 | — | — |
 
 ### 3.13 健康检查（2）
 
@@ -453,7 +454,7 @@ curl -X POST http://localhost:8000/api/v1/platform/allocations/{id}/execute \
 | `GET` | `/api/v1/health` | 存活探针 | — | — |
 | `GET` | `/api/v1/health/ready` | 就绪探针 | — | — |
 
-**合计 145 个 HTTP 端点。**
+**合计 146 个 HTTP 端点。**
 
 ### 3.14 WebSocket（1 个，不在 OpenAPI 内）
 
@@ -792,7 +793,7 @@ flowchart LR
       不一致则拒绝生成文档
 ```
 
-结果：**源码 145 == 快照 145，差集为空**。
+结果：**源码 146 == 快照 146，差集为空**。
 因此本文档的端点清单不可能与实现脱节。
 
 ### 6.4 在线文档
@@ -813,7 +814,7 @@ flowchart LR
 2. **WebSocket 的二进制音频帧未在本文档覆盖**：`user.audio` / `assistant.audio` 的编码细节
    以 `backend/app/realtime/ws_chat.py` 为准，且**前端尚未实现录音与播放**。
 3. **NDJSON 的 `error` 事件字段可能与 HTTP 错误体不完全一致**（`## 4.5` 只列了常见取值）。
-4. **未列出每个端点的完整请求/响应 schema**：145 个端点的 schema 以
+4. **未列出每个端点的完整请求/响应 schema**：146 个端点的 schema 以
    `tests/contract/openapi_snapshot.json` 与 `/docs` 为准，本文档只列端点与关键示例。
 5. **`## 1.7` 的「时间均为 UTC」有一个已知例外**：运营快照按 UTC 日期归档，
    与商户本地日期可能差一天（凌晨 8 点前尤为明显）。这是已登记的遗留问题。

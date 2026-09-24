@@ -4571,6 +4571,68 @@
         "title": "DeviceHeartbeatResponse",
         "type": "object"
       },
+      "DeviceRegisterRequest": {
+        "description": "设备注册请求（后端代注册 Route B）。\n\n★ 设备侧端点，不挂 JWT。鉴权方式与心跳一致：SN + 平台签发的 DEVICE_SECRET。\n设备用此接口换取火山 ``device_secret``，用于连接 WebSocket 标准协议。",
+        "properties": {
+          "secret": {
+            "description": "平台签发的设备密钥明文",
+            "maxLength": 256,
+            "minLength": 8,
+            "title": "Secret",
+            "type": "string"
+          },
+          "sn": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Sn",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sn",
+          "secret"
+        ],
+        "title": "DeviceRegisterRequest",
+        "type": "object"
+      },
+      "DeviceRegisterResponse": {
+        "description": "设备注册结果。",
+        "properties": {
+          "deviceId": {
+            "description": "平台设备 ID",
+            "title": "Deviceid",
+            "type": "string"
+          },
+          "deviceSecret": {
+            "description": "火山 device_secret，用于 WebSocket 鉴权",
+            "title": "Devicesecret",
+            "type": "string"
+          },
+          "instanceId": {
+            "description": "火山 IoT 实例 ID",
+            "title": "Instanceid",
+            "type": "string"
+          },
+          "productKey": {
+            "description": "火山产品标识符",
+            "title": "Productkey",
+            "type": "string"
+          },
+          "sn": {
+            "title": "Sn",
+            "type": "string"
+          }
+        },
+        "required": [
+          "deviceId",
+          "sn",
+          "deviceSecret",
+          "instanceId",
+          "productKey"
+        ],
+        "title": "DeviceRegisterResponse",
+        "type": "object"
+      },
       "DeviceResponse": {
         "description": "设备列表项。\n\n**刻意不含名称类字段**（``tenantName`` / ``tenantCode`` / ``clientProductName``）：\n列表页的租户与产品下拉本来就由各自的接口提供，前端已用「id → 名称」映射渲染。\n若这里再带一份名称，就会出现两套来源——下拉改名后列表还显示旧名，\n是典型的「看起来对的脏数据」。因此名称只在\n:class:`DeviceDetailResponse` 里出现（那里是单条记录，需要自解释）。\n\n这里给出的是**原始 id**：``tenantId`` 为空表示平台自有库存（尚未分配给租户）。",
         "properties": {
@@ -12938,6 +13000,57 @@
           }
         },
         "summary": "设备心跳上报",
+        "tags": [
+          "设备侧"
+        ]
+      }
+    },
+    "/api/v1/device/register": {
+      "post": {
+        "description": "设备首次上电时调用，用平台签发的 `sn` + `secret` 换取火山 `device_secret`。\n\n**鉴权方式**：与心跳一致，SN + 密钥摘要比对，不挂 JWT。\n\n**流程**：后端验证设备凭证 → 调用火山 `DynamicRegister` → 解密得到 `device_secret` → 返回给设备。设备应将 `device_secret` 持久化到 NVS，避免每次重启都重新注册。\n\n**幂等**：若设备已有 `device_secret`（NVS 缓存），建议直接使用，不必重复调用本接口。",
+        "operationId": "register_device_api_v1_device_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceRegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceRegisterResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "设备未签发密钥 / 密钥校验失败"
+          },
+          "404": {
+            "description": "设备不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "火山 IoT 凭证未配置（VOLCANO_IOT_*）"
+          }
+        },
+        "summary": "设备注册（后端代注册火山 device_secret）",
         "tags": [
           "设备侧"
         ]
