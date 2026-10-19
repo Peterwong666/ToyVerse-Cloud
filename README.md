@@ -87,7 +87,7 @@
 ### 方式一：Docker（推荐）
 
 ```bash
-git clone <repo-url> && cd saas_ai_toy_platform
+git clone https://github.com/Peterwong666/ToyVerse-Cloud.git && cd ToyVerse-Cloud
 cp .env.example .env
 # ⚠️ 必做：替换 .env 中的 6 项（.env.example 里是【带弱标记的占位符】，不替换则服务拒绝启动）
 #   密钥类   JWT_SECRET_KEY（≥32 字节）、QR_SIGN_SECRET（≥16 字节）
@@ -104,7 +104,7 @@ docker compose up -d --build
 前置条件：**Python 3.12+**（无需 Node.js —— 前端为零构建 ES Module）
 
 ```bash
-git clone <repo-url> && cd saas_ai_toy_platform
+git clone https://github.com/Peterwong666/ToyVerse-Cloud.git && cd ToyVerse-Cloud
 cp .env.example .env
 
 # ⚠️ 必做：把 .env 里这 6 项替换为强随机值。
@@ -246,7 +246,7 @@ flowchart TB
 ## 项目结构
 
 ```
-saas_ai_toy_platform/
+ToyVerse-Cloud/
 ├── backend/              # FastAPI 后端
 │   ├── app/
 │   │   ├── core/         # 配置、鉴权、依赖注入、错误码、日志

@@ -26,8 +26,8 @@
 - **无需 Node.js** —— 前端为零构建 ES Module
 
 ```bash
-git clone <repo-url>
-cd saas_ai_toy_platform
+git clone https://github.com/Peterwong666/ToyVerse-Cloud.git
+cd ToyVerse-Cloud
 cp .env.example .env    # 必须设置 PLATFORM_ADMIN_PASSWORD 等强密码
 make setup              # 创建虚拟环境 + 安装依赖 + 迁移 + 演示数据
 make dev
