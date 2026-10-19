@@ -90,14 +90,16 @@ jobs:
       # ★ `--ignore=tests/e2e`：`pytest -q` **本来就会收集 e2e**，
       #   不排除的话 e2e 会被跑两遍（本项目最初就是这样，白等约 5 分钟）。
       #
-      # ★ `--cov-fail-under=65`：覆盖率**下限**，不是目标。
-      #   本机实测为 70%（见 docs/11），留 5 个点余量避免环境抖动误报；
-      #   它的作用是**阻止覆盖率继续下滑**——这个项目在 P11 才发现
-      #   「804 个用例全绿但覆盖率只有 70%」，而当时没有任何机制会提醒。
+      # ★ `--cov-fail-under=75`：覆盖率**下限**，不是目标。
+      #   本机实测为 76%（见 docs/11）；它的作用是**阻止覆盖率继续下滑**——
+      #   这个项目在 P11 才发现「804 个用例全绿但覆盖率只有 70%」，
+      #   而当时没有任何机制会提醒。
+      #   T3 把 ai_config / metrics / ota 三个核心服务补到 97%+ 后，
+      #   下限由 65 上调到 75，把这次提升固化下来。
       - name: 运行单元与集成测试（带覆盖率下限）
         run: >
           cd backend && python -m pytest -q --ignore=tests/e2e
-          --cov=app --cov-report=term-missing --cov-fail-under=65
+          --cov=app --cov-report=term-missing --cov-fail-under=75
 
       - name: 端到端全闭环
         run: cd backend && python -m pytest tests/e2e -q
