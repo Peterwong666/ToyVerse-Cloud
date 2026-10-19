@@ -5,7 +5,7 @@
 本脚本把这类「不一致」变成红灯，与 `make fe-check`（前端导入契约）、
 `make openapi-check`（接口契约）是同一套思路。
 
-七类校验
+九类校验
 --------
 1. **端点**：`docs/06` 的端点表格与 `tests/contract/openapi_snapshot.json` 逐条比对
    （方法 + 路径），并要求文档声明的总数与快照一致。
@@ -15,8 +15,12 @@
 4. **权限码**：`docs/07` 里出现的权限码值全部在 `permissions.py` 注册。
 5. **枚举值**：`docs/05` 状态枚举小节里的每个枚举值都是 `enums.py` 里真实存在的成员。
 6. **引用可解析**：文档里引用的 `make <target>` / `scripts/<file>` / 相对文档链接真实存在。
-7. **文档规范**：每份 `docs/NN-*.md` 都含「已知局限 / 取证边界」小节；
+7. **测试计数**：`docs/11` 的逐文件用例数、分组文件数/函数数与源码 `def test_` 统计一致。
+8. **文档规范**：每份 `docs/NN-*.md` 都含「已知局限 / 取证边界」小节；
    且任何文档都不含 `learning/` 路径。
+9. **README 规模数字**：README 里的用例数 / 测试函数数 / 端点数 / docs 篇数 /
+   mypy 文件数 / 被跟踪文件数与实测口径逐一比对（README 是读者看到的第一份
+   文档，最容易悄悄过期，因此单独设一类门禁）。
 
 用法
 ----
@@ -28,6 +32,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -36,6 +41,7 @@ DOCS = ROOT / "docs"
 BACKEND = ROOT / "backend"
 SNAPSHOT = ROOT / "tests/contract/openapi_snapshot.json"
 MAKEFILE = ROOT / "Makefile"
+README = ROOT / "README.md"
 
 METHODS = ("GET", "POST", "PUT", "DELETE", "PATCH")
 
@@ -373,6 +379,99 @@ def check_doc_conventions() -> None:
         ok(f"文档规范：{len(numbered)} 份文档均含边界声明，且无 learning/ 内部路径引用")
 
 
+# ---------------------------------------------------------------------------
+# README 规模数字的事实来源
+# ---------------------------------------------------------------------------
+def collect_pytest_total() -> int:
+    """`pytest --collect-only -q` 收集到的用例总数（含参数化展开）。"""
+    proc = subprocess.run(
+        [sys.executable, "-m", "pytest", "--collect-only", "-q"],
+        cwd=BACKEND,
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    m = re.search(r"^(\d+) tests? collected", proc.stdout, re.M)
+    if proc.returncode != 0 or not m:
+        fail(f"pytest --collect-only 执行失败，无法核实用例总数：{proc.stdout[-200:]}")
+        return -1
+    return int(m.group(1))
+
+
+def count_tracked_files() -> int:
+    """git 跟踪文件总数（与敏感信息扫描同一口径）。"""
+    proc = subprocess.run(
+        ["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, timeout=30
+    )
+    if proc.returncode != 0:
+        fail(f"git ls-files 执行失败，无法核实被跟踪文件数：{proc.stderr.strip()}")
+        return -1
+    return len([line for line in proc.stdout.splitlines() if line.strip()])
+
+
+def count_mypy_files() -> int:
+    """mypy strict 覆盖的源文件数（backend/app 下全部 .py，与 mypy 配置口径一致）。"""
+    return len(list((BACKEND / "app").rglob("*.py")))
+
+
+def check_readme_metrics(snapshot: set[tuple[str, str]]) -> None:
+    """README 里的规模数字必须与实测口径一致。
+
+    每类声明都要求**能匹配到**（行文改动导致正则落空同样算失败，防止校验悄悄失效），
+    且每一处出现的数字都要等于实测值。
+    """
+    if not README.exists():
+        fail("缺少 README.md")
+        return
+    text = README.read_text(encoding="utf-8")
+
+    facts = {
+        "tests": collect_pytest_total(),
+        "test_funcs": sum(load_test_counts().values()),
+        "mypy_files": count_mypy_files(),
+        "endpoints": len(snapshot),
+        "paths": len({path for _, path in snapshot}),
+        "docs": len([p for p in DOCS.glob("*.md") if DOC_PATTERN.match(p.name)]),
+        "tracked": count_tracked_files(),
+    }
+    # (声明位置, 正则, 捕获组对应的事实键)；正则捕获组顺序必须与事实键一一对应。
+    claims: list[tuple[str, str, tuple[str, ...]]] = [
+        ("Tests badge", r"badge/tests-(\d+)%20passed", ("tests",)),
+        ("docs badge", r"badge/docs-(\d+)%20篇", ("docs",)),
+        (
+            "规模表 HTTP 端点行",
+            r"HTTP 端点\s*\|\s*\*\*(\d+)\*\*（OpenAPI `paths` (\d+)）",
+            ("endpoints", "paths"),
+        ),
+        ("规模表测试行", r"\*\*(\d+)\*\* 个测试函数 / \*\*(\d+)\*\* 个用例", ("test_funcs", "tests")),
+        ("项目结构 docs 行", r"完整文档集（(\d+) 篇", ("docs",)),
+        ("文档表端点表", r"\*\*(\d+) 个端点表\*\*", ("endpoints",)),
+        ("make test 注释", r"全部测试（(\d+) passed）", ("tests",)),
+        ("实测状态测试行", r"\*\*(\d+) passed\*\*（(\d+) 个测试函数", ("tests", "test_funcs")),
+        ("mypy 源文件数", r"mypy \*\*strict\*\*，(\d+) 个源文件", ("mypy_files",)),
+        ("被跟踪文件数", r"(\d+) 个被跟踪文件", ("tracked",)),
+        ("「N passed」警示语", r"\*\*「(\d+) passed」", ("tests",)),
+    ]
+    for label, pattern, keys in claims:
+        matches = re.findall(pattern, text)
+        if not matches:
+            fail(f"README 未找到「{label}」声明（正则 {pattern!r} 无匹配，行文可能已改动）")
+            continue
+        for m in matches:
+            got = m if isinstance(m, tuple) else (m,)
+            want = tuple(str(facts[k]) for k in keys)
+            if got != want:
+                fail(
+                    f"README 的「{label}」数字漂移：写的是 {'/'.join(got)}，"
+                    f"实测 {'/'.join(want)}"
+                )
+    ok(
+        f"README 规模数字：{len(claims)} 类声明与实测一致"
+        f"（用例 {facts['tests']} / 函数 {facts['test_funcs']} / 端点 {facts['endpoints']} / "
+        f"docs {facts['docs']} 篇 / mypy {facts['mypy_files']} 文件 / 跟踪 {facts['tracked']} 文件）"
+    )
+
+
 def main() -> int:
     verbose = "-v" in sys.argv or "--verbose" in sys.argv
     if not SNAPSHOT.exists():
@@ -394,6 +493,7 @@ def main() -> int:
     check_references(targets)
     check_test_counts()
     check_doc_conventions()
+    check_readme_metrics(snapshot)
 
     if failures:
         print(f"\n✘ 文档一致性校验未通过（{len(failures)} 项）：\n")

@@ -188,7 +188,7 @@ fe-check: ## 校验前端 ES Module 导入契约（路径与具名导出）
 	@$(PY) scripts/verify_frontend_imports.py
 
 .PHONY: docs-check
-docs-check: ## 校验文档与代码是否一致（端点 / 表 / 错误码 / 权限码 / 枚举 / 引用 / 边界声明）
+docs-check: ## 校验文档与代码是否一致（端点 / 表 / 错误码 / 权限码 / 枚举 / 引用 / 测试计数 / 边界声明 / README 规模数字）
 	@$(PY) scripts/check_docs.py
 
 .PHONY: docs-check-v
