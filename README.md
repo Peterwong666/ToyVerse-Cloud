@@ -264,10 +264,8 @@ ToyVerse-Cloud/
 │   └── pages/            # 平台端 / 商户端 / 工厂端 / 终端用户端页面
 ├── deploy/               # Docker 与 Nginx 部署配置
 ├── scripts/              # 冒烟、敏感信息扫描、二维码、契约导出、文档一致性等脚本
-├── docs/                 # 完整文档集（14 篇，含 assets/ 截图）
-├── tests/contract/       # OpenAPI 契约快照
-├── todolist.md           # 任务清单
-└── 项目进度.md            # 进度追踪
+├── docs/                 # 完整文档集（14 篇，含 assets/ 截图与 process/ 过程台账）
+└── tests/contract/       # OpenAPI 契约快照
 ```
 
 > `learning/`（学习手册，20 个文件 / 8177 行）已在 `.gitignore` 中排除，**不上传仓库**。
