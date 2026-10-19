@@ -1,0 +1,63 @@
+name: 缺陷报告
+description: 报告一个可复现的缺陷
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢报告缺陷。请先搜索已有 issue 避免重复；
+        涉及安全漏洞请**不要**公开提交，改按 [SECURITY.md](../../SECURITY.md) 的渠道报告。
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 缺陷描述
+      description: 发生了什么？期望的行为是什么？
+      placeholder: 例如：商户端删除产品后，设备列表仍显示该产品下的设备……
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 复现步骤
+      description: 给出最小可复现路径（命令 / 请求 / 界面操作均可）
+      placeholder: |
+        1. `make dev` 启动服务
+        2. 登录商户端，进入「我的设备」
+        3. ……
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: 影响端
+      description: 缺陷主要影响哪一端？
+      options:
+        - 平台端（platform）
+        - 商户端（merchant）
+        - 工厂端（factory）
+        - 终端用户端（miniapp）
+        - 后端 API / 数据库
+        - 部署 / CI / 工具链
+        - 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境信息
+      description: 操作系统、Python 版本、运行方式（本地 / Docker）、数据库（SQLite / PostgreSQL）
+      placeholder: macOS 15，Python 3.12，make dev 本地运行，SQLite
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 相关日志 / 截图
+      description: 报错堆栈、HTTP 响应、控制台输出等（注意脱敏，不要贴密钥或口令）
+      render: text
