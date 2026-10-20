@@ -134,7 +134,7 @@ jobs:
           JWT_SECRET_KEY: "ci-only-secret-key-at-least-32-bytes-long-000000"
 
       # 对应 `make docs-check`：文档会悄悄过期，因此把它也变成红灯。
-      # 校验端点 / 表 / 错误码 / 权限码 / 枚举值 / 引用 / 测试计数 / 边界声明八类一致性。
+      # 校验端点 / 表 / 错误码 / 权限码 / 枚举值 / 引用 / 测试计数 / 边界声明 / README 规模数字九类一致性。
       # 注意：本步不构造 app，因此不需要上面的口令环境变量。
       - name: 校验文档与代码一致
         run: python scripts/check_docs.py -v
@@ -178,3 +178,26 @@ jobs:
       # 那类口令），且 `.env` / `data/` / `learning/` 没有被 git 跟踪。
       - name: 扫描弱口令与敏感信息
         run: python scripts/scan_secrets.py
+
+  # ----------------------------------------------------------
+  # 6) 依赖漏洞扫描（pip-audit，warn-only）
+  # ----------------------------------------------------------
+  deps-audit:
+    name: 依赖漏洞扫描（pip-audit，仅告警）
+    runs-on: ubuntu-latest
+    # 刻意 continue-on-error：本 job 的作用是**让漏洞可见**，不是阻断合并——
+    # 间接依赖的 CVE 经常没有可用修复版本，阻断只会培养出
+    # 「随手关掉检查」的习惯。升级决策交给 Dependabot PR 的人工评审。
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 安装 pip-audit
+        run: pip install pip-audit
+
+      - name: 扫描运行时与开发依赖
+        run: pip-audit -r backend/requirements.txt -r backend/requirements-dev.txt

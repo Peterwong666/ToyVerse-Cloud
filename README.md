@@ -6,9 +6,9 @@
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-D71F00.svg)](https://www.sqlalchemy.org/)
-[![Tests](https://img.shields.io/badge/tests-814%20passed-brightgreen.svg)](#测试与质量保障)
+[![Tests](https://img.shields.io/badge/tests-828%20passed-brightgreen.svg)](#测试与质量保障)
 [![Coverage](https://img.shields.io/badge/coverage-70%25-yellow.svg)](#测试与质量保障)
-[![Documentation](https://img.shields.io/badge/docs-14%20篇-blue.svg)](./docs/)
+[![Documentation](https://img.shields.io/badge/docs-16%20篇-blue.svg)](./docs/)
 
 ---
 
@@ -87,7 +87,7 @@
 ### 方式一：Docker（推荐）
 
 ```bash
-git clone <repo-url> && cd saas_ai_toy_platform
+git clone https://github.com/Peterwong666/ToyVerse-Cloud.git && cd ToyVerse-Cloud
 cp .env.example .env
 # ⚠️ 必做：替换 .env 中的 6 项（.env.example 里是【带弱标记的占位符】，不替换则服务拒绝启动）
 #   密钥类   JWT_SECRET_KEY（≥32 字节）、QR_SIGN_SECRET（≥16 字节）
@@ -104,7 +104,7 @@ docker compose up -d --build
 前置条件：**Python 3.12+**（无需 Node.js —— 前端为零构建 ES Module）
 
 ```bash
-git clone <repo-url> && cd saas_ai_toy_platform
+git clone https://github.com/Peterwong666/ToyVerse-Cloud.git && cd ToyVerse-Cloud
 cp .env.example .env
 
 # ⚠️ 必做：把 .env 里这 6 项替换为强随机值。
@@ -235,18 +235,18 @@ flowchart TB
 
 | 项 | 数值 |
 |---|---|
-| HTTP 端点 | **145**（OpenAPI `paths` 119）+ WebSocket 1 |
+| HTTP 端点 | **146**（OpenAPI `paths` 120）+ WebSocket 1 |
 | 数据库表 | **46**（15 个迁移版本） |
 | 权限码 / 错误码 / 内置角色 | **54** / **31** / **6** |
 | 前端模块 | 页面 **45** + 共享 **28**（零构建） |
-| 测试 | **553** 个测试函数 / **814** 个用例 |
+| 测试 | **567** 个测试函数 / **828** 个用例 |
 
 ---
 
 ## 项目结构
 
 ```
-saas_ai_toy_platform/
+ToyVerse-Cloud/
 ├── backend/              # FastAPI 后端
 │   ├── app/
 │   │   ├── core/         # 配置、鉴权、依赖注入、错误码、日志
@@ -264,10 +264,8 @@ saas_ai_toy_platform/
 │   └── pages/            # 平台端 / 商户端 / 工厂端 / 终端用户端页面
 ├── deploy/               # Docker 与 Nginx 部署配置
 ├── scripts/              # 冒烟、敏感信息扫描、二维码、契约导出、文档一致性等脚本
-├── docs/                 # 完整文档集（14 篇，含 assets/ 截图）
-├── tests/contract/       # OpenAPI 契约快照
-├── todolist.md           # 任务清单
-└── 项目进度.md            # 进度追踪
+├── docs/                 # 完整文档集（16 篇，含 assets/ 截图与 process/ 过程台账）
+└── tests/contract/       # OpenAPI 契约快照
 ```
 
 > `learning/`（学习手册，20 个文件 / 8177 行）已在 `.gitignore` 中排除，**不上传仓库**。
@@ -284,7 +282,7 @@ saas_ai_toy_platform/
 | [系统架构图](./docs/03-系统架构图.md) | 分层架构、部署拓扑、技术选型理由与**替代方案对比** |
 | [产品需求文档 PRD](./docs/04-产品需求文档PRD.md) | 角色、术语表、页面清单、权限矩阵、非功能需求 |
 | [数据模型与 ER 图](./docs/05-数据模型与ER图.md) | 分域 ER 图、**46 张表 × 655 个字段**字典、索引设计 |
-| [API 接口文档](./docs/06-API接口文档.md) | 通用约定、31 个错误码、**145 个端点表**、WebSocket 协议 |
+| [API 接口文档](./docs/06-API接口文档.md) | 通用约定、31 个错误码、**146 个端点表**、WebSocket 协议 |
 | [多租户与权限设计](./docs/07-多租户与权限设计.md) | 隔离层级、**54 个权限码**、越权测试策略、脱敏规则 |
 | [AI 能力接入设计](./docs/08-AI能力接入设计.md) | Provider 抽象、四层解析、离线引擎、厂商接入指引 |
 | [系统交付标准](./docs/09-系统交付标准.md) | **逐条可勾选**的验收清单、性能 SLO、安全基线、缺陷等级 |
@@ -293,6 +291,8 @@ saas_ai_toy_platform/
 | [项目复盘](./docs/12-项目复盘.md) | 架构演进、关键问题与解法、度量结果、经验沉淀 |
 | [火山引擎硬件对话智能体配置说明](./docs/13-火山引擎硬件对话智能体配置说明.md) | 控制台配置、设备端接入路径、服务端 API（含取证边界） |
 | [ESP32-S3 刷机与联调步骤清单](./docs/14-ESP32-S3刷机与联调步骤清单.md) | 真机联调执行清单与失败速查 F-01~F-10 |
+| [重要信息快查及回滚手册](./docs/15-重要信息快查及回滚手册.md) | 真机与工具链「一页速查」、出事怎么退回去的回滚手册 |
+| [火山标准协议设备端接入方案与改动清单](./docs/16-火山标准协议设备端接入方案与改动清单.md) | 不走官方 SDK、用 WebSocket 标准协议接入硬件对话智能体的协议规格与改动清单 |
 
 ---
 
@@ -308,7 +308,7 @@ make lint          # 代码检查
 make format        # 代码格式化
 make check         # 检查 + 类型检查 + 测试 + 契约 + 文档一致性
 make openapi       # 导出 OpenAPI 契约快照
-make docs-check    # 校验文档与代码是否一致（八类）
+make docs-check    # 校验文档与代码是否一致（九类）
 make smoke         # 对运行中的服务冒烟测试
 make up / down     # Docker 启停
 ```
@@ -318,7 +318,7 @@ make up / down     # Docker 启停
 ## 测试与质量保障
 
 ```bash
-make test              # 全部测试（814 passed）
+make test              # 全部测试（828 passed）
 make test-unit         # 单元测试
 make test-integration  # 集成测试（含租户隔离矩阵）
 make test-e2e          # 端到端全闭环
@@ -330,14 +330,14 @@ make docs-check        # 文档一致性门禁
 
 | 项 | 实测 |
 |---|---|
-| 测试 | **814 passed**（553 个测试函数；差额来自参数化展开） |
-| 类型检查 | mypy **strict**，95 个源文件无问题 |
+| 测试 | **828 passed**（567 个测试函数；差额来自参数化展开） |
+| 类型检查 | mypy **strict**，96 个源文件无问题 |
 | **代码覆盖率** | ⚠️ **70%**（`ai_config_service` / `metrics_service` / `ota_service` 低于 31%） |
 | 接口契约 | 实现与快照一致（自建门禁，改端点连 `docstring` 都会让快照过期） |
-| 文档一致性 | 八类校验通过（端点 / 表 / 错误码 / 权限码 / 枚举值 / 引用 / 测试计数 / 边界声明） |
-| 敏感信息扫描 | 247 个被跟踪文件 **0 命中** |
+| 文档一致性 | 九类校验通过（端点 / 表 / 错误码 / 权限码 / 枚举值 / 引用 / 测试计数 / 边界声明 / README 规模数字） |
+| 敏感信息扫描 | 292 个被跟踪文件 **0 命中** |
 
-> ⚠️ **「814 passed」不等于「测试充分」**：覆盖率只有 70%，
+> ⚠️ **「828 passed」不等于「测试充分」**：覆盖率只有 70%，
 > 且三个 P9 服务低于 31%。原因与改进方向见 [`docs/11-测试与质量保障.md`](./docs/11-测试与质量保障.md)。
 
 ---

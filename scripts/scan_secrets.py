@@ -94,7 +94,7 @@ WEAK_ASSIGN_RE = re.compile(
 #: 允许出现上述词的文件（写的是**反例**、**规则表**或**测试夹具**）
 WEAK_PASSWORD_ALLOWLIST = {
     "scripts/scan_secrets.py",           # 本文件自身（规则来源）
-    "todolist.md",                       # 附录 B 记录历史弱口令问题
+    "docs/process/todolist.md",          # 附录 B 记录历史弱口令问题
     "CHANGELOG.md",                      # 修复记录里点名
     "SECURITY.md",                       # 安全说明里列反例
     "backend/app/core/config.py",        # 弱口令校验的**规则表**本身
@@ -133,8 +133,8 @@ SECRET_ALLOWLIST = {
     "SECURITY.md",
     "CONTRIBUTING.md",
     "CHANGELOG.md",
-    "todolist.md",
-    "项目进度.md",
+    "docs/process/todolist.md",
+    "docs/process/项目进度.md",
     "docs/13-火山引擎硬件对话智能体配置说明.md",
     "docs/14-ESP32-S3刷机与联调步骤清单.md",
 }

@@ -26,8 +26,8 @@
 - **无需 Node.js** —— 前端为零构建 ES Module
 
 ```bash
-git clone <repo-url>
-cd saas_ai_toy_platform
+git clone https://github.com/Peterwong666/ToyVerse-Cloud.git
+cd ToyVerse-Cloud
 cp .env.example .env    # 必须设置 PLATFORM_ADMIN_PASSWORD 等强密码
 make setup              # 创建虚拟环境 + 安装依赖 + 迁移 + 演示数据
 make dev
@@ -132,7 +132,7 @@ make coverage          # 查看覆盖率
 
 1. 从 `main` 创建分支：`git checkout -b feat/device-freeze`
 2. 完成开发，确保 `make check` 全绿（lint + typecheck + test）
-3. 同步更新文档（`docs/`）与任务清单（`todolist.md`、`项目进度.md`）
+3. 同步更新文档（`docs/`）与任务清单（`docs/process/todolist.md`、`docs/process/项目进度.md`）
 4. 若变更了 API，运行 `make openapi` 更新契约快照并一并提交
 5. 提交 PR，描述中说明：**变更内容、原因、测试方式、影响的端**
 6. 等待评审通过后合并

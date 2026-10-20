@@ -1,7 +1,7 @@
 # ToyVerse Cloud 项目任务清单（todolist）
 
 > **项目**：多租户 AI 智能玩具 SaaS 平台
-> **目录**：`/home/peter/py/saas_ai_toy_platform`
+> **目录**：`ToyVerse-Cloud`（仓库根目录）
 > **技术栈**：Python 3.12 + FastAPI + SQLAlchemy 2.0 + Pydantic v2 + Alembic + SQLite（默认）/ PostgreSQL（可选）；前端零构建 ES Module
 > **创建日期**：2026-09-16
 > **配套文件**：[`项目进度.md`](./项目进度.md)（实时进度追踪）
