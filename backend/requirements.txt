@@ -15,7 +15,7 @@ pydantic-settings>=2.6.0,<3.0.0
 email-validator>=2.2.0,<3.0.0
 
 # ---------- 数据库 ----------
-SQLAlchemy[asyncio]>=2.0.36,<2.1.0
+SQLAlchemy[asyncio]>=2.1.5,<2.2.0
 alembic>=1.13.3,<2.0.0
 # 默认 SQLite 驱动（零配置）
 aiosqlite>=0.20.0,<0.21.0
