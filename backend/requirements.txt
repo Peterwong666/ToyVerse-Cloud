@@ -12,7 +12,7 @@ websockets>=13.1,<14.0
 # ---------- 数据校验与配置 ----------
 pydantic>=2.9.0,<3.0.0
 pydantic-settings>=2.6.0,<3.0.0
-email-validator>=2.2.0,<3.0.0
+email-validator>=2.3.0,<3.0.0
 
 # ---------- 数据库 ----------
 SQLAlchemy[asyncio]>=2.0.36,<2.1.0
