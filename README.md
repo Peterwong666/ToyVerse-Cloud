@@ -6,8 +6,8 @@
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-D71F00.svg)](https://www.sqlalchemy.org/)
-[![Tests](https://img.shields.io/badge/tests-969%20passed-brightgreen.svg)](#测试与质量保障)
-[![Coverage](https://img.shields.io/badge/coverage-76%25-yellow.svg)](#测试与质量保障)
+[![Tests](https://img.shields.io/badge/tests-828%20passed-brightgreen.svg)](#测试与质量保障)
+[![Coverage](https://img.shields.io/badge/coverage-70%25-yellow.svg)](#测试与质量保障)
 [![Documentation](https://img.shields.io/badge/docs-16%20篇-blue.svg)](./docs/)
 
 ---
@@ -18,7 +18,7 @@
 
 > ⚠️ **先读这一条，避免误解**：这是一个**作品集项目**，功能闭环完整且经过真实服务验收，
 > 但**尚未与真实厂商联调**（AI 与设备链路走的是内置离线引擎）、**未实现儿童数据合规**
-> （PIPL / COPPA，涉及儿童语音数据）、**代码覆盖率 76%**（仍非充分）、
+> （PIPL / COPPA，涉及儿童语音数据）、**代码覆盖率 70%**、
 > 压测**只有一轮单机短测**（不能当容量规划依据）。
 > 上线前必须补齐的部分见 [已知局限](#已知局限) 与 [`SECURITY.md`](./SECURITY.md)。
 
@@ -32,6 +32,24 @@
 **AI 能力**（语音识别 / 大模型对话 / 语音合成）通过统一的 `AIProvider` 抽象接入，内置**完全离线的模拟引擎**——无需任何厂商密钥即可跑通全流程；切换到真实厂商只需填写 `.env` 中的密钥。
 
 ---
+
+## 在线演示
+
+- **演示站点**（Render 免费套餐，一体化容器：FastAPI + 前端静态托管 + SQLite）：<https://toyverse-cloud.onrender.com>
+- **健康检查**：<https://toyverse-cloud.onrender.com/api/v1/health>
+
+**演示账号**（统一密码 `ToyVerse@Demo2026`，仅限演示环境）：
+
+| 端 | 账号 |
+|---|---|
+| 平台端 | `admin` |
+| 商户端 | `13812345679` |
+| 工厂端 | `13600000000` |
+
+> 免费套餐闲时自动休眠，首次访问需等待约 50 秒冷启动；数据存于容器内 SQLite，
+> 每次重新部署都会由入口脚本重新迁移并写入演示数据（即数据会定期重置）。
+> 演示环境以 `APP_ENV=staging` 运行：保留演示数据与 mock 短信/支付通道以便体验完整流程；
+> 生产部署请务必使用 `APP_ENV=production`（启动期安全校验会强制关闭上述演示能力）。
 
 ## 界面预览
 
@@ -239,7 +257,7 @@ flowchart TB
 | 数据库表 | **46**（15 个迁移版本） |
 | 权限码 / 错误码 / 内置角色 | **54** / **31** / **6** |
 | 前端模块 | 页面 **45** + 共享 **28**（零构建） |
-| 测试 | **708** 个测试函数 / **969** 个用例 |
+| 测试 | **567** 个测试函数 / **828** 个用例 |
 
 ---
 
@@ -318,7 +336,7 @@ make up / down     # Docker 启停
 ## 测试与质量保障
 
 ```bash
-make test              # 全部测试（969 passed）
+make test              # 全部测试（828 passed）
 make test-unit         # 单元测试
 make test-integration  # 集成测试（含租户隔离矩阵）
 make test-e2e          # 端到端全闭环
@@ -330,16 +348,15 @@ make docs-check        # 文档一致性门禁
 
 | 项 | 实测 |
 |---|---|
-| 测试 | **969 passed**（708 个测试函数；差额来自参数化展开） |
+| 测试 | **828 passed**（567 个测试函数；差额来自参数化展开） |
 | 类型检查 | mypy **strict**，96 个源文件无问题 |
-| **代码覆盖率** | **76%**（T3 已把 `ai_config_service` / `metrics_service` / `ota_service` 补到 97%+，CI 下限 75） |
+| **代码覆盖率** | ⚠️ **70%**（`ai_config_service` / `metrics_service` / `ota_service` 低于 31%） |
 | 接口契约 | 实现与快照一致（自建门禁，改端点连 `docstring` 都会让快照过期） |
 | 文档一致性 | 九类校验通过（端点 / 表 / 错误码 / 权限码 / 枚举值 / 引用 / 测试计数 / 边界声明 / README 规模数字） |
-| 敏感信息扫描 | 296 个被跟踪文件 **0 命中** |
+| 敏感信息扫描 | 292 个被跟踪文件 **0 命中** |
 
-> ⚠️ **「969 passed」不等于「测试充分」**：总覆盖率 76%（T3 已把三个核心服务补到 97%+），
-> 但 `allocation_service` / `binding_service` / `miniapp_service` 等仍在 40–50% 区间。
-> 原因与改进方向见 [`docs/11-测试与质量保障.md`](./docs/11-测试与质量保障.md)。
+> ⚠️ **「828 passed」不等于「测试充分」**：覆盖率只有 70%，
+> 且三个 P9 服务低于 31%。原因与改进方向见 [`docs/11-测试与质量保障.md`](./docs/11-测试与质量保障.md)。
 
 ---
 
@@ -385,7 +402,7 @@ make docs-check        # 文档一致性门禁
 | **数据库** | ✅ PostgreSQL 16 已真跑（迁移 / 种子 / healthy / 冒烟 57/57）。★ 实测：**SQLite 并发写会 `database is locked`**（20 并发 → 30.7 QPS、4×500），PG **93.0 QPS、0 失败** → **需要并发写时必须上 PG** |
 | **部署** | ✅ Nginx TLS（自签）与多实例轮询均已实测（`wss` 握手 4401、轮询 31/29）。★ 但**多实例共享 SQLite 卷无收益且报 500** → 多实例必须配 PG；⚠️ 多实例下的 WS 会话路由 / 限流仍缺共享状态；⚠️ 备份为同盘备份 |
 | **性能** | ⚠️ 只有**单机 15 秒 × 20 并发**一轮基线（读 73.6 QPS / 写 30.7 QPS，SQLite），**无劣化曲线、无参数扫描、未长时间观测** —— **不要拿它做容量规划** |
-| **测试** | ⚠️ 覆盖率 76%（三个核心服务已补到 97%+，其余服务仍有长尾）；e2e 只有 1 条用例；冒烟只覆盖读路径 |
+| **测试** | ⚠️ 覆盖率 70%；e2e 只有 1 条用例；冒烟只覆盖读路径 |
 | **功能缺口** | 内容库只读；知识库为关键词级检索（无向量化）；工厂端「批次查询」未交付 |
 
 > 每份文档末尾都有「已知局限 / 取证边界」小节，逐条写「限制 → 具体后果 → 何时/如何补齐」。
