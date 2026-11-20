@@ -40,7 +40,7 @@ jobs:
     name: 代码规范（ruff + mypy strict）
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v5
         with:
@@ -67,7 +67,7 @@ jobs:
     name: 测试（pytest）
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v5
         with:
@@ -108,7 +108,7 @@ jobs:
     name: 契约一致性（OpenAPI 快照）
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v5
         with:
@@ -145,7 +145,7 @@ jobs:
     name: 前端导入契约（ES Module）
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v5
         with:
@@ -164,7 +164,7 @@ jobs:
     name: 敏感信息扫描
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # 扫描器以 `git ls-files` 为准，需要完整历史之外的索引即可
           fetch-depth: 1
@@ -189,7 +189,7 @@ jobs:
     # 「随手关掉检查」的习惯。升级决策交给 Dependabot PR 的人工评审。
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v5
         with:
