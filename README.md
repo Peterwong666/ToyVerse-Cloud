@@ -12,6 +12,10 @@
 
 ---
 
+**第一次使用** · [在线演示](#在线演示) · [本地 Docker 演示](#快速开始)
+
+用平台账号打开「设备库存」，查看示例设备的状态，再用工厂账号打开「生产订单」，查看烧录任务。内置设备和 AI 模拟服务支持在没有硬件或云厂商密钥的情况下体验流程。
+
 ## 项目简介
 
 一个面向 **AI 智能玩具**行业的多租户 SaaS 管理平台。它管理从品牌方开户、产品定义、设备生产、工厂烧录，到终端用户扫码激活并开始与玩具对话的**完整业务闭环**。
@@ -106,16 +110,12 @@
 
 ```bash
 git clone https://github.com/Peterwong666/ToyVerse-Cloud.git && cd ToyVerse-Cloud
-cp .env.example .env
-# ⚠️ 必做：替换 .env 中的 6 项（.env.example 里是【带弱标记的占位符】，不替换则服务拒绝启动）
-#   密钥类   JWT_SECRET_KEY（≥32 字节）、QR_SIGN_SECRET（≥16 字节）
-#   口令类   PLATFORM_ADMIN_PASSWORD、MERCHANT_ADMIN_PASSWORD、
-#            FACTORY_ADMIN_PASSWORD、PLATFORM_OPERATOR_PASSWORD
-#   生成随机值：python3 -c "import secrets;print(secrets.token_urlsafe(48))"
-docker compose up -d --build
+python3 scripts/init_demo_env.py
+docker compose up -d --build --wait
+make smoke
 ```
 
-打开 <http://localhost:8000/platform/>
+打开 <http://localhost:8000/platform/>，用 `.env` 中的 `PLATFORM_ADMIN_ACCOUNT` 和 `PLATFORM_ADMIN_PASSWORD` 登录。生成器只在没有 `.env` 时创建演示配置，随机生成密码，并将 Docker 入口绑定到本机回环地址。已有配置可直接使用 `docker compose up -d --build --wait`。正式部署见 [部署文档](docs/)。
 
 ### 方式二：本地开发
 

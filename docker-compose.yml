@@ -75,7 +75,7 @@ services:
     # 做多实例 + Nginx 负载均衡时，需要把下面这行注释掉，避免 scale 时端口冲突，
     # 入口统一走 Nginx（--profile nginx）。
     ports:
-      - "${APP_PORT:-8000}:8000"
+      - "${APP_BIND_ADDRESS:-0.0.0.0}:${APP_PORT:-8000}:8000"
     volumes:
       - app_data:/data
     healthcheck:

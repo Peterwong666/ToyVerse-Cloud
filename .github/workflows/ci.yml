@@ -11,10 +11,7 @@
 # 一个是**反馈速度**：lint 20 秒、mypy 40 秒、测试 3 分钟——拆开后 lint 挂了
 # 不必等测试跑完就能看到。另一个是 GitHub 的 6 小时 job 上限与并发额度。
 #
-# 为什么没有单独的「docker」job：镜像构建包含 pip 安装全部依赖，
-# 在 CI 上是分钟级开销；本项目的 Dockerfile 只在依赖清单变化时才需要重验，
-# 因此放到「发布/部署」流程里更合适（见 deploy/.env.example 的部署自检）。
-# 这里只做**代码与契约**的检查，保证每次提交的质量下限。
+# Docker 首次启动检查使用全新的演示配置，验证镜像、迁移和角色入口。
 # ============================================================
 
 name: CI
@@ -203,3 +200,22 @@ jobs:
 
       - name: 扫描运行时与开发依赖
         run: pip-audit -r backend/requirements.txt -r backend/requirements-dev.txt
+
+  docker-first-run:
+    name: Clean Docker demo
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate demo configuration
+        run: python3 scripts/init_demo_env.py
+      - name: Start demo and check routes by role
+        run: |
+          docker compose up -d --build --wait --wait-timeout 180
+          make smoke
+      - name: Show startup diagnostics
+        if: failure()
+        run: docker compose logs --tail 60 app
+      - name: Stop demo
+        if: always()
+        run: docker compose down
