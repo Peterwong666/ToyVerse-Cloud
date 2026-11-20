@@ -6,11 +6,15 @@
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-D71F00.svg)](https://www.sqlalchemy.org/)
-[![Tests](https://img.shields.io/badge/tests-828%20passed-brightgreen.svg)](#测试与质量保障)
+[![Tests](https://img.shields.io/badge/tests-969%20passed-brightgreen.svg)](#测试与质量保障)
 [![Coverage](https://img.shields.io/badge/coverage-70%25-yellow.svg)](#测试与质量保障)
 [![Documentation](https://img.shields.io/badge/docs-16%20篇-blue.svg)](./docs/)
 
 ---
+
+**第一次使用** · [在线演示](#在线演示) · [本地 Docker 演示](#快速开始)
+
+用平台账号打开「设备库存」，查看示例设备的状态，再用工厂账号打开「生产订单」，查看烧录任务。内置设备和 AI 模拟服务支持在没有硬件或云厂商密钥的情况下体验流程。
 
 ## 项目简介
 
@@ -106,16 +110,12 @@
 
 ```bash
 git clone https://github.com/Peterwong666/ToyVerse-Cloud.git && cd ToyVerse-Cloud
-cp .env.example .env
-# ⚠️ 必做：替换 .env 中的 6 项（.env.example 里是【带弱标记的占位符】，不替换则服务拒绝启动）
-#   密钥类   JWT_SECRET_KEY（≥32 字节）、QR_SIGN_SECRET（≥16 字节）
-#   口令类   PLATFORM_ADMIN_PASSWORD、MERCHANT_ADMIN_PASSWORD、
-#            FACTORY_ADMIN_PASSWORD、PLATFORM_OPERATOR_PASSWORD
-#   生成随机值：python3 -c "import secrets;print(secrets.token_urlsafe(48))"
-docker compose up -d --build
+python3 scripts/init_demo_env.py
+docker compose up -d --build --wait
+make smoke
 ```
 
-打开 <http://localhost:8000/platform/>
+打开 <http://localhost:8000/platform/>，用 `.env` 中的 `PLATFORM_ADMIN_ACCOUNT` 和 `PLATFORM_ADMIN_PASSWORD` 登录。生成器只在没有 `.env` 时创建演示配置，随机生成密码，并将 Docker 入口绑定到本机回环地址。已有配置可直接使用 `docker compose up -d --build --wait`。正式部署见 [部署文档](docs/)。
 
 ### 方式二：本地开发
 
@@ -257,7 +257,7 @@ flowchart TB
 | 数据库表 | **46**（15 个迁移版本） |
 | 权限码 / 错误码 / 内置角色 | **54** / **31** / **6** |
 | 前端模块 | 页面 **45** + 共享 **28**（零构建） |
-| 测试 | **567** 个测试函数 / **828** 个用例 |
+| 测试 | **708** 个测试函数 / **969** 个用例 |
 
 ---
 
@@ -336,7 +336,7 @@ make up / down     # Docker 启停
 ## 测试与质量保障
 
 ```bash
-make test              # 全部测试（828 passed）
+make test              # 全部测试（969 passed）
 make test-unit         # 单元测试
 make test-integration  # 集成测试（含租户隔离矩阵）
 make test-e2e          # 端到端全闭环
@@ -348,14 +348,14 @@ make docs-check        # 文档一致性门禁
 
 | 项 | 实测 |
 |---|---|
-| 测试 | **828 passed**（567 个测试函数；差额来自参数化展开） |
+| 测试 | **969 passed**（708 个测试函数；差额来自参数化展开） |
 | 类型检查 | mypy **strict**，96 个源文件无问题 |
 | **代码覆盖率** | ⚠️ **70%**（`ai_config_service` / `metrics_service` / `ota_service` 低于 31%） |
 | 接口契约 | 实现与快照一致（自建门禁，改端点连 `docstring` 都会让快照过期） |
 | 文档一致性 | 九类校验通过（端点 / 表 / 错误码 / 权限码 / 枚举值 / 引用 / 测试计数 / 边界声明 / README 规模数字） |
-| 敏感信息扫描 | 292 个被跟踪文件 **0 命中** |
+| 敏感信息扫描 | 297 个被跟踪文件 **0 命中** |
 
-> ⚠️ **「828 passed」不等于「测试充分」**：覆盖率只有 70%，
+> ⚠️ **「969 passed」不等于「测试充分」**：覆盖率只有 70%，
 > 且三个 P9 服务低于 31%。原因与改进方向见 [`docs/11-测试与质量保障.md`](./docs/11-测试与质量保障.md)。
 
 ---
