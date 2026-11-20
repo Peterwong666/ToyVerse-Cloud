@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-D71F00.svg)](https://www.sqlalchemy.org/)
-[![Tests](https://img.shields.io/badge/tests-828%20passed-brightgreen.svg)](#测试与质量保障)
+[![Tests](https://img.shields.io/badge/tests-969%20passed-brightgreen.svg)](#测试与质量保障)
 [![Coverage](https://img.shields.io/badge/coverage-70%25-yellow.svg)](#测试与质量保障)
 [![Documentation](https://img.shields.io/badge/docs-16%20篇-blue.svg)](./docs/)
 
@@ -257,7 +257,7 @@ flowchart TB
 | 数据库表 | **46**（15 个迁移版本） |
 | 权限码 / 错误码 / 内置角色 | **54** / **31** / **6** |
 | 前端模块 | 页面 **45** + 共享 **28**（零构建） |
-| 测试 | **567** 个测试函数 / **828** 个用例 |
+| 测试 | **708** 个测试函数 / **969** 个用例 |
 
 ---
 
@@ -336,7 +336,7 @@ make up / down     # Docker 启停
 ## 测试与质量保障
 
 ```bash
-make test              # 全部测试（828 passed）
+make test              # 全部测试（969 passed）
 make test-unit         # 单元测试
 make test-integration  # 集成测试（含租户隔离矩阵）
 make test-e2e          # 端到端全闭环
@@ -348,14 +348,14 @@ make docs-check        # 文档一致性门禁
 
 | 项 | 实测 |
 |---|---|
-| 测试 | **828 passed**（567 个测试函数；差额来自参数化展开） |
+| 测试 | **969 passed**（708 个测试函数；差额来自参数化展开） |
 | 类型检查 | mypy **strict**，96 个源文件无问题 |
 | **代码覆盖率** | ⚠️ **70%**（`ai_config_service` / `metrics_service` / `ota_service` 低于 31%） |
 | 接口契约 | 实现与快照一致（自建门禁，改端点连 `docstring` 都会让快照过期） |
 | 文档一致性 | 九类校验通过（端点 / 表 / 错误码 / 权限码 / 枚举值 / 引用 / 测试计数 / 边界声明 / README 规模数字） |
-| 敏感信息扫描 | 292 个被跟踪文件 **0 命中** |
+| 敏感信息扫描 | 297 个被跟踪文件 **0 命中** |
 
-> ⚠️ **「828 passed」不等于「测试充分」**：覆盖率只有 70%，
+> ⚠️ **「969 passed」不等于「测试充分」**：覆盖率只有 70%，
 > 且三个 P9 服务低于 31%。原因与改进方向见 [`docs/11-测试与质量保障.md`](./docs/11-测试与质量保障.md)。
 
 ---
